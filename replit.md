@@ -24,8 +24,8 @@ Preferred communication style: Simple, everyday language.
 The app follows a strict linear flow designed for speed and anonymity:
 1. **TermsGateScreen** - Legal compliance gate (18+, T&C acceptance)
 2. **MoodSelectionScreen** - User selects "Vent" or "Listen" mode
-3. **BlindCardPickerScreen** - Random match selection (10 cards/day)
-4. **ActiveCallScreen** - Voice call with countdown timer, payment modal at 4:50
+3. **BlindCardPickerScreen** - Random match selection (5 cards per mood, refresh option available)
+4. **ActiveCallScreen** - Voice call with countdown timer, extension modal at 10 seconds remaining
 5. **CallEndedScreen** - Session completion with various end states
 6. **SettingsScreen** - App preferences and dark mode toggle
 
@@ -67,9 +67,34 @@ The app follows a strict linear flow designed for speed and anonymity:
 ### Typography
 - **@expo-google-fonts/nunito** - Custom font loading
 
-### Payment Integration
-- Payment modal exists in ActiveCallScreen (RM 1.90 for 10-minute extension)
-- No payment processor currently integrated
+### Monetization System (Credits-Based)
+- **CreditsContext** (`client/contexts/CreditsContext.tsx`) - Manages credits balance, premium status, gender preference
+- **CreditsStoreModal** (`client/components/CreditsStoreModal.tsx`) - Purchase credits packages
+
+**Credit Packages (USD):**
+- $1 = 100 credits
+- $2 = 200 credits
+- $5 = 500 credits (+50 bonus)
+- $10 = 1000 credits (+150 bonus)
+- $20 = 2000 credits (+400 bonus)
+
+**Credit Usage:**
+- Refresh daily cards: 100 credits ($1)
+- Call extensions: 50-350 credits (5-60 minutes)
+- Unused extension time refunded as credits when call ends early
+
+**Premium Subscription:** $10/month
+- 200 bonus credits on subscription
+- Gender filter on daily cards
+- Priority matching
+
+**Call Extensions:**
+- +5 min: 50 credits
+- +15 min: 120 credits
+- +30 min: 200 credits
+- +60 min: 350 credits
+
+Note: Payment processing uses mock purchases (UI complete, Stripe integration needed for production)
 
 ### Database
 - **pg** - PostgreSQL client
