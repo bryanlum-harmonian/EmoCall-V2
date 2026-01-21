@@ -25,7 +25,7 @@ The app follows a strict linear flow designed for speed and anonymity:
 1. **TermsGateScreen** - Legal compliance gate (18+, T&C acceptance)
 2. **MoodSelectionScreen** - User selects "Vent" or "Listen" mode
 3. **BlindCardPickerScreen** - Random match selection (5 cards per mood, refresh option available)
-4. **ActiveCallScreen** - Voice call with countdown timer, extension modal at 10 seconds remaining
+4. **ActiveCallScreen** - Enhanced voice call with dual-user display, sound wave animations, in-call credits store, 1-minute fate reminders, and extension modal at 10 seconds
 5. **CallEndedScreen** - Session completion with various end states
 6. **SettingsScreen** - App preferences and dark mode toggle
 
