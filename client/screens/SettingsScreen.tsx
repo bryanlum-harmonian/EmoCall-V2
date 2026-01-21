@@ -10,8 +10,10 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
+import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
+import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface SettingsItemProps {
@@ -21,6 +23,7 @@ interface SettingsItemProps {
   onPress?: () => void;
   rightElement?: React.ReactNode;
   isDestructive?: boolean;
+  isPremium?: boolean;
   delay?: number;
 }
 
@@ -31,11 +34,16 @@ function SettingsItem({
   onPress,
   rightElement,
   isDestructive = false,
+  isPremium = false,
   delay = 0,
 }: SettingsItemProps) {
   const { theme } = useTheme();
 
-  const iconColor = isDestructive ? theme.error : theme.primary;
+  const iconColor = isDestructive 
+    ? theme.error 
+    : isPremium 
+      ? theme.success 
+      : theme.primary;
   const textColor = isDestructive ? theme.error : theme.text;
 
   return (
@@ -101,9 +109,10 @@ export default function SettingsScreen() {
   const headerHeight = useHeaderHeight();
   const { theme, isDark } = useTheme();
   const { colorScheme, setColorScheme } = useThemeContext();
-  const navigation = useNavigation();
+  const { credits, isPremium, preferredGender, setPremium, setPreferredGender } = useCredits();
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
+  const [showCreditsStore, setShowCreditsStore] = useState(false);
 
   const handleBlockToggle = async (value: boolean) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -160,6 +169,63 @@ export default function SettingsScreen() {
     }
   };
 
+  const handlePremiumSubscribe = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (isPremium) {
+      Alert.alert("Premium Active", "You already have an active premium subscription.");
+      return;
+    }
+    Alert.alert(
+      "Subscribe to Premium",
+      `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n- ${PREMIUM_BONUS_CREDITS} bonus credits ($2 value)\n- Gender filter on daily cards\n- Priority matching\n\nFor this demo, premium will be activated for free.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Subscribe",
+          onPress: () => {
+            setPremium(true);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleGenderFilterPress = async () => {
+    await Haptics.selectionAsync();
+    if (!isPremium) {
+      Alert.alert(
+        "Premium Feature",
+        "Gender filter is a premium feature. Subscribe to unlock it.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Go Premium", onPress: handlePremiumSubscribe },
+        ]
+      );
+      return;
+    }
+    
+    Alert.alert(
+      "Gender Preference",
+      "Choose who you'd like to match with:",
+      [
+        { text: "Anyone", onPress: () => setPreferredGender("any") },
+        { text: "Male Only", onPress: () => setPreferredGender("male") },
+        { text: "Female Only", onPress: () => setPreferredGender("female") },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const getGenderLabel = () => {
+    if (!isPremium) return "Premium only";
+    switch (preferredGender) {
+      case "male": return "Male only";
+      case "female": return "Female only";
+      default: return "Anyone";
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       <KeyboardAwareScrollViewCompat
@@ -170,7 +236,50 @@ export default function SettingsScreen() {
           paddingHorizontal: Spacing.lg,
         }}
       >
-        <SettingsSection title="APPEARANCE" delay={100}>
+        <SettingsSection title="SUBSCRIPTION" delay={50}>
+          <SettingsItem
+            icon="star"
+            title={isPremium ? "Premium Active" : "Go Premium"}
+            subtitle={isPremium ? `$${PREMIUM_MONTHLY_PRICE}/month - Renews monthly` : `$${PREMIUM_MONTHLY_PRICE}/month for exclusive features`}
+            onPress={handlePremiumSubscribe}
+            isPremium={isPremium}
+            delay={100}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <SettingsItem
+            icon="zap"
+            title="Credits"
+            subtitle={`${credits} credits available`}
+            onPress={() => setShowCreditsStore(true)}
+            delay={150}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="PREMIUM FEATURES" delay={200}>
+          <SettingsItem
+            icon="users"
+            title="Gender Filter"
+            subtitle={getGenderLabel()}
+            onPress={handleGenderFilterPress}
+            isPremium={isPremium}
+            rightElement={
+              isPremium ? (
+                <View style={[styles.filterBadge, { backgroundColor: `${theme.success}20` }]}>
+                  <ThemedText type="small" style={{ color: theme.success }}>
+                    {preferredGender === "any" ? "All" : preferredGender === "male" ? "M" : "F"}
+                  </ThemedText>
+                </View>
+              ) : (
+                <View style={[styles.lockBadge, { backgroundColor: theme.backgroundSecondary }]}>
+                  <Feather name="lock" size={14} color={theme.textSecondary} />
+                </View>
+              )
+            }
+            delay={250}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="APPEARANCE" delay={300}>
           <SettingsItem
             icon={isDark ? "moon" : "sun"}
             title="Dark Mode"
@@ -183,11 +292,11 @@ export default function SettingsScreen() {
                 thumbColor="#FFFFFF"
               />
             }
-            delay={150}
+            delay={350}
           />
         </SettingsSection>
 
-        <SettingsSection title="SAFETY" delay={200}>
+        <SettingsSection title="SAFETY" delay={400}>
           <SettingsItem
             icon="user-x"
             title="Block Last Match"
@@ -200,7 +309,7 @@ export default function SettingsScreen() {
                 thumbColor="#FFFFFF"
               />
             }
-            delay={300}
+            delay={450}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
@@ -208,11 +317,11 @@ export default function SettingsScreen() {
             title="Report History"
             subtitle="View your submitted reports"
             onPress={() => Alert.alert("Report History", "No reports submitted yet.")}
-            delay={400}
+            delay={500}
           />
         </SettingsSection>
 
-        <SettingsSection title="LEGAL" delay={500}>
+        <SettingsSection title="LEGAL" delay={550}>
           <SettingsItem
             icon="file-text"
             title="Terms of Service"
@@ -224,33 +333,33 @@ export default function SettingsScreen() {
             icon="lock"
             title="Privacy Policy"
             onPress={handleOpenPrivacy}
-            delay={700}
+            delay={650}
           />
         </SettingsSection>
 
-        <SettingsSection title="SUPPORT" delay={800}>
+        <SettingsSection title="SUPPORT" delay={700}>
           <SettingsItem
             icon="mail"
             title="Contact Support"
             subtitle="Get help with the app"
             onPress={handleContactSupport}
-            delay={900}
+            delay={750}
           />
         </SettingsSection>
 
-        <SettingsSection title="ACCOUNT" delay={1000}>
+        <SettingsSection title="ACCOUNT" delay={800}>
           <SettingsItem
             icon="trash-2"
             title="Delete My Data"
             subtitle="Permanently remove all local data"
             onPress={handleDeleteData}
             isDestructive
-            delay={1100}
+            delay={850}
           />
         </SettingsSection>
 
         <Animated.View
-          entering={FadeIn.delay(1200).duration(400)}
+          entering={FadeIn.delay(900).duration(400)}
           style={styles.footer}
         >
           <ThemedText
@@ -267,6 +376,11 @@ export default function SettingsScreen() {
           </ThemedText>
         </Animated.View>
       </KeyboardAwareScrollViewCompat>
+
+      <CreditsStoreModal
+        visible={showCreditsStore}
+        onClose={() => setShowCreditsStore(false)}
+      />
     </ThemedView>
   );
 }
@@ -314,6 +428,18 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginLeft: Spacing.lg + 36 + Spacing.md,
+  },
+  filterBadge: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  lockBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
   },
   footer: {
     alignItems: "center",
