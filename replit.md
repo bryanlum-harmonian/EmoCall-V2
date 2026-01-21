@@ -174,6 +174,12 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 - `GET /api/sessions/:id/timebank` - Get time bank balance
 
 ## Recent Changes (January 2026)
+- **Theme Redesign**: Transformed from Fire & Ice to kawaii/cute aesthetic inspired by Parkette
+  - New color palette: Sunny Yellow (#FFD93D), Bubblegum Pink (#FFB3C6), Grass Green (#A8E6CF), Sky Blue (#A8D8EA)
+  - Cream background (#FFF8E7) for warm, inviting feel
+  - Rounded corners and playful typography throughout
+  - Pastel gradient cards in Mood Selection and Blind Card Picker
+  - New cute blob app icon
 - Integrated PostgreSQL database with full schema for sessions, calls, credits, karma
 - Added WebSocket server for real-time matchmaking
 - Connected frontend contexts to backend APIs with full persistence
