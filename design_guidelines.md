@@ -4,24 +4,25 @@
 
 **Purpose**: Instant emotional relief through anonymous voice connections. No profiles, no judgment, just talk.
 
-**Aesthetic Direction**: Brutally minimal with strategic urgency
-- STARK interface prioritizing SPEED (15-second onboarding)
-- Maximum whitespace creates safety and calm
-- DRAMATIC shifts to red during countdown create urgency
-- No clutter, no distractions—every element serves the core flow
+**Aesthetic Direction**: Playful/kawaii (cheerful kawaii connection)
+- WARM, inviting interface that feels like a safe hug
+- Cute blob characters with simple faces create friendly presence
+- Soft rounded corners and organic shapes throughout
+- Hand-drawn feel with gentle animations
+- Countdown urgency communicated through color shifts, not harsh red
 
-**Memorable Element**: The countdown timer that turns RED at 4:50, creating a cliffhanger moment where human connection meets decision.
+**Memorable Element**: Blob buddy characters that guide you through each step, transforming the emotional support journey into a comforting, playful experience.
 
 ---
 
 ## Navigation Architecture
 
-**Type**: Stack-Only (no tabs, no drawer)
-- Linear flow optimized for speed and anonymity
+**Type**: Stack-Only
+- Linear flow optimized for speed and emotional safety
 - No persistent navigation; user commits fully to each session
 
 **Screen Flow**:
-1. Terms Gate → 2. Mood Selection → 3. Blind Card Picker → 4. Active Call → (5. Payment Prompt) → 6. Call End
+1. Terms Gate → 2. Mood Selection → 3. Blind Card Picker → 4. Active Call → (5. Payment Prompt) → 6. Settings
 
 ---
 
@@ -31,15 +32,15 @@
 **Purpose**: Legal compliance (18+, Malaysian law acknowledgment)
 
 **Layout**:
-- Header: None (full-screen takeover)
-- Content: Scrollable view with centered text
-- Footer: Fixed "Agree & Enter" button
+- Header: None
+- Content: Scrollable view with centered text and cute blob character
+- Footer: Fixed rounded button
 
 **Components**:
-- Large icon (shield with checkmark)
-- Headline: "No Names. No Judgement. Just Talk."
-- Body text: T&C summary, 18+ confirmation, PDRM reporting notice
-- Primary button: "Agree & Enter"
+- Blob character with shield (friendly guardian)
+- Headline: "Safe Space, Zero Judgment"
+- Body text: T&C summary, 18+ confirmation, PDRP notice
+- Rounded primary button: "Let's Talk!"
 
 **Safe Area**: Top: insets.top + 24, Bottom: insets.bottom + 24
 
@@ -49,19 +50,19 @@
 **Purpose**: User declares intent (Vent or Listen)
 
 **Layout**:
-- Header: Transparent, no title, settings icon (top-right)
+- Header: Transparent, settings icon (top-right)
 - Content: Non-scrollable, centered two-card layout
 - Footer: None
 
 **Components**:
-- Two large touchable cards (equal height):
-  - Left: "🗣️ I Need to Vent"
-  - Right: "👂 I Can Listen"
-- Subtitle below cards: "Pick your mood. You'll connect in 15 seconds."
+- Two large rounded cards with blob characters:
+  - Left: Blob looking sad/stressed + "I Need to Vent"
+  - Right: Blob with open arms + "I Can Listen"
+- Subtitle: "Pick your vibe. Match in 15 seconds!"
 
 **Safe Area**: Top: headerHeight + 48, Bottom: insets.bottom + 24
 
-**Interaction**: Tapping a card immediately navigates to Blind Card Picker
+**Interaction**: Card scales to 0.95 on press with gentle bounce
 
 ---
 
@@ -69,15 +70,15 @@
 **Purpose**: User selects from 10 random daily matches
 
 **Layout**:
-- Header: Transparent, back button (left), "10 Daily Cards" title
+- Header: Transparent, back button (left), "10 Daily Friends" title
 - Content: Scrollable vertical list
 - Footer: None
 
 **Components**:
-- 10 identical "Blind Cards" (no names, no photos):
-  - Card shows only: "Anonymous Match #1" through "#10"
+- 10 rounded cards with blob variations:
+  - Each shows unique blob expression + "Friend #1" through "#10"
   - Tap to connect
-- Empty state (if user exhausted all 10): "Come back tomorrow for 10 new matches"
+- Empty state: Sleepy blob + "Rest up! 10 new friends tomorrow ✨"
 
 **Safe Area**: Top: headerHeight + 24, Bottom: insets.bottom + 24
 
@@ -87,63 +88,60 @@
 **Purpose**: Ongoing voice session with live countdown
 
 **Layout**:
-- Header: None (immersive full-screen)
+- Header: None
 - Content: Non-scrollable, centered elements
-- Footer: Fixed controls
+- Footer: Fixed rounded controls
 
 **Components**:
-- Large circular countdown timer (center):
+- Large circular countdown (soft pastel background):
   - Shows MM:SS remaining
-  - Turns RED background at 4:50
-- Status text above timer: "Connected" / "Time Almost Up!"
-- Bottom controls:
-  - Mute button
-  - End Call button (red, destructive)
-  - Report button (small, corner icon)
+  - Background shifts from yellow → pink → orange as time decreases
+  - Blob character inside circle changes expression (happy → concerned)
+- Status text: "Connected!" / "Almost time!"
+- Bottom controls (rounded):
+  - Mute button (grass green background)
+  - End Call button (bubblegum pink, gentle)
+  - Report button (small corner icon)
 
 **Safe Area**: Top: insets.top + 48, Bottom: insets.bottom + 48
 
-**State Change at 4:50**:
-- Background shifts to red
-- Timer animates (pulse effect)
-- Payment prompt overlay appears
-
 ---
 
-### 5. Payment Prompt (Modal Overlay)
-**Purpose**: Offer 10-minute extension for RM 1.90
+### 5. Payment Prompt (Modal)
+**Purpose**: Offer 10-minute extension for RM 1.90 at 4:50 mark
 
-**Layout**: Native modal (appears at 4:50 during call)
+**Layout**: Native modal with rounded corners
 
 **Components**:
-- Headline: "Keep Talking?"
-- Body: "Extend by 10 minutes for RM 1.90"
-- Two buttons:
-  - Primary: "Pay & Continue"
-  - Secondary: "End Call"
-- Countdown badge showing seconds left before auto-disconnect
+- Blob character holding coin
+- Headline: "Keep Chatting?"
+- Body: "Extend by 10 mins for RM 1.90"
+- Two rounded buttons:
+  - Primary (yellow): "Yes Please!"
+  - Secondary (cream): "End Call"
+- Countdown badge showing seconds left
 
-**Safe Area**: Modal handles insets automatically
+**Safe Area**: Modal handles insets
 
 ---
 
 ### 6. Settings Screen
-**Purpose**: Safety controls and app info (accessed from Mood Selection)
+**Purpose**: Safety controls and app info
 
 **Layout**:
-- Header: Default navigation, "Settings" title, close button (right)
-- Content: Scrollable form
+- Header: Default navigation, "Settings" title, close button
+- Content: Scrollable form with rounded sections
 - Footer: None
 
 **Components**:
-- Section: Safety
+- Section: Safety (grass green accent)
   - "Block Last Match" toggle
   - "Report History" button
-- Section: Legal
+- Section: Legal (sky blue accent)
   - "Terms of Service" link
   - "Privacy Policy" link
-- Section: Account
-  - "Delete My Data" button (destructive, nested confirmation)
+- Section: Account (pink accent)
+  - "Delete My Data" button (nested confirmation)
 
 **Safe Area**: Top: 24, Bottom: insets.bottom + 24
 
@@ -151,70 +149,82 @@
 
 ## Color Palette
 
-**Primary (Calm Urgency)**:
-- Primary: #FF4757 (Crimson Red - used for urgency, countdown, CTAs)
-- Primary Tint: #FF6B7A (lighter red for hover states)
+**Primary**:
+- Sunny Yellow: #FFD93D (primary actions, countdown start)
+- Bubblegum Pink: #FFB3C6 (urgency, CTAs, love)
+- Grass Green: #A8E6CF (success, listening mode)
+- Sky Blue: #A8D8EA (calm, secondary actions)
 
 **Backgrounds**:
-- Background: #FAFAFA (off-white, softer than pure white)
-- Surface: #FFFFFF (cards, modals)
+- Cream: #FFF8E7 (main background, soft and warm)
+- Off-White: #FFFFFF (cards, elevated surfaces)
 
 **Text**:
-- Text Primary: #2F3542 (near-black with warmth)
-- Text Secondary: #747D8C (muted gray)
-- Text Disabled: #CED6E0 (very light gray)
+- Primary: #5A4A42 (warm brown, gentle)
+- Secondary: #A89F9A (muted taupe)
 
 **Semantic**:
-- Success: #26DE81 (bright green - call connected)
-- Warning: #FFA502 (amber - last minute warning)
-- Error: #FF4757 (matches primary - urgent/destructive actions)
-
-**Principle**: Calm white dominates; RED is reserved for urgency (countdown, CTAs). Avoid purple, blue tech clichés.
+- Success: #A8E6CF (grass green)
+- Warning: #FFD93D (sunny yellow)
+- Gentle Urgency: #FFB3C6 (bubblegum pink)
 
 ---
 
 ## Typography
 
-**Font**: System Default (SF Pro for iOS, Roboto for Android) - prioritizes SPEED over decorative fonts
+**Font**: Nunito (Google Font) - rounded, friendly, highly legible
 
 **Type Scale**:
-- Headline: 32pt, Bold (screen titles)
-- Title: 24pt, Semibold (card headers)
-- Body: 17pt, Regular (main text)
-- Caption: 14pt, Regular (secondary info)
-- Button: 17pt, Semibold (all CTAs)
+- Headline: 28pt, Bold
+- Title: 20pt, Semibold
+- Body: 16pt, Regular
+- Caption: 13pt, Regular
+- Button: 16pt, Semibold
 
 ---
 
 ## Visual Design
 
-**Touchable Feedback**:
-- Cards: Scale down to 0.98 on press
-- Buttons: Opacity 0.7 on press
-- No drop shadows on standard buttons
+**Touchable Feedback**: Scale to 0.95 on press with gentle bounce animation
 
-**Floating Elements**:
-- Payment prompt modal: shadowOffset (0, 4), opacity 0.15, radius 8
+**Floating Elements**: shadowOffset (0, 2), opacity 0.10, radius 2
 
-**Icons**: Feather icons from @expo/vector-icons, 24pt default size
+**Icons**: Feather icons, 22pt default
+
+**Shapes**: All cards and buttons have 16pt border radius minimum
 
 ---
 
 ## Assets to Generate
 
-1. **icon.png** - App icon: Red speech bubble on white, minimal
+1. **icon.png** - Rounded yellow blob with simple smile
    - WHERE USED: Device home screen
 
-2. **splash-icon.png** - Splash screen: Simple "EmoCall" wordmark
-   - WHERE USED: App launch screen
+2. **splash-icon.png** - Blob waving with "EmoCall" wordmark
+   - WHERE USED: App launch
 
-3. **empty-matches.png** - Illustration: Empty card deck
-   - WHERE USED: Blind Card Picker screen when user exhausts 10 daily matches
+3. **empty-matches.png** - Sleepy blob on pillow
+   - WHERE USED: Blind Card Picker empty state
 
-4. **shield-checkmark.png** - Icon: Safety shield with checkmark
-   - WHERE USED: Terms Gate screen header
+4. **blob-guardian.png** - Blob holding shield, friendly expression
+   - WHERE USED: Terms Gate screen
 
-5. **countdown-urgency.png** - Illustration: Clock with red glow
-   - WHERE USED: Payment prompt modal header
+5. **blob-vent.png** - Stressed blob with wavy lines
+   - WHERE USED: Mood Selection "Vent" card
 
-**Style**: Minimal line art with red accent color, avoiding clipart aesthetic
+6. **blob-listen.png** - Blob with open arms
+   - WHERE USED: Mood Selection "Listen" card
+
+7. **blob-countdown-happy.png** - Blob smiling inside circle
+   - WHERE USED: Active Call (0-3 mins remaining)
+
+8. **blob-countdown-concerned.png** - Blob slightly worried
+   - WHERE USED: Active Call (4-5 mins remaining)
+
+9. **blob-coin.png** - Blob holding coin, hopeful
+   - WHERE USED: Payment prompt modal
+
+10. **blob-variations.png** (10 unique expressions) - Simple face variations
+    - WHERE USED: Blind Card Picker cards (#1-10)
+
+**Style**: Organic hand-drawn feel, simple dot eyes and curved mouth, soft pastel colors matching palette
