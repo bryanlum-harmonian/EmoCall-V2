@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Image, ScrollView, Pressable, Alert } from "react-native";
+import { View, StyleSheet, Image, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
@@ -9,12 +9,14 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
 interface TermsGateScreenProps {
   onAccept: () => void;
@@ -32,42 +34,14 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
 
   const handleTermsPress = async () => {
     await Haptics.selectionAsync();
-    Alert.alert(
-      "Terms of Service",
-      "EmoCall Terms of Service\n\n" +
-      "1. Age Requirement: You must be 18 years or older to use this service.\n\n" +
-      "2. Respectful Communication: Treat all users with respect. No harassment, bullying, hate speech, or discriminatory behavior.\n\n" +
-      "3. No Scams or Fraud: Do not attempt to deceive, scam, or defraud other users. This includes phishing, financial scams, or identity theft.\n\n" +
-      "4. No Illegal Activities: Do not use EmoCall for any illegal purposes including threats, blackmail, or solicitation of illegal activities.\n\n" +
-      "5. No Sexual Content: Explicit sexual content, solicitation, or inappropriate behavior is strictly prohibited.\n\n" +
-      "6. Account Suspension: Violation of these terms will result in immediate suspension and may be reported to law enforcement.\n\n" +
-      "7. Anonymous but Accountable: While calls are anonymous, device identifiers are tracked for safety and abuse prevention.",
-      [{ text: "Close", style: "cancel" }]
-    );
+    const termsUrl = new URL("/terms", getApiUrl()).toString();
+    await WebBrowser.openBrowserAsync(termsUrl);
   };
 
   const handlePrivacyPress = async () => {
     await Haptics.selectionAsync();
-    Alert.alert(
-      "Privacy Policy",
-      "EmoCall Privacy Policy\n\n" +
-      "Data We Collect:\n" +
-      "- Device identifier for abuse prevention\n" +
-      "- Usage patterns (call duration, frequency)\n" +
-      "- Reports and feedback you submit\n\n" +
-      "Data We Don't Collect:\n" +
-      "- Personal names or contact information\n" +
-      "- Call recordings or transcripts\n" +
-      "- Location data\n" +
-      "- Photos or media\n\n" +
-      "How We Use Data:\n" +
-      "- To prevent abuse and enforce community guidelines\n" +
-      "- To improve service quality\n" +
-      "- To comply with legal requirements\n\n" +
-      "Your Privacy Rights:\n" +
-      "You can request deletion of your data at any time through the Settings menu.",
-      [{ text: "Close", style: "cancel" }]
-    );
+    const privacyUrl = new URL("/privacy", getApiUrl()).toString();
+    await WebBrowser.openBrowserAsync(privacyUrl);
   };
 
   const animatedIconStyle = useAnimatedStyle(() => ({

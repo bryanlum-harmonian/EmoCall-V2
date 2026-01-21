@@ -6,6 +6,7 @@ import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import * as WebBrowser from "expo-web-browser";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -15,6 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius, AppTheme, AppThemes } from "@/constants/theme";
+import { getApiUrl } from "@/lib/query-client";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -131,12 +133,14 @@ export default function SettingsScreen() {
 
   const handleOpenTerms = async () => {
     await Haptics.selectionAsync();
-    Alert.alert("Terms of Service", "Terms and conditions content would be displayed here.");
+    const termsUrl = new URL("/terms", getApiUrl()).toString();
+    await WebBrowser.openBrowserAsync(termsUrl);
   };
 
   const handleOpenPrivacy = async () => {
     await Haptics.selectionAsync();
-    Alert.alert("Privacy Policy", "Privacy policy content would be displayed here.");
+    const privacyUrl = new URL("/privacy", getApiUrl()).toString();
+    await WebBrowser.openBrowserAsync(privacyUrl);
   };
 
   const handleDeleteData = async () => {
