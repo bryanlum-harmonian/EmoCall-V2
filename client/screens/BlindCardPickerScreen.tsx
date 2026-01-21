@@ -39,7 +39,7 @@ const springConfig: WithSpringConfig = {
   overshootClamping: true,
 };
 
-const CARDS_PER_MOOD = 6;
+const CARDS_PER_MOOD = 10;
 
 const CARD_GRADIENTS = [
   ["#FF6B6B", "#EE5A5A"],
@@ -48,6 +48,10 @@ const CARD_GRADIENTS = [
   ["#96CEB4", "#86BEA4"],
   ["#FFEAA7", "#FED997"],
   ["#DDA0DD", "#CD90CD"],
+  ["#FF9F43", "#EE8F33"],
+  ["#6C5CE7", "#5C4CD7"],
+  ["#FD79A8", "#ED6998"],
+  ["#00B894", "#00A884"],
 ];
 
 const CARD_PATTERNS = [
@@ -57,6 +61,10 @@ const CARD_PATTERNS = [
   "dots",
   "lines",
   "stars",
+  "circle",
+  "diamond",
+  "dots",
+  "lines",
 ];
 
 interface BlindCardData {
@@ -289,8 +297,8 @@ function EmptyState({ mood, onRefresh, canRefresh, credits }: EmptyStateProps) {
         style={[styles.emptyText, { color: theme.textSecondary }]}
       >
         {canRefresh 
-          ? `Shuffle new cards for ${REFRESH_CARDS_COST} credits to discover more connections!`
-          : `Come back tomorrow for new ${moodLabel.toLowerCase()} matches. Or get credits to shuffle now!`
+          ? `Refill your deck for ${REFRESH_CARDS_COST} credits to discover more connections!`
+          : `Come back tomorrow for new ${moodLabel.toLowerCase()} matches. Or get credits to refill now!`
         }
       </ThemedText>
       
@@ -304,7 +312,7 @@ function EmptyState({ mood, onRefresh, canRefresh, credits }: EmptyStateProps) {
         >
           <View style={styles.refreshButtonContent}>
             <Feather 
-              name="shuffle" 
+              name="refresh-cw" 
               size={18} 
               color={canRefresh ? "#FFFFFF" : theme.textSecondary} 
             />
@@ -315,7 +323,7 @@ function EmptyState({ mood, onRefresh, canRefresh, credits }: EmptyStateProps) {
                 fontWeight: "600",
               }}
             >
-              Shuffle New Deck ({REFRESH_CARDS_COST} credits)
+              Refill Deck ({REFRESH_CARDS_COST} credits)
             </ThemedText>
           </View>
         </Button>
@@ -453,21 +461,6 @@ export default function BlindCardPickerScreen() {
           >
             {availableCards.length} cards remaining - tap to reveal your match
           </ThemedText>
-          <Pressable
-            onPress={handleRefreshCards}
-            style={({ pressed }) => [
-              styles.refreshLink,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Feather name="shuffle" size={14} color={theme.primary} />
-            <ThemedText
-              type="small"
-              style={{ color: theme.primary, fontWeight: "500" }}
-            >
-              Shuffle ({REFRESH_CARDS_COST} credits)
-            </ThemedText>
-          </Pressable>
         </Animated.View>
 
         <View style={styles.cardsGrid}>

@@ -13,6 +13,7 @@ import Animated, {
   WithSpringConfig,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -71,6 +72,35 @@ function MoodCard({ type, icon, title, onPress, delay, disabled }: MoodCardProps
   };
 
   const isVent = type === "vent";
+  const isListen = type === "listen";
+
+  const cardContent = (
+    <>
+      <View
+        style={[
+          styles.iconCircle,
+          {
+            backgroundColor: isVent || isListen ? "rgba(255,255,255,0.2)" : theme.backgroundSecondary,
+          },
+        ]}
+      >
+        <Feather
+          name={icon}
+          size={40}
+          color="#FFFFFF"
+        />
+      </View>
+      <ThemedText
+        type="h3"
+        style={[
+          styles.cardTitle,
+          { color: "#FFFFFF" },
+        ]}
+      >
+        {title}
+      </ThemedText>
+    </>
+  );
 
   return (
     <Animated.View entering={FadeInUp.delay(delay).duration(500)} style={styles.cardWrapper}>
@@ -81,38 +111,29 @@ function MoodCard({ type, icon, title, onPress, delay, disabled }: MoodCardProps
         disabled={disabled}
         style={[
           styles.moodCard,
-          {
-            backgroundColor: isVent ? theme.primary : theme.surface,
-            borderWidth: isVent ? 0 : 2,
-            borderColor: theme.border,
-            opacity: disabled ? 0.5 : 1,
-          },
+          { opacity: disabled ? 0.5 : 1 },
           animatedStyle,
         ]}
       >
-        <View
-          style={[
-            styles.iconCircle,
-            {
-              backgroundColor: isVent ? "rgba(255,255,255,0.2)" : theme.backgroundSecondary,
-            },
-          ]}
-        >
-          <Feather
-            name={icon}
-            size={40}
-            color={isVent ? "#FFFFFF" : theme.primary}
-          />
-        </View>
-        <ThemedText
-          type="h3"
-          style={[
-            styles.cardTitle,
-            { color: isVent ? "#FFFFFF" : theme.text },
-          ]}
-        >
-          {title}
-        </ThemedText>
+        {isVent ? (
+          <LinearGradient
+            colors={["#FF6B6B", "#E53935"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientCard}
+          >
+            {cardContent}
+          </LinearGradient>
+        ) : (
+          <LinearGradient
+            colors={["#4ECDC4", "#26A69A"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.gradientCard}
+          >
+            {cardContent}
+          </LinearGradient>
+        )}
       </AnimatedPressable>
     </Animated.View>
   );
@@ -508,8 +529,11 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   moodCard: {
-    padding: Spacing["3xl"],
     borderRadius: BorderRadius["2xl"],
+    overflow: "hidden",
+  },
+  gradientCard: {
+    padding: Spacing["3xl"],
     alignItems: "center",
     gap: Spacing.lg,
   },

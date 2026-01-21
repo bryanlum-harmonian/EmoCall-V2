@@ -840,6 +840,23 @@ export default function ActiveCallScreen() {
           onPress={handleMuteToggle}
           isActive={isMuted}
         />
+        <Pressable
+          onPress={handleReport}
+          style={({ pressed }) => [
+            styles.panicButton,
+            { opacity: pressed ? 0.8 : 1 },
+          ]}
+        >
+          <View style={styles.panicButtonInner}>
+            <Feather name="shield" size={24} color="#FFFFFF" />
+          </View>
+          <ThemedText 
+            type="small" 
+            style={styles.panicButtonLabel}
+          >
+            Report
+          </ThemedText>
+        </Pressable>
         <ControlButton
           icon="phone-off"
           label="End Call"
@@ -1046,6 +1063,23 @@ const styles = StyleSheet.create({
   },
   controlLabel: {
     textAlign: "center",
+  },
+  panicButton: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  panicButtonInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#DC3545",
+  },
+  panicButtonLabel: {
+    textAlign: "center",
+    color: "#DC3545",
+    fontWeight: "600",
   },
   reminderOverlay: {
     flex: 1,
