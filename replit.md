@@ -173,6 +173,10 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 ### Time Bank API
 - `GET /api/sessions/:id/timebank` - Get time bank balance
 
+### Legal Pages
+- `GET /privacy` - Privacy Policy page (HTML)
+- `GET /terms` - Terms of Service page (HTML)
+
 ## Recent Changes (January 2026)
 - **Theme Redesign**: Transformed from Fire & Ice to kawaii/cute aesthetic inspired by Parkette
   - New color palette: Sunny Yellow (#FFD93D), Bubblegum Pink (#FFB3C6), Grass Green (#A8E6CF), Sky Blue (#A8D8EA)
@@ -184,3 +188,12 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 - Added WebSocket server for real-time matchmaking
 - Connected frontend contexts to backend APIs with full persistence
 - Terms acceptance now persisted server-side
+- **Multi-Theme System**: Added "Sunny" and "Coral" theme options with visual picker in Settings
+  - Sunny: Kawaii/Parkette-inspired with yellow/pink/cream palette
+  - Coral: Suntera-inspired with coral/orange/green palette
+  - Both themes support light and dark mode
+  - Theme preference persisted in AsyncStorage
+- **Legal Documents**: Added comprehensive Privacy Policy and Terms of Service
+  - Accessible via /privacy and /terms routes
+  - Linked from Terms Gate screen and Settings
+  - Opens in in-app browser via expo-web-browser
