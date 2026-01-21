@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 
@@ -22,39 +21,13 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-const TERMS_ACCEPTED_KEY = "@emocall/terms_accepted";
-
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const opaqueScreenOptions = useScreenOptions({ transparent: false });
-  
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState<boolean | null>(null);
+  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
 
-  useEffect(() => {
-    checkTermsAccepted();
-  }, []);
-
-  const checkTermsAccepted = async () => {
-    try {
-      const value = await AsyncStorage.getItem(TERMS_ACCEPTED_KEY);
-      setHasAcceptedTerms(value === "true");
-    } catch (error) {
-      setHasAcceptedTerms(false);
-    }
+  const handleAcceptTerms = () => {
+    setHasAcceptedTerms(true);
   };
-
-  const handleAcceptTerms = async () => {
-    try {
-      await AsyncStorage.setItem(TERMS_ACCEPTED_KEY, "true");
-      setHasAcceptedTerms(true);
-    } catch (error) {
-      console.error("Failed to save terms acceptance:", error);
-    }
-  };
-
-  if (hasAcceptedTerms === null) {
-    return null;
-  }
 
   if (!hasAcceptedTerms) {
     return <TermsGateScreen onAccept={handleAcceptTerms} />;
