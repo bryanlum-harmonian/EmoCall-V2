@@ -13,12 +13,12 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
-import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import {
   useCredits,
   CREDIT_PACKAGES,
+  CALL_EXTENSIONS,
   PREMIUM_MONTHLY_PRICE,
   PREMIUM_BONUS_CREDITS,
 } from "@/contexts/CreditsContext";
@@ -31,17 +31,17 @@ interface CreditsStoreModalProps {
 export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { credits, isPremium, purchasePackage, setPremium } = useCredits();
+  const { credits, priorityTokens, isPremium, purchasePackage, setPremium } = useCredits();
 
-  const handlePurchase = async (packageId: string, price: number) => {
+  const handlePurchase = async (packageId: string, price: number, name: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
       "Purchase Credits",
-      `This would charge $${price} to your payment method. For this demo, credits will be added for free.`,
+      `Buy ${name} for $${price.toFixed(2)}?\n\nFor this demo, credits will be added for free.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Add Credits",
+          text: "Buy Now",
           onPress: () => {
             purchasePackage(packageId);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -59,7 +59,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
     }
     Alert.alert(
       "Subscribe to Premium",
-      `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n- ${PREMIUM_BONUS_CREDITS} bonus credits ($2 value)\n- Gender filter on daily cards\n- Priority matching\n\nFor this demo, premium will be activated for free.`,
+      `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n- ${PREMIUM_BONUS_CREDITS} bonus credits\n- Gender filter on daily cards\n- Priority matching\n\nFor this demo, premium will be activated for free.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -113,7 +113,34 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
           ]}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={FadeIn.duration(400)} style={styles.balanceCard}>
+          <Animated.View entering={FadeIn.duration(400)} style={styles.timeBankSection}>
+            <View
+              style={[
+                styles.timeBankCard,
+                { backgroundColor: `${theme.success}10`, borderColor: theme.success },
+              ]}
+            >
+              <View style={styles.timeBankHeader}>
+                <View style={[styles.timeBankIcon, { backgroundColor: theme.success }]}>
+                  <Feather name="shield" size={20} color="#FFFFFF" />
+                </View>
+                <View style={styles.timeBankInfo}>
+                  <ThemedText type="h4">Time Bank</ThemedText>
+                  <ThemedText type="body" style={{ color: theme.success, fontWeight: "600" }}>
+                    Priority Tokens: {priorityTokens}
+                  </ThemedText>
+                </View>
+              </View>
+              <ThemedText
+                type="small"
+                style={[styles.timeBankSubtext, { color: theme.textSecondary }]}
+              >
+                If a paid call drops, your refund appears here as Priority Tokens.
+              </ThemedText>
+            </View>
+          </Animated.View>
+
+          <Animated.View entering={FadeIn.delay(100).duration(400)} style={styles.balanceCard}>
             <View
               style={[
                 styles.balanceContainer,
@@ -132,29 +159,32 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInUp.delay(100).duration(400)}>
+          <Animated.View entering={FadeInUp.delay(200).duration(400)}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               Credit Packages
             </ThemedText>
-            <View style={styles.packagesGrid}>
-              {CREDIT_PACKAGES.map((pkg, index) => (
+            <View style={styles.packagesContainer}>
+              {CREDIT_PACKAGES.map((pkg) => (
                 <Pressable
                   key={pkg.id}
-                  onPress={() => handlePurchase(pkg.id, pkg.price)}
+                  onPress={() => handlePurchase(pkg.id, pkg.price, pkg.name)}
                   style={({ pressed }) => [
                     styles.packageCard,
                     {
                       backgroundColor: theme.surface,
-                      borderColor: theme.border,
+                      borderColor: theme.primary,
                       opacity: pressed ? 0.8 : 1,
                     },
                   ]}
                 >
-                  <ThemedText type="h3" style={{ color: theme.primary }}>
+                  <ThemedText type="small" style={{ color: theme.textSecondary }}>
+                    {pkg.name}
+                  </ThemedText>
+                  <ThemedText type="h2" style={{ color: theme.primary }}>
                     {pkg.label}
                   </ThemedText>
                   <ThemedText type="body" style={styles.packageCredits}>
-                    {pkg.amount} credits
+                    {pkg.amount.toLocaleString()} credits
                   </ThemedText>
                   {pkg.bonus ? (
                     <View
@@ -173,7 +203,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInUp.delay(200).duration(400)}>
+          <Animated.View entering={FadeInUp.delay(300).duration(400)}>
             <ThemedText type="h4" style={styles.sectionTitle}>
               Premium Subscription
             </ThemedText>
@@ -220,7 +250,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                     type="small"
                     style={{ color: theme.textSecondary }}
                   >
-                    {PREMIUM_BONUS_CREDITS} bonus credits monthly ($2 value)
+                    {PREMIUM_BONUS_CREDITS} bonus credits monthly
                   </ThemedText>
                 </View>
                 <View style={styles.perkItem}>
@@ -246,34 +276,24 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
           </Animated.View>
 
           <Animated.View
-            entering={FadeInUp.delay(300).duration(400)}
+            entering={FadeInUp.delay(400).duration(400)}
             style={styles.infoSection}
           >
-            <ThemedText type="small" style={{ color: theme.textSecondary }}>
-              Credit Usage:
+            <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "600" }}>
+              Extension Pricing:
             </ThemedText>
             <View style={styles.usageList}>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                - Refresh daily cards: 100 credits ($1)
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                - Extend call +5 min: 50 credits
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                - Extend call +15 min: 120 credits
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                - Extend call +30 min: 200 credits
-              </ThemedText>
-              <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                - Extend call +60 min: 350 credits
-              </ThemedText>
+              {CALL_EXTENSIONS.map((ext) => (
+                <ThemedText key={ext.id} type="small" style={{ color: theme.textSecondary }}>
+                  - {ext.label}: {ext.cost} credits
+                </ThemedText>
+              ))}
             </View>
             <ThemedText
               type="small"
               style={[styles.refundNote, { color: theme.textSecondary }]}
             >
-              Unused extension time is refunded as credits when a call ends early.
+              Unused extension time is refunded to your Time Bank if a call ends early.
             </ThemedText>
           </Animated.View>
         </ScrollView>
@@ -312,6 +332,33 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
   },
+  timeBankSection: {
+    marginBottom: Spacing.lg,
+  },
+  timeBankCard: {
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+  },
+  timeBankHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.md,
+    marginBottom: Spacing.sm,
+  },
+  timeBankIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeBankInfo: {
+    flex: 1,
+  },
+  timeBankSubtext: {
+    marginLeft: 52,
+  },
   balanceCard: {
     marginBottom: Spacing.xl,
   },
@@ -328,17 +375,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: Spacing.md,
   },
-  packagesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  packagesContainer: {
     gap: Spacing.md,
     marginBottom: Spacing.xl,
   },
   packageCard: {
-    width: "47%",
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 2,
     alignItems: "center",
     gap: Spacing.xs,
   },
@@ -346,9 +390,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   bonusBadge: {
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.full,
     marginTop: Spacing.xs,
   },
   bonusText: {

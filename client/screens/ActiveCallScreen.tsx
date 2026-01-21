@@ -26,6 +26,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
+import { useKarma } from "@/contexts/KarmaContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -453,6 +454,7 @@ export default function ActiveCallScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
+  const { awardCallCompletion, awardCallExtension } = useKarma();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
 
@@ -620,8 +622,9 @@ export default function ActiveCallScreen() {
       }
     }
 
+    awardCallCompletion();
     navigation.replace("CallEnded", { reason: "ended" });
-  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation]);
+  }, [currentExtension, extensionStartTime, refundUnusedMinutes, awardCallCompletion, navigation]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -635,6 +638,7 @@ export default function ActiveCallScreen() {
     const result = purchaseCallExtension(extensionId);
     if (result.success) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      awardCallExtension();
       setShowExtensionModal(false);
       setShowReminderModal(false);
       setHasExtended(true);

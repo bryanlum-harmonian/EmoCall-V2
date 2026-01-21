@@ -13,6 +13,7 @@ import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CreditsProvider } from "@/contexts/CreditsContext";
+import { KarmaProvider } from "@/contexts/KarmaContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 function AppContent() {
@@ -37,7 +38,9 @@ export default function App() {
         <SafeAreaProvider>
           <ThemeProvider>
             <CreditsProvider>
-              <AppContent />
+              <KarmaProvider>
+                <AppContent />
+              </KarmaProvider>
             </CreditsProvider>
           </ThemeProvider>
         </SafeAreaProvider>

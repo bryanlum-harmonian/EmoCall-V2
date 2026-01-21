@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Image } from "react-native";
+import { View, StyleSheet, Pressable, Image, Modal, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -18,11 +18,14 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { useTheme } from "@/hooks/useTheme";
-import { useCredits } from "@/contexts/CreditsContext";
+import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext";
+import { useKarma } from "@/contexts/KarmaContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 type MoodType = "vent" | "listen";
+
+const MAX_DAILY_MATCHES = 10;
 
 const springConfig: WithSpringConfig = {
   damping: 15,
@@ -39,9 +42,10 @@ interface MoodCardProps {
   title: string;
   onPress: () => void;
   delay: number;
+  disabled?: boolean;
 }
 
-function MoodCard({ type, icon, title, onPress, delay }: MoodCardProps) {
+function MoodCard({ type, icon, title, onPress, delay, disabled }: MoodCardProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
 
@@ -50,7 +54,9 @@ function MoodCard({ type, icon, title, onPress, delay }: MoodCardProps) {
   }));
 
   const handlePressIn = () => {
-    scale.value = withSpring(0.96, springConfig);
+    if (!disabled) {
+      scale.value = withSpring(0.96, springConfig);
+    }
   };
 
   const handlePressOut = () => {
@@ -58,8 +64,10 @@ function MoodCard({ type, icon, title, onPress, delay }: MoodCardProps) {
   };
 
   const handlePress = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onPress();
+    if (!disabled) {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onPress();
+    }
   };
 
   const isVent = type === "vent";
@@ -70,12 +78,14 @@ function MoodCard({ type, icon, title, onPress, delay }: MoodCardProps) {
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
+        disabled={disabled}
         style={[
           styles.moodCard,
           {
             backgroundColor: isVent ? theme.primary : theme.surface,
             borderWidth: isVent ? 0 : 2,
             borderColor: theme.border,
+            opacity: disabled ? 0.5 : 1,
           },
           animatedStyle,
         ]}
@@ -108,14 +118,82 @@ function MoodCard({ type, icon, title, onPress, delay }: MoodCardProps) {
   );
 }
 
+interface RefillModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onRefill: () => void;
+}
+
+function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
+  const { theme } = useTheme();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.modalOverlay}>
+        <Animated.View
+          entering={FadeInUp.duration(300)}
+          style={[styles.refillModalContent, { backgroundColor: theme.surface }]}
+        >
+          <View style={[styles.refillIcon, { backgroundColor: `${theme.primary}15` }]}>
+            <Feather name="refresh-cw" size={32} color={theme.primary} />
+          </View>
+
+          <ThemedText type="h3" style={styles.refillTitle}>
+            Daily Matches Used Up
+          </ThemedText>
+
+          <ThemedText
+            type="body"
+            style={[styles.refillDescription, { color: theme.textSecondary }]}
+          >
+            You've used all your free matches for today. Refill now to keep connecting!
+          </ThemedText>
+
+          <Pressable
+            onPress={onRefill}
+            style={({ pressed }) => [
+              styles.refillButton,
+              { backgroundColor: theme.primary, opacity: pressed ? 0.9 : 1 },
+            ]}
+          >
+            <ThemedText style={styles.refillButtonText}>
+              Refill for ${DAILY_MATCHES_REFILL_COST.toFixed(2)}
+            </ThemedText>
+          </Pressable>
+
+          <Pressable
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.waitButton,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <ThemedText type="body" style={{ color: theme.textSecondary }}>
+              Wait until tomorrow
+            </ThemedText>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function MoodSelectionScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { credits, isPremium } = useCredits();
+  const { credits, isPremium, dailyMatchesLeft, refillMatches } = useCredits();
+  const { karma, currentLevel } = useKarma();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showCreditsStore, setShowCreditsStore] = useState(false);
+  const [showRefillModal, setShowRefillModal] = useState(false);
+
+  const noMatchesLeft = dailyMatchesLeft <= 0;
 
   const handleMoodSelect = (mood: MoodType) => {
+    if (noMatchesLeft) {
+      setShowRefillModal(true);
+      return;
+    }
     navigation.navigate("BlindCardPicker", { mood });
   };
 
@@ -127,6 +205,25 @@ export default function MoodSelectionScreen() {
   const handleCreditsPress = async () => {
     await Haptics.selectionAsync();
     setShowCreditsStore(true);
+  };
+
+  const handleRefill = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      "Refill Matches",
+      `Refill 10 matches for $${DAILY_MATCHES_REFILL_COST.toFixed(2)}?\n\nFor this demo, matches will be refilled for free.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Refill",
+          onPress: () => {
+            refillMatches();
+            setShowRefillModal(false);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -148,6 +245,21 @@ export default function MoodSelectionScreen() {
           ) : null}
         </Animated.View>
         <Animated.View entering={FadeIn.delay(300).duration(400)} style={styles.headerRight}>
+          <Pressable
+            onPress={() => {}}
+            style={({ pressed }) => [
+              styles.karmaButton,
+              {
+                backgroundColor: `${theme.error}15`,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather name="heart" size={16} color={theme.error} />
+            <ThemedText type="small" style={{ color: theme.error, fontWeight: "600" }}>
+              {karma}
+            </ThemedText>
+          </Pressable>
           <Pressable
             onPress={handleCreditsPress}
             style={({ pressed }) => [
@@ -175,12 +287,65 @@ export default function MoodSelectionScreen() {
         </Animated.View>
       </View>
 
+      <Animated.View 
+        entering={FadeIn.delay(350).duration(400)} 
+        style={styles.karmaLevelContainer}
+      >
+        <View style={[styles.karmaLevelBadge, { backgroundColor: theme.backgroundSecondary }]}>
+          <Feather name="award" size={14} color={theme.primary} />
+          <ThemedText type="small" style={{ color: theme.text, fontWeight: "500" }}>
+            Level {currentLevel.level}: {currentLevel.name}
+          </ThemedText>
+        </View>
+      </Animated.View>
+
       <View style={styles.content}>
         <Animated.View entering={FadeInUp.delay(400).duration(500)}>
           <ThemedText type="h2" style={styles.headline}>
             How are you feeling?
           </ThemedText>
         </Animated.View>
+
+        <View style={styles.matchesCounter}>
+          <Animated.View 
+            entering={FadeIn.delay(500).duration(400)}
+            style={[
+              styles.matchesBadge,
+              { 
+                backgroundColor: noMatchesLeft ? `${theme.error}15` : theme.backgroundSecondary,
+                borderColor: noMatchesLeft ? theme.error : theme.border,
+              },
+            ]}
+          >
+            <Feather 
+              name="layers" 
+              size={16} 
+              color={noMatchesLeft ? theme.error : theme.primary} 
+            />
+            <ThemedText 
+              type="body" 
+              style={{ 
+                color: noMatchesLeft ? theme.error : theme.text,
+                fontWeight: "600",
+              }}
+            >
+              Matches Left: {dailyMatchesLeft}/{MAX_DAILY_MATCHES}
+            </ThemedText>
+            {noMatchesLeft ? (
+              <Pressable
+                onPress={() => setShowRefillModal(true)}
+                style={({ pressed }) => [
+                  styles.refillBadgeButton,
+                  { backgroundColor: theme.error, opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                  Refill
+                </ThemedText>
+              </Pressable>
+            ) : null}
+          </Animated.View>
+        </View>
 
         <View style={styles.cardsContainer}>
           <MoodCard
@@ -189,6 +354,7 @@ export default function MoodSelectionScreen() {
             title="I Need to Vent"
             onPress={() => handleMoodSelect("vent")}
             delay={600}
+            disabled={noMatchesLeft}
           />
           <MoodCard
             type="listen"
@@ -196,6 +362,7 @@ export default function MoodSelectionScreen() {
             title="I Can Listen"
             onPress={() => handleMoodSelect("listen")}
             delay={800}
+            disabled={noMatchesLeft}
           />
         </View>
 
@@ -204,7 +371,10 @@ export default function MoodSelectionScreen() {
             type="small"
             style={[styles.subtitle, { color: theme.textSecondary }]}
           >
-            Pick your mood. You'll connect in 15 seconds.
+            {noMatchesLeft 
+              ? "Refill your matches to continue connecting"
+              : "Pick your mood. You'll connect in 15 seconds."
+            }
           </ThemedText>
         </Animated.View>
       </View>
@@ -224,6 +394,12 @@ export default function MoodSelectionScreen() {
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
       />
+
+      <RefillModal
+        visible={showRefillModal}
+        onClose={() => setShowRefillModal(false)}
+        onRefill={handleRefill}
+      />
     </ThemedView>
   );
 }
@@ -237,7 +413,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.sm,
   },
   logoContainer: {
     flexDirection: "row",
@@ -264,6 +440,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.sm,
   },
+  karmaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+  },
   creditsButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -275,6 +459,19 @@ const styles = StyleSheet.create({
   settingsButton: {
     padding: Spacing.sm,
   },
+  karmaLevelContainer: {
+    alignItems: "center",
+    paddingHorizontal: Spacing.xl,
+    marginBottom: Spacing.sm,
+  },
+  karmaLevelBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
   content: {
     flex: 1,
     justifyContent: "center",
@@ -282,11 +479,30 @@ const styles = StyleSheet.create({
   },
   headline: {
     textAlign: "center",
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing.lg,
+  },
+  matchesCounter: {
+    alignItems: "center",
+    marginBottom: Spacing["2xl"],
+  },
+  matchesBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+    borderWidth: 1,
+  },
+  refillBadgeButton: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.sm,
+    marginLeft: Spacing.xs,
   },
   cardsContainer: {
     gap: Spacing.lg,
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing["2xl"],
   },
   cardWrapper: {
     width: "100%",
@@ -316,5 +532,52 @@ const styles = StyleSheet.create({
   },
   footerText: {
     textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  refillModalContent: {
+    width: "100%",
+    maxWidth: 320,
+    borderRadius: BorderRadius["2xl"],
+    padding: Spacing["2xl"],
+    alignItems: "center",
+  },
+  refillIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.xl,
+  },
+  refillTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  refillDescription: {
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+    lineHeight: 22,
+  },
+  refillButton: {
+    width: "100%",
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    marginBottom: Spacing.md,
+  },
+  refillButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  waitButton: {
+    padding: Spacing.md,
+    alignItems: "center",
   },
 });
