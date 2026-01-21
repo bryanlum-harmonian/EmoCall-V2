@@ -7,20 +7,23 @@ import { Feather } from "@expo/vector-icons";
 import Animated, {
   FadeIn,
   FadeInUp,
+  FadeInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withRepeat,
   withSequence,
   withTiming,
+  withDelay,
   Easing,
   cancelAnimation,
+  interpolate,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { Button } from "@/components/Button";
+import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -29,23 +32,232 @@ import { RootStackParamList } from "@/navigation/RootStackNavigator";
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const INITIAL_TIME = 300;
 const WARNING_TIME = 10;
+const MINUTE_REMINDER_INTERVAL = 60;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+const FATE_MESSAGES = [
+  "This connection is unique. Will you let it slip away?",
+  "Fate brought you together. Every second counts.",
+  "Once this call ends, this moment is gone forever.",
+  "Two strangers, one moment. Make it last.",
+  "The universe connected you. Keep the conversation alive.",
+  "This person may understand you like no one else.",
+];
+
+function SoundWaveBar({ delay, isActive }: { delay: number; isActive: boolean }) {
+  const { theme } = useTheme();
+  const height = useSharedValue(20);
+
+  useEffect(() => {
+    if (isActive) {
+      height.value = withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(Math.random() * 30 + 15, { duration: 200 + Math.random() * 100 }),
+            withTiming(Math.random() * 20 + 10, { duration: 200 + Math.random() * 100 }),
+            withTiming(Math.random() * 35 + 20, { duration: 150 + Math.random() * 100 }),
+            withTiming(Math.random() * 15 + 8, { duration: 200 + Math.random() * 100 })
+          ),
+          -1,
+          false
+        )
+      );
+    } else {
+      cancelAnimation(height);
+      height.value = withTiming(8, { duration: 300 });
+    }
+  }, [isActive, delay]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    height: height.value,
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.soundWaveBar,
+        { backgroundColor: isActive ? theme.primary : theme.border },
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+function SoundWaveVisualizer({ isActive, isMuted }: { isActive: boolean; isMuted?: boolean }) {
+  const { theme } = useTheme();
+  const bars = Array(5).fill(0);
+  const showActive = isActive && !isMuted;
+
+  return (
+    <View style={styles.soundWaveContainer}>
+      {bars.map((_, index) => (
+        <SoundWaveBar key={index} delay={index * 50} isActive={showActive} />
+      ))}
+    </View>
+  );
+}
+
+interface UserAvatarProps {
+  label: string;
+  isYou?: boolean;
+  isSpeaking: boolean;
+  isMuted?: boolean;
+}
+
+function UserAvatar({ label, isYou = false, isSpeaking, isMuted }: UserAvatarProps) {
+  const { theme } = useTheme();
+  const glowScale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0.3);
+
+  useEffect(() => {
+    if (isSpeaking && !isMuted) {
+      glowScale.value = withRepeat(
+        withSequence(
+          withTiming(1.15, { duration: 600, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.05, { duration: 600, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        true
+      );
+      glowOpacity.value = withRepeat(
+        withSequence(
+          withTiming(0.6, { duration: 600 }),
+          withTiming(0.3, { duration: 600 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      cancelAnimation(glowScale);
+      cancelAnimation(glowOpacity);
+      glowScale.value = withSpring(1);
+      glowOpacity.value = withTiming(0.1, { duration: 300 });
+    }
+  }, [isSpeaking, isMuted]);
+
+  const glowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: glowScale.value }],
+    opacity: glowOpacity.value,
+  }));
+
+  const avatarColor = isYou ? theme.primary : theme.success;
+
+  return (
+    <View style={styles.userAvatarContainer}>
+      <View style={styles.avatarWrapper}>
+        <Animated.View
+          style={[
+            styles.avatarGlow,
+            { backgroundColor: avatarColor },
+            glowStyle,
+          ]}
+        />
+        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+          <Feather name="user" size={32} color="#FFFFFF" />
+          {isMuted ? (
+            <View style={[styles.mutedBadge, { backgroundColor: theme.error }]}>
+              <Feather name="mic-off" size={10} color="#FFFFFF" />
+            </View>
+          ) : null}
+        </View>
+      </View>
+      <ThemedText type="caption" style={[styles.avatarLabel, { color: theme.textSecondary }]}>
+        {label}
+      </ThemedText>
+      <SoundWaveVisualizer isActive={isSpeaking} isMuted={isMuted} />
+    </View>
+  );
+}
+
+interface MinuteReminderModalProps {
+  visible: boolean;
+  message: string;
+  timeLeft: number;
+  onExtend: () => void;
+  onDismiss: () => void;
+}
+
+function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }: MinuteReminderModalProps) {
+  const { theme } = useTheme();
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.reminderOverlay}>
+        <Animated.View
+          entering={FadeInUp.duration(300)}
+          style={[styles.reminderContent, { backgroundColor: theme.surface }]}
+        >
+          <View style={[styles.reminderIcon, { backgroundColor: `${theme.primary}15` }]}>
+            <Feather name="heart" size={24} color={theme.primary} />
+          </View>
+
+          <ThemedText type="h3" style={styles.reminderTitle}>
+            {formatTime(timeLeft)} remaining
+          </ThemedText>
+
+          <ThemedText
+            type="body"
+            style={[styles.reminderMessage, { color: theme.textSecondary }]}
+          >
+            {message}
+          </ThemedText>
+
+          <View style={styles.reminderButtons}>
+            <Pressable
+              onPress={onExtend}
+              style={({ pressed }) => [
+                styles.reminderButton,
+                styles.reminderButtonPrimary,
+                { backgroundColor: theme.primary, opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Feather name="plus-circle" size={18} color="#FFFFFF" />
+              <ThemedText style={styles.reminderButtonText}>Extend Call</ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={onDismiss}
+              style={({ pressed }) => [
+                styles.reminderButton,
+                { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
+                Maybe Later
+              </ThemedText>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
 
 interface ExtensionModalProps {
   visible: boolean;
   onSelectExtension: (extensionId: string) => void;
   onEndCall: () => void;
+  onOpenStore: () => void;
   timeLeft: number;
   credits: number;
+  isFinalWarning?: boolean;
 }
 
 function ExtensionModal({ 
   visible, 
   onSelectExtension, 
-  onEndCall, 
+  onEndCall,
+  onOpenStore,
   timeLeft,
   credits,
+  isFinalWarning = false,
 }: ExtensionModalProps) {
   const { theme } = useTheme();
 
@@ -57,31 +269,43 @@ function ExtensionModal({
           style={[styles.modalContent, { backgroundColor: theme.surface }]}
         >
           <View
-            style={[styles.modalBadge, { backgroundColor: theme.primary }]}
+            style={[styles.modalBadge, { backgroundColor: isFinalWarning ? theme.error : theme.primary }]}
           >
-            <Feather name="clock" size={16} color="#FFFFFF" />
+            <Feather name={isFinalWarning ? "alert-circle" : "clock"} size={16} color="#FFFFFF" />
             <ThemedText style={styles.modalBadgeText}>
               {timeLeft}s left
             </ThemedText>
           </View>
 
           <ThemedText type="h2" style={styles.modalTitle}>
-            Extend Your Call?
+            {isFinalWarning ? "Last Chance!" : "Extend Your Call?"}
           </ThemedText>
           
           <ThemedText
             type="body"
             style={[styles.modalDescription, { color: theme.textSecondary }]}
           >
-            Choose how long you want to continue talking
+            {isFinalWarning 
+              ? "Once this call ends, you may never connect with this person again. This is your fate calling."
+              : "Choose how long you want to continue this unique connection"}
           </ThemedText>
 
-          <View style={styles.creditsBalance}>
+          <Pressable
+            onPress={onOpenStore}
+            style={({ pressed }) => [
+              styles.creditsBalance,
+              { 
+                backgroundColor: theme.backgroundSecondary,
+                opacity: pressed ? 0.7 : 1,
+              }
+            ]}
+          >
             <Feather name="zap" size={16} color={theme.primary} />
             <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
-              {credits} credits available
+              {credits} credits
             </ThemedText>
-          </View>
+            <Feather name="plus" size={14} color={theme.primary} />
+          </Pressable>
 
           <ScrollView 
             style={styles.extensionsList}
@@ -119,9 +343,17 @@ function ExtensionModal({
                   {canAfford ? (
                     <Feather name="chevron-right" size={20} color={theme.primary} />
                   ) : (
-                    <ThemedText type="small" style={{ color: theme.textDisabled }}>
-                      Need more
-                    </ThemedText>
+                    <Pressable
+                      onPress={onOpenStore}
+                      style={({ pressed }) => [
+                        styles.buyCreditsButton,
+                        { backgroundColor: `${theme.primary}20`, opacity: pressed ? 0.7 : 1 }
+                      ]}
+                    >
+                      <ThemedText type="small" style={{ color: theme.primary, fontWeight: "500" }}>
+                        Get Credits
+                      </ThemedText>
+                    </Pressable>
                   )}
                 </Pressable>
               );
@@ -132,7 +364,7 @@ function ExtensionModal({
             type="small"
             style={[styles.refundNote, { color: theme.textSecondary }]}
           >
-            Unused time will be refunded as credits if call ends early
+            Unused time is refunded as credits if call ends early
           </ThemedText>
 
           <Pressable
@@ -144,9 +376,9 @@ function ExtensionModal({
           >
             <ThemedText
               type="body"
-              style={[styles.endCallText, { color: theme.textSecondary }]}
+              style={[styles.endCallText, { color: theme.error }]}
             >
-              End Call Instead
+              End Call
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -227,14 +459,21 @@ export default function ActiveCallScreen() {
   const [timeRemaining, setTimeRemaining] = useState(INITIAL_TIME);
   const [isMuted, setIsMuted] = useState(false);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [hasExtended, setHasExtended] = useState(false);
   const [currentExtension, setCurrentExtension] = useState<string | null>(null);
   const [extensionStartTime, setExtensionStartTime] = useState<number | null>(null);
+  const [reminderMessage, setReminderMessage] = useState("");
+  const [lastReminderTime, setLastReminderTime] = useState(INITIAL_TIME);
+  const [youSpeaking, setYouSpeaking] = useState(false);
+  const [themSpeaking, setThemSpeaking] = useState(true);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const speakingRef = useRef<NodeJS.Timeout | null>(null);
 
   const isWarningTime = timeRemaining <= WARNING_TIME && !hasExtended;
   const isUrgent = timeRemaining <= WARNING_TIME;
@@ -257,6 +496,33 @@ export default function ActiveCallScreen() {
   useEffect(() => {
     if (isConnecting) return;
 
+    speakingRef.current = setInterval(() => {
+      const rand = Math.random();
+      if (rand < 0.3) {
+        setYouSpeaking(true);
+        setThemSpeaking(false);
+      } else if (rand < 0.6) {
+        setYouSpeaking(false);
+        setThemSpeaking(true);
+      } else if (rand < 0.8) {
+        setYouSpeaking(true);
+        setThemSpeaking(true);
+      } else {
+        setYouSpeaking(false);
+        setThemSpeaking(false);
+      }
+    }, 2000);
+
+    return () => {
+      if (speakingRef.current) {
+        clearInterval(speakingRef.current);
+      }
+    };
+  }, [isConnecting]);
+
+  useEffect(() => {
+    if (isConnecting) return;
+
     timerRef.current = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
@@ -270,6 +536,14 @@ export default function ActiveCallScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
         
+        if (!hasExtended && prev > WARNING_TIME && (lastReminderTime - prev) >= MINUTE_REMINDER_INTERVAL) {
+          const randomMessage = FATE_MESSAGES[Math.floor(Math.random() * FATE_MESSAGES.length)];
+          setReminderMessage(randomMessage);
+          setShowReminderModal(true);
+          setLastReminderTime(prev);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        
         return prev - 1;
       });
     }, 1000);
@@ -279,7 +553,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {
@@ -333,6 +607,7 @@ export default function ActiveCallScreen() {
       clearInterval(timerRef.current);
     }
     setShowExtensionModal(false);
+    setShowReminderModal(false);
 
     if (currentExtension && extensionStartTime !== null) {
       const ext = CALL_EXTENSIONS.find((e) => e.id === currentExtension);
@@ -361,11 +636,21 @@ export default function ActiveCallScreen() {
     if (result.success) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setShowExtensionModal(false);
+      setShowReminderModal(false);
       setHasExtended(true);
       setCurrentExtension(extensionId);
       setExtensionStartTime(Date.now());
       setTimeRemaining((prev) => prev + (result.minutes * 60));
     }
+  };
+
+  const handleReminderExtend = () => {
+    setShowReminderModal(false);
+    setShowExtensionModal(true);
+  };
+
+  const handleOpenCreditsStore = () => {
+    setShowCreditsStore(true);
   };
 
   return (
@@ -375,12 +660,12 @@ export default function ActiveCallScreen() {
         isUrgent && !hasExtended && { backgroundColor: theme.error },
       ]}
     >
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
+      <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
         <Animated.View entering={FadeIn.duration(400)} style={styles.reportButton}>
           <Pressable
             onPress={handleReport}
             style={({ pressed }) => [
-              styles.reportPressable,
+              styles.headerButton,
               { opacity: pressed ? 0.7 : 1 },
             ]}
           >
@@ -389,6 +674,36 @@ export default function ActiveCallScreen() {
               size={20}
               color={isUrgent && !hasExtended ? "#FFFFFF" : theme.textSecondary}
             />
+          </Pressable>
+        </Animated.View>
+
+        <Animated.View entering={FadeIn.duration(400)}>
+          <Pressable
+            onPress={handleOpenCreditsStore}
+            style={({ pressed }) => [
+              styles.creditsHeaderButton,
+              { 
+                backgroundColor: isUrgent && !hasExtended 
+                  ? "rgba(255,255,255,0.2)" 
+                  : theme.backgroundSecondary,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather 
+              name="zap" 
+              size={16} 
+              color={isUrgent && !hasExtended ? "#FFFFFF" : theme.primary} 
+            />
+            <ThemedText 
+              type="small" 
+              style={{ 
+                color: isUrgent && !hasExtended ? "#FFFFFF" : theme.primary,
+                fontWeight: "600",
+              }}
+            >
+              {credits}
+            </ThemedText>
           </Pressable>
         </Animated.View>
       </View>
@@ -419,11 +734,11 @@ export default function ActiveCallScreen() {
               type="body"
               style={[styles.connectingSubtext, { color: theme.textSecondary }]}
             >
-              Finding someone for you
+              Finding your match
             </ThemedText>
           </Animated.View>
         ) : (
-          <Animated.View entering={FadeIn.duration(400)} style={styles.timerContainer}>
+          <Animated.View entering={FadeIn.duration(400)} style={styles.callContainer}>
             <ThemedText
               type="body"
               style={[
@@ -436,9 +751,31 @@ export default function ActiveCallScreen() {
               {isUrgent && !hasExtended ? "Time Almost Up!" : "Connected"}
             </ThemedText>
 
+            <View style={styles.usersContainer}>
+              <UserAvatar 
+                label="You" 
+                isYou 
+                isSpeaking={youSpeaking} 
+                isMuted={isMuted}
+              />
+              
+              <View style={styles.connectionLine}>
+                <View style={[styles.connectionDot, { backgroundColor: theme.success }]} />
+                <View style={[styles.connectionDash, { backgroundColor: `${theme.success}50` }]} />
+                <Feather name="heart" size={20} color={theme.primary} />
+                <View style={[styles.connectionDash, { backgroundColor: `${theme.success}50` }]} />
+                <View style={[styles.connectionDot, { backgroundColor: theme.success }]} />
+              </View>
+
+              <UserAvatar 
+                label="Stranger" 
+                isSpeaking={themSpeaking} 
+              />
+            </View>
+
             <Animated.View
               style={[
-                styles.timerCircle,
+                styles.timerDisplay,
                 {
                   backgroundColor:
                     isUrgent && !hasExtended
@@ -470,7 +807,7 @@ export default function ActiveCallScreen() {
                       : theme.textSecondary,
                 }}
               >
-                {hasExtended ? "Extended" : "Remaining"}
+                {hasExtended ? "Extended Session" : "Time Remaining"}
               </ThemedText>
             </Animated.View>
 
@@ -478,7 +815,7 @@ export default function ActiveCallScreen() {
               <View style={[styles.extendedBadge, { backgroundColor: `${theme.success}20` }]}>
                 <Feather name="check-circle" size={14} color={theme.success} />
                 <ThemedText type="small" style={{ color: theme.success }}>
-                  Call Extended
+                  Call Extended - Enjoy your conversation!
                 </ThemedText>
               </View>
             ) : null}
@@ -490,7 +827,7 @@ export default function ActiveCallScreen() {
         entering={FadeInUp.delay(500).duration(400)}
         style={[
           styles.controls,
-          { paddingBottom: insets.bottom + Spacing["3xl"] },
+          { paddingBottom: insets.bottom + Spacing["2xl"] },
         ]}
       >
         <ControlButton
@@ -507,12 +844,27 @@ export default function ActiveCallScreen() {
         />
       </Animated.View>
 
+      <MinuteReminderModal
+        visible={showReminderModal && !showExtensionModal}
+        message={reminderMessage}
+        timeLeft={timeRemaining}
+        onExtend={handleReminderExtend}
+        onDismiss={() => setShowReminderModal(false)}
+      />
+
       <ExtensionModal
         visible={showExtensionModal}
         onSelectExtension={handleSelectExtension}
         onEndCall={handleEndCall}
+        onOpenStore={handleOpenCreditsStore}
         timeLeft={timeRemaining}
         credits={credits}
+        isFinalWarning={isWarningTime}
+      />
+
+      <CreditsStoreModal
+        visible={showCreditsStore}
+        onClose={() => setShowCreditsStore(false)}
       />
     </ThemedView>
   );
@@ -524,14 +876,23 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    paddingHorizontal: Spacing.xl,
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
   },
   reportButton: {
+    padding: Spacing.xs,
+  },
+  headerButton: {
     padding: Spacing.sm,
   },
-  reportPressable: {
-    padding: Spacing.sm,
+  creditsHeaderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
   content: {
     flex: 1,
@@ -562,27 +923,97 @@ const styles = StyleSheet.create({
   connectingSubtext: {
     textAlign: "center",
   },
-  timerContainer: {
+  callContainer: {
     alignItems: "center",
     gap: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
   statusText: {
     fontWeight: "600",
     letterSpacing: 1,
     textTransform: "uppercase",
   },
-  timerCircle: {
-    width: SCREEN_WIDTH * 0.6,
-    height: SCREEN_WIDTH * 0.6,
-    borderRadius: SCREEN_WIDTH * 0.3,
+  usersContainer: {
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 4,
+    gap: Spacing.lg,
+  },
+  userAvatarContainer: {
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  avatarWrapper: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarGlow: {
+    position: "absolute",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+  },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mutedBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarLabel: {
+    fontWeight: "500",
+  },
+  soundWaveContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: 40,
+    gap: 3,
+  },
+  soundWaveBar: {
+    width: 4,
+    borderRadius: 2,
+    minHeight: 8,
+  },
+  connectionLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+  },
+  connectionDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  connectionDash: {
+    width: 20,
+    height: 2,
+    borderRadius: 1,
+  },
+  timerDisplay: {
+    paddingHorizontal: Spacing["3xl"],
+    paddingVertical: Spacing.xl,
+    borderRadius: BorderRadius["2xl"],
+    borderWidth: 2,
+    alignItems: "center",
+    gap: Spacing.xs,
   },
   timerText: {
-    fontSize: 56,
-    lineHeight: 64,
+    fontSize: 48,
+    lineHeight: 56,
     letterSpacing: 2,
+    fontWeight: "700",
   },
   extendedBadge: {
     flexDirection: "row",
@@ -611,6 +1042,59 @@ const styles = StyleSheet.create({
   },
   controlLabel: {
     textAlign: "center",
+  },
+  reminderOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  reminderContent: {
+    width: "100%",
+    maxWidth: 320,
+    borderRadius: BorderRadius["2xl"],
+    padding: Spacing["2xl"],
+    alignItems: "center",
+  },
+  reminderIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: Spacing.lg,
+  },
+  reminderTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.sm,
+  },
+  reminderMessage: {
+    textAlign: "center",
+    marginBottom: Spacing.xl,
+    lineHeight: 22,
+  },
+  reminderButtons: {
+    width: "100%",
+    gap: Spacing.md,
+  },
+  reminderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+  },
+  reminderButtonPrimary: {},
+  reminderButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  reminderButtonTextSecondary: {
+    fontWeight: "500",
+    fontSize: 16,
   },
   modalOverlay: {
     flex: 1,
@@ -648,12 +1132,16 @@ const styles = StyleSheet.create({
   modalDescription: {
     textAlign: "center",
     marginBottom: Spacing.lg,
+    lineHeight: 22,
   },
   creditsBalance: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
     marginBottom: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
   extensionsList: {
     width: "100%",
@@ -671,6 +1159,11 @@ const styles = StyleSheet.create({
   extensionInfo: {
     gap: 2,
   },
+  buyCreditsButton: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
   refundNote: {
     textAlign: "center",
     marginTop: Spacing.md,
@@ -682,6 +1175,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   endCallText: {
-    fontWeight: "500",
+    fontWeight: "600",
   },
 });
