@@ -44,7 +44,7 @@ export default function RootStackNavigator() {
         name="BlindCardPicker"
         component={BlindCardPickerScreen}
         options={{
-          headerTitle: "10 Daily Cards",
+          headerTitle: "5 Daily Cards",
           headerBackTitle: "Back",
         }}
       />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Image, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -13,9 +13,6 @@ import Animated, {
   withSpring,
   WithSpringConfig,
   withSequence,
-  withDelay,
-  interpolate,
-  Extrapolation,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -31,6 +28,8 @@ const springConfig: WithSpringConfig = {
   stiffness: 150,
   overshootClamping: true,
 };
+
+const CARDS_PER_MOOD = 5;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -144,10 +143,11 @@ function BlindCard({ item, index, onPress }: BlindCardProps) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ mood }: { mood: "vent" | "listen" }) {
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const moodLabel = mood === "vent" ? "Vent" : "Listen";
 
   return (
     <Animated.View
@@ -166,13 +166,13 @@ function EmptyState() {
         resizeMode="contain"
       />
       <ThemedText type="h3" style={styles.emptyTitle}>
-        All Cards Used
+        All {moodLabel} Cards Used
       </ThemedText>
       <ThemedText
         type="body"
         style={[styles.emptyText, { color: theme.textSecondary }]}
       >
-        Come back tomorrow for 10 new matches. Fresh connections await!
+        Come back tomorrow for 5 new {moodLabel.toLowerCase()} matches. Fresh connections await!
       </ThemedText>
     </Animated.View>
   );
@@ -187,8 +187,8 @@ export default function BlindCardPickerScreen() {
   const mood = route.params?.mood || "vent";
 
   const [cards, setCards] = useState<BlindCardData[]>(() =>
-    Array.from({ length: 10 }, (_, i) => ({
-      id: `card-${i + 1}`,
+    Array.from({ length: CARDS_PER_MOOD }, (_, i) => ({
+      id: `card-${mood}-${i + 1}`,
       number: i + 1,
       isUsed: false,
     }))
@@ -212,7 +212,7 @@ export default function BlindCardPickerScreen() {
   if (availableCards.length === 0) {
     return (
       <ThemedView style={styles.container}>
-        <EmptyState />
+        <EmptyState mood={mood} />
       </ThemedView>
     );
   }
@@ -236,7 +236,7 @@ export default function BlindCardPickerScreen() {
               type="small"
               style={[styles.remainingText, { color: theme.textSecondary }]}
             >
-              {availableCards.length} of 10 matches remaining today
+              {availableCards.length} of {CARDS_PER_MOOD} matches remaining today
             </ThemedText>
           </Animated.View>
         }
