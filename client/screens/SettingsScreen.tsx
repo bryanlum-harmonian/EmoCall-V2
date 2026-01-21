@@ -11,6 +11,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { useTheme } from "@/hooks/useTheme";
+import { useThemeContext } from "@/contexts/ThemeContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface SettingsItemProps {
@@ -98,7 +99,8 @@ function SettingsSection({ title, children, delay = 0 }: SettingsSectionProps) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
+  const { colorScheme, setColorScheme } = useThemeContext();
   const navigation = useNavigation();
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
@@ -108,15 +110,18 @@ export default function SettingsScreen() {
     setBlockLastMatch(value);
   };
 
+  const handleThemeToggle = async (isDarkMode: boolean) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setColorScheme(isDarkMode ? "dark" : "light");
+  };
+
   const handleOpenTerms = async () => {
     await Haptics.selectionAsync();
-    // In a real app, this would open a terms page
     Alert.alert("Terms of Service", "Terms and conditions content would be displayed here.");
   };
 
   const handleOpenPrivacy = async () => {
     await Haptics.selectionAsync();
-    // In a real app, this would open a privacy page
     Alert.alert("Privacy Policy", "Privacy policy content would be displayed here.");
   };
 
@@ -165,6 +170,23 @@ export default function SettingsScreen() {
           paddingHorizontal: Spacing.lg,
         }}
       >
+        <SettingsSection title="APPEARANCE" delay={100}>
+          <SettingsItem
+            icon={isDark ? "moon" : "sun"}
+            title="Dark Mode"
+            subtitle={isDark ? "Dark theme is active" : "Light theme is active"}
+            rightElement={
+              <Switch
+                value={colorScheme === "dark"}
+                onValueChange={handleThemeToggle}
+                trackColor={{ false: theme.border, true: theme.primary }}
+                thumbColor="#FFFFFF"
+              />
+            }
+            delay={150}
+          />
+        </SettingsSection>
+
         <SettingsSection title="SAFETY" delay={200}>
           <SettingsItem
             icon="user-x"
