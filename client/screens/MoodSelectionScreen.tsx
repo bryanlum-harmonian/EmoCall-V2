@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Image } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -16,7 +16,9 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { useTheme } from "@/hooks/useTheme";
+import { useCredits } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -109,7 +111,9 @@ function MoodCard({ type, icon, title, onPress, delay }: MoodCardProps) {
 export default function MoodSelectionScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { credits, isPremium } = useCredits();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const [showCreditsStore, setShowCreditsStore] = useState(false);
 
   const handleMoodSelect = (mood: MoodType) => {
     navigation.navigate("BlindCardPicker", { mood });
@@ -118,6 +122,11 @@ export default function MoodSelectionScreen() {
   const handleSettingsPress = async () => {
     await Haptics.selectionAsync();
     navigation.navigate("Settings");
+  };
+
+  const handleCreditsPress = async () => {
+    await Haptics.selectionAsync();
+    setShowCreditsStore(true);
   };
 
   return (
@@ -132,8 +141,28 @@ export default function MoodSelectionScreen() {
           <ThemedText type="h4" style={styles.appName}>
             EmoCall
           </ThemedText>
+          {isPremium ? (
+            <View style={[styles.premiumBadge, { backgroundColor: theme.success }]}>
+              <Feather name="star" size={10} color="#FFFFFF" />
+            </View>
+          ) : null}
         </Animated.View>
-        <Animated.View entering={FadeIn.delay(300).duration(400)}>
+        <Animated.View entering={FadeIn.delay(300).duration(400)} style={styles.headerRight}>
+          <Pressable
+            onPress={handleCreditsPress}
+            style={({ pressed }) => [
+              styles.creditsButton,
+              {
+                backgroundColor: `${theme.primary}15`,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Feather name="zap" size={16} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+              {credits}
+            </ThemedText>
+          </Pressable>
           <Pressable
             onPress={handleSettingsPress}
             style={({ pressed }) => [
@@ -190,6 +219,11 @@ export default function MoodSelectionScreen() {
           </ThemedText>
         </Animated.View>
       </View>
+
+      <CreditsStoreModal
+        visible={showCreditsStore}
+        onClose={() => setShowCreditsStore(false)}
+      />
     </ThemedView>
   );
 }
@@ -216,6 +250,27 @@ const styles = StyleSheet.create({
   },
   appName: {
     letterSpacing: 0.5,
+  },
+  premiumBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: -4,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  creditsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
   },
   settingsButton: {
     padding: Spacing.sm,
