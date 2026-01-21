@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { apiRequest } from "@/lib/query-client";
+import { useSession } from "./SessionContext";
 
 export interface KarmaLevel {
   level: number;
@@ -28,9 +30,10 @@ interface KarmaContextType {
   progressToNextLevel: number;
   addKarma: (amount: number) => void;
   removeKarma: (amount: number) => void;
-  awardCallCompletion: () => void;
-  awardCallExtension: () => void;
+  awardCallCompletion: () => Promise<void>;
+  awardCallExtension: () => Promise<void>;
   penalizeReport: () => void;
+  syncWithBackend: () => Promise<void>;
 }
 
 const KarmaContext = createContext<KarmaContextType | undefined>(undefined);
@@ -58,11 +61,22 @@ function getProgressToNextLevel(karma: number, currentLevel: KarmaLevel, nextLev
 }
 
 export function KarmaProvider({ children }: { children: ReactNode }) {
+  const { session, refreshSession } = useSession();
   const [karma, setKarma] = useState(0);
+
+  useEffect(() => {
+    if (session) {
+      setKarma(session.karmaPoints);
+    }
+  }, [session]);
 
   const currentLevel = getKarmaLevel(karma);
   const nextLevel = getNextLevel(currentLevel);
   const progressToNextLevel = getProgressToNextLevel(karma, currentLevel, nextLevel);
+
+  const syncWithBackend = useCallback(async () => {
+    await refreshSession();
+  }, [refreshSession]);
 
   const addKarma = useCallback((amount: number) => {
     setKarma((prev) => prev + amount);
@@ -72,13 +86,37 @@ export function KarmaProvider({ children }: { children: ReactNode }) {
     setKarma((prev) => Math.max(0, prev - amount));
   }, []);
 
-  const awardCallCompletion = useCallback(() => {
-    setKarma((prev) => prev + KARMA_REWARDS.COMPLETE_CALL);
-  }, []);
+  const awardCallCompletion = useCallback(async () => {
+    if (!session?.id) return;
 
-  const awardCallExtension = useCallback(() => {
-    setKarma((prev) => prev + KARMA_REWARDS.EXTEND_CALL);
-  }, []);
+    try {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/karma/award`, {
+        amount: KARMA_REWARDS.COMPLETE_CALL,
+        type: "call_complete"
+      });
+      const data = await response.json();
+      setKarma(data.karmaPoints);
+    } catch (err) {
+      console.error("Failed to award karma:", err);
+      setKarma((prev) => prev + KARMA_REWARDS.COMPLETE_CALL);
+    }
+  }, [session?.id]);
+
+  const awardCallExtension = useCallback(async () => {
+    if (!session?.id) return;
+
+    try {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/karma/award`, {
+        amount: KARMA_REWARDS.EXTEND_CALL,
+        type: "call_extension"
+      });
+      const data = await response.json();
+      setKarma(data.karmaPoints);
+    } catch (err) {
+      console.error("Failed to award karma:", err);
+      setKarma((prev) => prev + KARMA_REWARDS.EXTEND_CALL);
+    }
+  }, [session?.id]);
 
   const penalizeReport = useCallback(() => {
     setKarma((prev) => Math.max(0, prev + KARMA_REWARDS.REPORTED));
@@ -96,6 +134,7 @@ export function KarmaProvider({ children }: { children: ReactNode }) {
         awardCallCompletion,
         awardCallExtension,
         penalizeReport,
+        syncWithBackend,
       }}
     >
       {children}

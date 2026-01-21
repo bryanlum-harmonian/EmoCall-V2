@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import { apiRequest } from "@/lib/query-client";
+import { useSession } from "./SessionContext";
 
 export interface CreditPackage {
   id: string;
@@ -17,9 +19,9 @@ export interface CallExtension {
 }
 
 export const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: "pack-starter", amount: 250, price: 0.99, label: "$0.99", name: "Starter Pack" },
-  { id: "pack-weekender", amount: 1500, price: 4.99, label: "$4.99", name: "Weekender Pack" },
-  { id: "pack-power", amount: 3500, price: 9.99, label: "$9.99", name: "Power User Pack" },
+  { id: "starter", amount: 250, price: 0.99, label: "$0.99", name: "Starter Pack" },
+  { id: "weekender", amount: 1500, price: 4.99, label: "$4.99", name: "Weekender Pack" },
+  { id: "power_user", amount: 3500, price: 9.99, label: "$9.99", name: "Power User Pack" },
 ];
 
 export const CALL_EXTENSIONS: CallExtension[] = [
@@ -40,18 +42,20 @@ interface CreditsContextType {
   isPremium: boolean;
   preferredGender: "any" | "male" | "female";
   dailyMatchesLeft: number;
+  isLoading: boolean;
   addCredits: (amount: number) => void;
   spendCredits: (amount: number) => boolean;
   refundCredits: (amount: number) => void;
   addPriorityTokens: (amount: number) => void;
-  purchasePackage: (packageId: string) => boolean;
-  refreshCards: () => boolean;
+  purchasePackage: (packageId: string) => Promise<boolean>;
+  refreshCards: () => Promise<boolean>;
   purchaseCallExtension: (extensionId: string) => { success: boolean; minutes: number };
   refundUnusedMinutes: (unusedMinutes: number, extensionId: string) => void;
-  setPremium: (value: boolean) => void;
-  setPreferredGender: (gender: "any" | "male" | "female") => void;
-  useMatch: () => boolean;
-  refillMatches: () => boolean;
+  setPremium: (value: boolean) => Promise<void>;
+  setPreferredGender: (gender: "any" | "male" | "female") => Promise<void>;
+  useMatch: () => Promise<boolean>;
+  refillMatches: () => Promise<boolean>;
+  syncWithBackend: () => Promise<void>;
 }
 
 const CreditsContext = createContext<CreditsContextType | undefined>(undefined);
@@ -59,11 +63,29 @@ const CreditsContext = createContext<CreditsContextType | undefined>(undefined);
 const MAX_DAILY_MATCHES = 10;
 
 export function CreditsProvider({ children }: { children: ReactNode }) {
+  const { session, refreshSession } = useSession();
   const [credits, setCredits] = useState(0);
   const [priorityTokens, setPriorityTokens] = useState(0);
   const [isPremium, setIsPremium] = useState(false);
-  const [preferredGender, setPreferredGender] = useState<"any" | "male" | "female">("any");
+  const [preferredGender, setPreferredGenderState] = useState<"any" | "male" | "female">("any");
   const [dailyMatchesLeft, setDailyMatchesLeft] = useState(MAX_DAILY_MATCHES);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (session) {
+      setCredits(session.credits);
+      setPriorityTokens(Math.floor((session.timeBankMinutes || 0) * 10));
+      setIsPremium(session.isPremium);
+      setDailyMatchesLeft(session.dailyMatchesLeft);
+      if (session.genderPreference) {
+        setPreferredGenderState(session.genderPreference as "any" | "male" | "female");
+      }
+    }
+  }, [session]);
+
+  const syncWithBackend = useCallback(async () => {
+    await refreshSession();
+  }, [refreshSession]);
 
   const addCredits = useCallback((amount: number) => {
     setCredits((prev) => prev + amount);
@@ -85,23 +107,39 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     setPriorityTokens((prev) => prev + amount);
   }, []);
 
-  const purchasePackage = useCallback((packageId: string): boolean => {
-    const pkg = CREDIT_PACKAGES.find((p) => p.id === packageId);
-    if (pkg) {
-      const totalCredits = pkg.amount + (pkg.bonus || 0);
-      setCredits((prev) => prev + totalCredits);
-      return true;
-    }
-    return false;
-  }, []);
+  const purchasePackage = useCallback(async (packageId: string): Promise<boolean> => {
+    if (!session?.id) return false;
 
-  const refreshCards = useCallback((): boolean => {
-    if (credits >= REFRESH_CARDS_COST) {
-      setCredits((prev) => prev - REFRESH_CARDS_COST);
+    try {
+      setIsLoading(true);
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/credits/purchase`, { packageId });
+      const data = await response.json();
+      setCredits(data.credits);
       return true;
+    } catch (err) {
+      console.error("Failed to purchase package:", err);
+      return false;
+    } finally {
+      setIsLoading(false);
     }
-    return false;
-  }, [credits]);
+  }, [session?.id]);
+
+  const refreshCards = useCallback(async (): Promise<boolean> => {
+    if (!session?.id) return false;
+
+    try {
+      setIsLoading(true);
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/credits/shuffle`, {});
+      const data = await response.json();
+      setCredits(data.credits);
+      return true;
+    } catch (err) {
+      console.error("Failed to refresh cards:", err);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session?.id]);
 
   const purchaseCallExtension = useCallback((extensionId: string): { success: boolean; minutes: number } => {
     const ext = CALL_EXTENSIONS.find((e) => e.id === extensionId);
@@ -123,25 +161,67 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const setPremium = useCallback((value: boolean) => {
-    setIsPremium(value);
+  const setPremium = useCallback(async (value: boolean): Promise<void> => {
+    if (!session?.id) return;
+
     if (value) {
-      setCredits((prev) => prev + PREMIUM_BONUS_CREDITS);
+      try {
+        setIsLoading(true);
+        const response = await apiRequest("POST", `/api/sessions/${session.id}/premium/activate`, {});
+        const data = await response.json();
+        setIsPremium(true);
+        setCredits(data.credits);
+      } catch (err) {
+        console.error("Failed to activate premium:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      setIsPremium(false);
     }
-  }, []);
+  }, [session?.id]);
 
-  const useMatch = useCallback((): boolean => {
-    if (dailyMatchesLeft > 0) {
-      setDailyMatchesLeft((prev) => prev - 1);
+  const setPreferredGender = useCallback(async (gender: "any" | "male" | "female"): Promise<void> => {
+    if (!session?.id) return;
+
+    try {
+      await apiRequest("POST", `/api/sessions/${session.id}/preferences/gender`, { genderPreference: gender });
+      setPreferredGenderState(gender);
+    } catch (err) {
+      console.error("Failed to set gender preference:", err);
+    }
+  }, [session?.id]);
+
+  const useMatch = useCallback(async (): Promise<boolean> => {
+    if (!session?.id) return false;
+
+    try {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/matches/use`, {});
+      const data = await response.json();
+      setDailyMatchesLeft(data.dailyMatchesLeft);
       return true;
+    } catch (err) {
+      console.error("Failed to use match:", err);
+      return false;
     }
-    return false;
-  }, [dailyMatchesLeft]);
+  }, [session?.id]);
 
-  const refillMatches = useCallback((): boolean => {
-    setDailyMatchesLeft(MAX_DAILY_MATCHES);
-    return true;
-  }, []);
+  const refillMatches = useCallback(async (): Promise<boolean> => {
+    if (!session?.id) return false;
+
+    try {
+      setIsLoading(true);
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/matches/refill`, {});
+      const data = await response.json();
+      setDailyMatchesLeft(data.dailyMatchesLeft);
+      return true;
+    } catch (err) {
+      console.error("Failed to refill matches:", err);
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session?.id]);
 
   return (
     <CreditsContext.Provider
@@ -151,6 +231,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         isPremium,
         preferredGender,
         dailyMatchesLeft,
+        isLoading,
         addCredits,
         spendCredits,
         refundCredits,
@@ -163,6 +244,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         setPreferredGender,
         useMatch,
         refillMatches,
+        syncWithBackend,
       }}
     >
       {children}

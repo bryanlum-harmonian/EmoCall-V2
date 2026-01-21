@@ -1,7 +1,10 @@
-import React, { useState } from "react";
+import React from "react";
+import { View, ActivityIndicator, StyleSheet } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { useScreenOptions } from "@/hooks/useScreenOptions";
+import { useSession } from "@/contexts/SessionContext";
+import { useTheme } from "@/hooks/useTheme";
 
 import TermsGateScreen from "@/screens/TermsGateScreen";
 import MoodSelectionScreen from "@/screens/MoodSelectionScreen";
@@ -23,14 +26,19 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const [hasAcceptedTerms, setHasAcceptedTerms] = useState(false);
+  const { session, isLoading, hasAcceptedTerms, acceptTerms } = useSession();
+  const { theme } = useTheme();
 
-  const handleAcceptTerms = () => {
-    setHasAcceptedTerms(true);
-  };
+  if (isLoading || !session) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+        <ActivityIndicator size="large" color={theme.primary} />
+      </View>
+    );
+  }
 
   if (!hasAcceptedTerms) {
-    return <TermsGateScreen onAccept={handleAcceptTerms} />;
+    return <TermsGateScreen onAccept={acceptTerms} />;
   }
 
   return (
@@ -78,3 +86,11 @@ export default function RootStackNavigator() {
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});

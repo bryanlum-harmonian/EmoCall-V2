@@ -395,6 +395,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Award karma
+  app.post("/api/sessions/:id/karma/award", async (req: SessionRequest, res: Response) => {
+    try {
+      const { amount, type, callId } = req.body;
+      const session = await addKarma(req.params.id, amount, type, callId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json({ karmaPoints: session.karmaPoints });
+    } catch (error) {
+      console.error("Error awarding karma:", error);
+      res.status(500).json({ error: "Failed to award karma" });
+    }
+  });
+
   // ===============================
   // Premium APIs
   // ===============================
