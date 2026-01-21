@@ -16,6 +16,7 @@ interface ButtonProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   disabled?: boolean;
+  variant?: "primary" | "secondary" | "destructive";
 }
 
 const springConfig: WithSpringConfig = {
@@ -33,6 +34,7 @@ export function Button({
   children,
   style,
   disabled = false,
+  variant = "primary",
 }: ButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -53,6 +55,31 @@ export function Button({
     }
   };
 
+  const getBackgroundColor = () => {
+    if (disabled) return theme.backgroundSecondary;
+    switch (variant) {
+      case "destructive":
+        return theme.error;
+      case "secondary":
+        return theme.backgroundSecondary;
+      case "primary":
+      default:
+        return theme.primary;
+    }
+  };
+
+  const getTextColor = () => {
+    if (disabled) return theme.textDisabled;
+    switch (variant) {
+      case "secondary":
+        return theme.text;
+      case "destructive":
+      case "primary":
+      default:
+        return theme.buttonText;
+    }
+  };
+
   return (
     <AnimatedPressable
       onPress={disabled ? undefined : onPress}
@@ -62,7 +89,7 @@ export function Button({
       style={[
         styles.button,
         {
-          backgroundColor: theme.link,
+          backgroundColor: getBackgroundColor(),
           opacity: disabled ? 0.5 : 1,
         },
         style,
@@ -71,7 +98,7 @@ export function Button({
     >
       <ThemedText
         type="body"
-        style={[styles.buttonText, { color: theme.buttonText }]}
+        style={[styles.buttonText, { color: getTextColor() }]}
       >
         {children}
       </ThemedText>
