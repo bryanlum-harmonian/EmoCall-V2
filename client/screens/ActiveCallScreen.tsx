@@ -24,9 +24,12 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
+import { ReportModal, ReportReasonId } from "@/components/ReportModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
 import { useKarma } from "@/contexts/KarmaContext";
+import { useSession } from "@/contexts/SessionContext";
+import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -455,6 +458,7 @@ export default function ActiveCallScreen() {
   const { theme } = useTheme();
   const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
   const { awardCallCompletion, awardCallExtension } = useKarma();
+  const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
 
@@ -463,6 +467,8 @@ export default function ActiveCallScreen() {
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [isReportSubmitting, setIsReportSubmitting] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [hasExtended, setHasExtended] = useState(false);
   const [currentExtension, setCurrentExtension] = useState<string | null>(null);
@@ -628,10 +634,31 @@ export default function ActiveCallScreen() {
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
+    setShowReportModal(true);
+  };
+
+  const handleReportSubmit = async (reasons: ReportReasonId[], otherReason: string) => {
+    if (!session?.id) return;
+    
+    setIsReportSubmitting(true);
+    try {
+      await apiRequest("POST", "/api/reports", {
+        reporterSessionId: session.id,
+        reasons: Array.from(reasons),
+        otherReason: otherReason || undefined,
+      });
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      
+      setShowReportModal(false);
+      navigation.replace("CallEnded", { reason: "reported" });
+    } catch (error) {
+      console.error("Error submitting report:", error);
+    } finally {
+      setIsReportSubmitting(false);
     }
-    navigation.replace("CallEnded", { reason: "reported" });
   };
 
   const handleSelectExtension = async (extensionId: string) => {
@@ -886,6 +913,13 @@ export default function ActiveCallScreen() {
       <CreditsStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
+      />
+
+      <ReportModal
+        visible={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        onSubmit={handleReportSubmit}
+        isSubmitting={isReportSubmitting}
       />
     </ThemedView>
   );

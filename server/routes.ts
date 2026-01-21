@@ -483,13 +483,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.post("/api/reports", async (req: Request, res: Response) => {
     try {
-      const { reporterSessionId, reportedSessionId, callId, reason } = req.body;
+      const { reporterSessionId, reportedSessionId, callId, reasons, otherReason, reason } = req.body;
       
       await createReport({
         reporterSessionId,
         reportedSessionId,
         callId,
-        reason,
+        reasons,
+        otherReason,
+        reason, // Legacy field for backwards compatibility
       });
       
       // Penalize reported user
