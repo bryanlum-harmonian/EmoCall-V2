@@ -1,0 +1,38 @@
+The UI is looking great! I have decided to standardize the currency to USD for a global launch.
+
+Please implement these 5 specific changes to align with the final business model:
+
+### 1. PRICING & CURRENCY (USD Strategy)
+Change all Store prices to **USD**.
+To keep the "Micro-transaction" feel (approx $0.45 per extension), please update the Credit Packages to these exact tiers:
+- **Starter Pack ($0.99):** 250 Credits (Enough for 2 extensions + bonus).
+- **Weekender Pack ($4.99):** 1,500 Credits.
+- **Power User Pack ($9.99):** 3,500 Credits.
+- *Logic:* 1 Extension (10 mins) costs **100 Credits**.
+
+### 2. ADD "KARMA POINTS" (Gamification)
+I see 'Credits' (Paid), but I am missing the free reward system.
+- Please add a secondary currency icon on the Home Screen called **"Karma"** (use a Heart or Star icon).
+- **Logic:**
+  - If a user completes a 5-minute call without being reported: **+10 Karma**.
+  - If a user Pays to Extend: **+50 Karma**.
+- Show a simple "Karma Level" on the profile (e.g., "Level 1 Listener").
+
+### 3. UI UPGRADE: "THE BLIND DECK"
+On the "Daily Cards" screen (Image 7), the list view looks too much like a contact list.
+- Please change this to a **2-Column Grid View**.
+- Instead of text ("Anonymous Match #1"), show **Card Backs** (Rectangles with a gradient/pattern).
+- **Animation:** When I tap a card, it should "flip" or pulse before showing "Connecting...". This creates the "Mystery Box" excitement.
+
+### 4. THE "TIME BANK" DISPLAY
+Our USP is that if a call drops, users get a refund. They need to see this to trust us.
+- In the **Credits Store** (Image 6), add a small visual section at the top called **"Time Bank"**.
+- Text: *"Priority Tokens: 0"*.
+- Subtext: *"If a paid call drops, your refund appears here."*
+
+### 5. HOME SCREEN COUNTER
+On the Home Screen (Image 3), I need to see how many free matches I have left immediately.
+- Add a small counter badge near the "Daily Deck" section: **"Matches Left: 10/10"**.
+- If it hits 0/10, the "Daily Deck" greys out and prompts the "Refill ($0.99)" modal.
+
+Please implement these changes to finalize the MVP.
