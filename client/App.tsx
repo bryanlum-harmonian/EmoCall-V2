@@ -12,6 +12,7 @@ import { queryClient } from "@/lib/query-client";
 import RootStackNavigator from "@/navigation/RootStackNavigator";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { CreditsProvider } from "@/contexts/CreditsContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 function AppContent() {
@@ -35,7 +36,9 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
           <ThemeProvider>
-            <AppContent />
+            <CreditsProvider>
+              <AppContent />
+            </CreditsProvider>
           </ThemeProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
