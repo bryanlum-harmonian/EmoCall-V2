@@ -1,17 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppTheme, AppThemes } from "@/constants/theme";
 
 type ColorScheme = "light" | "dark";
 
 interface ThemeContextType {
   colorScheme: ColorScheme;
+  appTheme: AppTheme;
   setColorScheme: (scheme: ColorScheme) => void;
+  setAppTheme: (theme: AppTheme) => void;
   toggleColorScheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const THEME_STORAGE_KEY = "@emocall/color_scheme";
+const COLOR_SCHEME_KEY = "@emocall/color_scheme";
+const APP_THEME_KEY = "@emocall/app_theme";
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -19,20 +23,28 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>("light");
+  const [appTheme, setAppThemeState] = useState<AppTheme>("sunny");
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    loadStoredTheme();
+    loadStoredPreferences();
   }, []);
 
-  const loadStoredTheme = async () => {
+  const loadStoredPreferences = async () => {
     try {
-      const storedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (storedTheme === "dark" || storedTheme === "light") {
-        setColorSchemeState(storedTheme);
+      const [storedColorScheme, storedAppTheme] = await Promise.all([
+        AsyncStorage.getItem(COLOR_SCHEME_KEY),
+        AsyncStorage.getItem(APP_THEME_KEY),
+      ]);
+
+      if (storedColorScheme === "dark" || storedColorScheme === "light") {
+        setColorSchemeState(storedColorScheme);
+      }
+      if (storedAppTheme === "sunny" || storedAppTheme === "coral") {
+        setAppThemeState(storedAppTheme);
       }
     } catch (error) {
-      console.error("Failed to load theme preference:", error);
+      console.error("Failed to load theme preferences:", error);
     } finally {
       setIsLoaded(true);
     }
@@ -40,10 +52,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   const setColorScheme = async (scheme: ColorScheme) => {
     try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, scheme);
+      await AsyncStorage.setItem(COLOR_SCHEME_KEY, scheme);
       setColorSchemeState(scheme);
     } catch (error) {
-      console.error("Failed to save theme preference:", error);
+      console.error("Failed to save color scheme:", error);
+    }
+  };
+
+  const setAppTheme = async (theme: AppTheme) => {
+    try {
+      await AsyncStorage.setItem(APP_THEME_KEY, theme);
+      setAppThemeState(theme);
+    } catch (error) {
+      console.error("Failed to save app theme:", error);
     }
   };
 
@@ -60,7 +81,9 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     <ThemeContext.Provider
       value={{
         colorScheme,
+        appTheme,
         setColorScheme,
+        setAppTheme,
         toggleColorScheme,
       }}
     >
@@ -75,4 +98,8 @@ export function useThemeContext() {
     throw new Error("useThemeContext must be used within a ThemeProvider");
   }
   return context;
+}
+
+export function getThemeColors(appTheme: AppTheme, colorScheme: ColorScheme) {
+  return AppThemes[appTheme][colorScheme];
 }

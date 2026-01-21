@@ -14,7 +14,7 @@ import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
-import { Spacing, BorderRadius } from "@/constants/theme";
+import { Spacing, BorderRadius, AppTheme, AppThemes } from "@/constants/theme";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -107,8 +107,8 @@ function SettingsSection({ title, children, delay = 0 }: SettingsSectionProps) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
-  const { theme, isDark } = useTheme();
-  const { colorScheme, setColorScheme } = useThemeContext();
+  const { theme, isDark, appTheme } = useTheme();
+  const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
   const { credits, isPremium, preferredGender, setPremium, setPreferredGender } = useCredits();
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
@@ -122,6 +122,11 @@ export default function SettingsScreen() {
   const handleThemeToggle = async (isDarkMode: boolean) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setColorScheme(isDarkMode ? "dark" : "light");
+  };
+
+  const handleAppThemeChange = async (newTheme: AppTheme) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setAppTheme(newTheme);
   };
 
   const handleOpenTerms = async () => {
@@ -280,6 +285,71 @@ export default function SettingsScreen() {
         </SettingsSection>
 
         <SettingsSection title="APPEARANCE" delay={300}>
+          <Animated.View entering={FadeInUp.delay(320).duration(400)}>
+            <View style={styles.themePickerContainer}>
+              <ThemedText type="body" style={[styles.themePickerLabel, { color: theme.text }]}>
+                App Theme
+              </ThemedText>
+              <View style={styles.themePicker}>
+                <Pressable
+                  onPress={() => handleAppThemeChange("sunny")}
+                  style={({ pressed }) => [
+                    styles.themeOption,
+                    {
+                      borderColor: appTheme === "sunny" ? theme.primary : theme.border,
+                      borderWidth: appTheme === "sunny" ? 3 : 1,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.themePreview}>
+                    <View style={[styles.themePreviewTop, { backgroundColor: "#FFF8E7" }]} />
+                    <View style={styles.themePreviewBottom}>
+                      <View style={[styles.themePreviewCard, { backgroundColor: "#FFB3C6" }]} />
+                      <View style={[styles.themePreviewCard, { backgroundColor: "#A8E6CF" }]} />
+                    </View>
+                  </View>
+                  <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "sunny" ? "700" : "400" }}>
+                    Sunny
+                  </ThemedText>
+                  {appTheme === "sunny" ? (
+                    <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
+                      <Feather name="check" size={12} color="#5A4A42" />
+                    </View>
+                  ) : null}
+                </Pressable>
+
+                <Pressable
+                  onPress={() => handleAppThemeChange("coral")}
+                  style={({ pressed }) => [
+                    styles.themeOption,
+                    {
+                      borderColor: appTheme === "coral" ? "#FF6B4A" : theme.border,
+                      borderWidth: appTheme === "coral" ? 3 : 1,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.themePreview}>
+                    <View style={[styles.themePreviewTop, { backgroundColor: "#FFB8D0" }]} />
+                    <View style={styles.themePreviewBottom}>
+                      <View style={[styles.themePreviewCard, { backgroundColor: "#FF6B4A" }]} />
+                      <View style={[styles.themePreviewCard, { backgroundColor: "#4CAF50" }]} />
+                    </View>
+                  </View>
+                  <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "coral" ? "700" : "400" }}>
+                    Coral
+                  </ThemedText>
+                  {appTheme === "coral" ? (
+                    <View style={[styles.checkBadge, { backgroundColor: "#FF6B4A" }]}>
+                      <Feather name="check" size={12} color="#FFFFFF" />
+                    </View>
+                  ) : null}
+                </Pressable>
+              </View>
+            </View>
+          </Animated.View>
+          <View style={[styles.divider, { backgroundColor: theme.border, marginLeft: 0 }]} />
           <SettingsItem
             icon={isDark ? "moon" : "sun"}
             title="Dark Mode"
@@ -448,5 +518,53 @@ const styles = StyleSheet.create({
   },
   footerText: {
     textAlign: "center",
+  },
+  themePickerContainer: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+  },
+  themePickerLabel: {
+    fontWeight: "500",
+  },
+  themePicker: {
+    flexDirection: "row",
+    gap: Spacing.md,
+  },
+  themeOption: {
+    flex: 1,
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    alignItems: "center",
+    gap: Spacing.sm,
+    position: "relative",
+  },
+  themePreview: {
+    width: "100%",
+    height: 80,
+    borderRadius: BorderRadius.md,
+    overflow: "hidden",
+  },
+  themePreviewTop: {
+    height: 30,
+  },
+  themePreviewBottom: {
+    flex: 1,
+    flexDirection: "row",
+    padding: Spacing.xs,
+    gap: Spacing.xs,
+  },
+  themePreviewCard: {
+    flex: 1,
+    borderRadius: BorderRadius.sm,
+  },
+  checkBadge: {
+    position: "absolute",
+    top: Spacing.sm,
+    right: Spacing.sm,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

@@ -115,25 +115,14 @@ function MoodCard({ type, icon, title, onPress, delay, disabled }: MoodCardProps
           animatedStyle,
         ]}
       >
-        {isVent ? (
-          <LinearGradient
-            colors={["#FFB3C6", "#FF8FAB"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientCard}
-          >
-            {cardContent}
-          </LinearGradient>
-        ) : (
-          <LinearGradient
-            colors={["#A8E6CF", "#7DD3B8"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.gradientCard}
-          >
-            {cardContent}
-          </LinearGradient>
-        )}
+        <LinearGradient
+          colors={isVent ? theme.ventGradient : theme.listenGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientCard}
+        >
+          {cardContent}
+        </LinearGradient>
       </AnimatedPressable>
     </Animated.View>
   );
