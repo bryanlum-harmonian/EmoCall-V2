@@ -39,7 +39,15 @@ The app follows a strict linear flow designed for speed and anonymity:
 - **ORM:** Drizzle ORM with PostgreSQL dialect
 - **Schema Location:** `shared/schema.ts` - shared between client and server
 - **Migrations:** Drizzle Kit (`drizzle-kit push`)
-- **Current Storage:** In-memory storage adapter (`server/storage.ts`) with interface ready for database migration
+- **Storage:** PostgreSQL database with full persistence via `server/storage.ts`
+
+### Database Tables
+- **sessions** - Anonymous user sessions with credits, karma, daily matches, premium status
+- **calls** - Call history between users
+- **credit_transactions** - Credit purchase and spend history
+- **karma_transactions** - Karma award history
+- **reports** - User reports for moderation
+- **matchmaking_queue** - Real-time queue for Vent/Listen matching
 
 ### Build System
 - **Development:** Dual-process (Expo Metro bundler + Express server)
@@ -50,7 +58,8 @@ The app follows a strict linear flow designed for speed and anonymity:
 
 ### Voice/Real-Time Communication
 - Voice calling functionality planned (business plan references Agora Audio at RM 0.0045/min)
-- WebSocket support via `ws` package (likely for matchmaking/signaling)
+- WebSocket server on `/ws` path for real-time matchmaking and call signaling
+- Supports: join queue, find match, call accept/reject, call end events
 
 ### Mobile Platform Services
 - **expo-haptics** - Tactile feedback for interactions
@@ -67,8 +76,13 @@ The app follows a strict linear flow designed for speed and anonymity:
 ### Typography
 - **@expo-google-fonts/nunito** - Custom font loading
 
+### Session Management
+- **SessionContext** (`client/contexts/SessionContext.tsx`) - Creates and manages anonymous session, persists device ID via AsyncStorage
+- Sessions are created automatically on first app launch with unique device ID
+- Terms acceptance is tracked server-side and persisted across app restarts
+
 ### Monetization System (Credits-Based)
-- **CreditsContext** (`client/contexts/CreditsContext.tsx`) - Manages credits balance, premium status, gender preference, daily matches, priority tokens
+- **CreditsContext** (`client/contexts/CreditsContext.tsx`) - Syncs with backend APIs for credits, daily matches, premium status
 - **CreditsStoreModal** (`client/components/CreditsStoreModal.tsx`) - Purchase credits packages with Time Bank display
 
 **Credit Packages (USD):**
@@ -103,7 +117,7 @@ The app follows a strict linear flow designed for speed and anonymity:
 Note: Payment processing uses mock purchases (UI complete, Stripe integration needed for production)
 
 ### Karma Points System
-- **KarmaContext** (`client/contexts/KarmaContext.tsx`) - Tracks karma points and levels
+- **KarmaContext** (`client/contexts/KarmaContext.tsx`) - Syncs with backend APIs for karma tracking
 
 **Karma Levels:**
 1. New Soul (0+ karma)
@@ -126,3 +140,41 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 ### Development Tools
 - **ESLint** with Expo config + Prettier integration
 - **TypeScript** strict mode enabled
+
+## API Endpoints
+
+### Session APIs
+- `POST /api/sessions` - Create or retrieve anonymous session by device ID
+- `GET /api/sessions/:id` - Get session details
+- `POST /api/sessions/:id/accept-terms` - Accept terms and conditions
+
+### Credits APIs
+- `GET /api/credits/packages` - List available credit packages
+- `POST /api/sessions/:id/credits/purchase` - Purchase credits (mock, needs Stripe)
+- `POST /api/sessions/:id/credits/shuffle` - Spend 100 credits to refresh cards
+
+### Daily Matches APIs
+- `POST /api/sessions/:id/matches/use` - Use one daily match
+- `POST /api/sessions/:id/matches/refill` - Refill daily matches ($0.99)
+
+### Karma APIs
+- `GET /api/karma/levels` - List karma levels
+- `GET /api/sessions/:id/karma` - Get session karma with level info
+- `POST /api/sessions/:id/karma/award` - Award karma points
+
+### Premium APIs
+- `POST /api/sessions/:id/premium/activate` - Activate premium (mock, needs Stripe)
+- `GET /api/sessions/:id/premium/status` - Check premium status
+- `POST /api/sessions/:id/preferences/gender` - Set gender preference (premium only)
+
+### Reports API
+- `POST /api/reports` - Submit abuse report
+
+### Time Bank API
+- `GET /api/sessions/:id/timebank` - Get time bank balance
+
+## Recent Changes (January 2026)
+- Integrated PostgreSQL database with full schema for sessions, calls, credits, karma
+- Added WebSocket server for real-time matchmaking
+- Connected frontend contexts to backend APIs with full persistence
+- Terms acceptance now persisted server-side
