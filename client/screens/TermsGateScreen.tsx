@@ -100,7 +100,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
 
         <Animated.View entering={FadeInUp.delay(400).duration(500)}>
           <ThemedText type="h1" style={styles.headline}>
-            No Names.{"\n"}No Judgement.{"\n"}Just Talk.
+            Safe Space.{"\n"}Zero Judgment.{"\n"}Let's Talk!
           </ThemedText>
         </Animated.View>
 
@@ -216,7 +216,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
           onPress={handleAccept}
           style={[styles.button, { backgroundColor: theme.primary }]}
         >
-          Agree & Enter
+          Let's Talk!
         </Button>
       </Animated.View>
     </ThemedView>

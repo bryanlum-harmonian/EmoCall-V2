@@ -42,16 +42,16 @@ const springConfig: WithSpringConfig = {
 const CARDS_PER_MOOD = 10;
 
 const CARD_GRADIENTS = [
-  ["#FF6B6B", "#EE5A5A"],
-  ["#4ECDC4", "#3DBDB4"],
-  ["#45B7D1", "#35A7C1"],
-  ["#96CEB4", "#86BEA4"],
-  ["#FFEAA7", "#FED997"],
+  ["#FFB3C6", "#FF8FAB"],
+  ["#A8E6CF", "#7DD3B8"],
+  ["#A8D8EA", "#7BC4DC"],
+  ["#FFD93D", "#FFC000"],
   ["#DDA0DD", "#CD90CD"],
-  ["#FF9F43", "#EE8F33"],
-  ["#6C5CE7", "#5C4CD7"],
-  ["#FD79A8", "#ED6998"],
-  ["#00B894", "#00A884"],
+  ["#FFB347", "#FFA033"],
+  ["#98D8C8", "#7CC4B4"],
+  ["#F7DC6F", "#F4D03F"],
+  ["#BB8FCE", "#A569BD"],
+  ["#85C1E9", "#5DADE2"],
 ];
 
 const CARD_PATTERNS = [
@@ -404,8 +404,8 @@ export default function BlindCardPickerScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Shuffle",
-          onPress: () => {
-            const success = refreshCards();
+          onPress: async () => {
+            const success = await refreshCards();
             if (success) {
               setCards(generateCards());
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
