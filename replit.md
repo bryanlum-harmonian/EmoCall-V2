@@ -68,20 +68,22 @@ The app follows a strict linear flow designed for speed and anonymity:
 - **@expo-google-fonts/nunito** - Custom font loading
 
 ### Monetization System (Credits-Based)
-- **CreditsContext** (`client/contexts/CreditsContext.tsx`) - Manages credits balance, premium status, gender preference
-- **CreditsStoreModal** (`client/components/CreditsStoreModal.tsx`) - Purchase credits packages
+- **CreditsContext** (`client/contexts/CreditsContext.tsx`) - Manages credits balance, premium status, gender preference, daily matches, priority tokens
+- **CreditsStoreModal** (`client/components/CreditsStoreModal.tsx`) - Purchase credits packages with Time Bank display
 
 **Credit Packages (USD):**
-- $1 = 100 credits
-- $2 = 200 credits
-- $5 = 500 credits (+50 bonus)
-- $10 = 1000 credits (+150 bonus)
-- $20 = 2000 credits (+400 bonus)
+- Starter Pack: $0.99 = 250 credits
+- Weekender Pack: $4.99 = 1,500 credits
+- Power User Pack: $9.99 = 3,500 credits
 
 **Credit Usage:**
-- Refresh daily cards: 100 credits ($1)
-- Call extensions: 50-350 credits (5-60 minutes)
-- Unused extension time refunded as credits when call ends early
+- Shuffle new deck (refresh cards): 100 credits
+- Call extensions: 100-450 credits (10-60 minutes)
+- Unused extension time refunded to Time Bank as Priority Tokens
+
+**Daily Matches:**
+- 10 free matches per day
+- $0.99 refill when depleted
 
 **Premium Subscription:** $10/month
 - 200 bonus credits on subscription
@@ -89,12 +91,32 @@ The app follows a strict linear flow designed for speed and anonymity:
 - Priority matching
 
 **Call Extensions:**
-- +5 min: 50 credits
-- +15 min: 120 credits
-- +30 min: 200 credits
-- +60 min: 350 credits
+- +10 min: 100 credits
+- +20 min: 180 credits
+- +30 min: 250 credits
+- +60 min: 450 credits
+
+**Time Bank (Priority Tokens):**
+- Stores refunds from early call endings
+- Displayed in Credits Store modal
 
 Note: Payment processing uses mock purchases (UI complete, Stripe integration needed for production)
+
+### Karma Points System
+- **KarmaContext** (`client/contexts/KarmaContext.tsx`) - Tracks karma points and levels
+
+**Karma Levels:**
+1. New Soul (0+ karma)
+2. Kind Listener (50+ karma)
+3. Empathetic Soul (150+ karma)
+4. Trusted Companion (300+ karma)
+5. Guardian Angel (500+ karma)
+6. Heart of Gold (1000+ karma)
+
+**Karma Rewards:**
+- Complete a call: +10 karma
+- Extend a call: +50 karma
+- Get reported: -25 karma
 
 ### Database
 - **pg** - PostgreSQL client
