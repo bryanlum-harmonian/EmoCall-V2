@@ -1,0 +1,60 @@
+Here is your polished, investor-ready Business Plan. You can copy this into a document or use it as a script for your pitch.
+BUSINESS PLAN: EmoCall
+Slogan: No Names. No Judgement. Just Talk.
+1. The Executive Summary
+EmoCall is an "Emotional Vending Machine"—a mobile app that provides instant, anonymous relief for stress. We connect users in 15 seconds for a strict 5-minute voice call.
+Unlike therapy (expensive) or dating apps (slow/judgemental), EmoCall is frictionless. There is no login, no profile, and no history. We monetize human connection and urgency: the first 5 minutes are free, but users pay a micro-fee to extend the conversation when they bond.
+2. The Problem: "The Emotional Bottleneck"
+ * The Pain: People are lonely, stressed, and angry, but they cannot tell their friends ("Jaga air muka" / Reputation).
+ * The Gap:
+   * Therapy: Too expensive (RM 200/hr) and takes days to book.
+   * Social Media: Too public and risky.
+   * Dating Apps: Too much work (Profile setup, photos, swiping) and full of judgment.
+ * The Result: People have nowhere to "dump" their feelings right now.
+3. The Solution: EmoCall
+A hyper-fast, anonymous voice bridge.
+ * Zero Friction: Download \rightarrow Tick T&C \rightarrow Talk. (15 Seconds total).
+ * Total Anonymity: No Login. No Email. No Names.
+ * The "Blind Box": Users get 10 random matches daily. They don't choose; they just talk.
+ * The "Cliffhanger" Mechanic: Every call is a countdown. At 4:50, the app creates urgency: "Time is almost up! Pay RM 1.90 to keep talking?"
+4. The User Journey (The Hook)
+ * The Mood Check: User opens the app and selects: [ 🗣️ I Need to Vent ] or [ 👂 I Can Listen ].
+ * The Connection: They tap a "Blind Card" and connect instantly via high-quality audio.
+ * The Session (Free): They talk for 5 minutes. No cost.
+ * The Decision (Revenue Trigger):
+   * At 4:50, the screen turns Red.
+   * Action: One person pays RM 1.90.
+   * Reward: The call extends by 10 minutes.
+ * The Safety Net: If the call drops after payment, the money is auto-saved as a "Priority Token" for the next session.
+5. Business Model & Financials
+We operate on a High-Margin Micro-Transaction model.
+Unit Economics (The "Arbitrage")
+We buy server time wholesale and sell it retail.
+ * Cost of Goods (Agora Audio): RM 0.0045 per minute (approx 0.45 sen).
+ * Selling Price: RM 0.19 per minute (RM 1.90 for 10 mins).
+ * Markup: 42x (4,200%).
+Profitability Breakdown
+ * Revenue per Paid Extension: RM 1.90
+ * Net Revenue (after Apple/Google 15%): RM 1.61
+ * Server Cost for the Call: - RM 0.09
+ * Net Profit: RM 1.52 per transaction.
+> Sustainability: We only need 1 out of 33 users to pay to cover the server costs for everyone. The break-even point is extremely low.
+> 
+6. Viral Growth Strategy
+We do not depend on paid ads. We use "Confession Culture."
+ * Phase 1: The "Tea Spiller" Campaign: Encourage users to record screen videos of "The wildest secret I heard today" (with audio disguised).
+ * Phase 2: The "Missed Connection" Loop: When a call cuts because nobody paid, users can share a "Missed You" card to Instagram/TikTok stories to find their partner.
+ * Phase 3: The University Leaderboard: Rank universities by "Vent Time" (e.g., UiTM vs Taylor's) to trigger tribal competition.
+7. Risk Mitigation & Safety
+Since we are anonymous, safety is our top priority to comply with Malaysian laws (MCMC).
+ * No Login, But Traceable: We track unique Device IDs (Hardware UUID).
+ * The "Kill Switch":
+   * Harassment: If a user is reported, their Device ID is banned instantly.
+   * Scams: If a paid call ends in <60 seconds, we auto-refund the payer to disincentivize scammers.
+ * Legal Shield: Mandatory "Agree & Enter" gate where users confirm they are 18+ and acknowledge that illegal acts will be reported to PDRM.
+8. The Vision
+EmoCall is just the entry point.
+ * Now: Capture the "Urgent Stress" market (High Volume).
+ * Next: Funnel users into Harmonian AI (Subscription ecosystem) for long-term mental wellness tools.
+Closing Statement for Pitch:
+"We are building the Uber for emotions. When you are hungry, you open Grab. When you are lonely or stressed, you open EmoCall. It is fast, it is cheap, and it solves a universal human problem."
