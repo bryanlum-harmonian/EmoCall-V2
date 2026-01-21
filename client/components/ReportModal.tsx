@@ -225,7 +225,7 @@ export function ReportModal({
                 },
               ]}
             >
-              <ThemedText type="button" style={{ color: theme.text }}>
+              <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
                 Cancel
               </ThemedText>
             </Pressable>
@@ -242,13 +242,13 @@ export function ReportModal({
               ]}
             >
               {isSubmitting ? (
-                <ThemedText type="button" style={{ color: "#FFFFFF" }}>
+                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
                   Submitting...
                 </ThemedText>
               ) : (
                 <>
                   <Feather name="send" size={16} color="#FFFFFF" />
-                  <ThemedText type="button" style={{ color: "#FFFFFF" }}>
+                  <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
                     Submit Report
                   </ThemedText>
                 </>

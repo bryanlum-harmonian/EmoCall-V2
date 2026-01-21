@@ -92,7 +92,9 @@ export const reports = pgTable("reports", {
   reporterSessionId: varchar("reporter_session_id").notNull(),
   reportedSessionId: varchar("reported_session_id"),
   callId: varchar("call_id"),
-  reason: text("reason"),
+  reasons: text("reasons").array(), // Array of reason IDs
+  otherReason: text("other_reason"), // Custom text from "Other" option
+  reason: text("reason"), // Legacy field, keeping for backwards compatibility
   status: text("status").notNull().default("pending"), // pending, reviewed, resolved
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
 });
