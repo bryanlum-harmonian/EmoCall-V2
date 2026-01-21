@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { View, StyleSheet, Pressable, Modal, Dimensions } from "react-native";
+import { View, StyleSheet, Pressable, Modal, Dimensions, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,7 +7,6 @@ import { Feather } from "@expo/vector-icons";
 import Animated, {
   FadeIn,
   FadeInUp,
-  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -16,7 +15,6 @@ import Animated, {
   withTiming,
   Easing,
   cancelAnimation,
-  runOnJS,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -24,26 +22,32 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const INITIAL_TIME = 300; // 5 minutes in seconds
-const WARNING_TIME = 10; // Last 10 seconds warning
-const EXTENDED_TIME = 600; // 10 more minutes
+const INITIAL_TIME = 300;
+const WARNING_TIME = 10;
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-interface PaymentModalProps {
+interface ExtensionModalProps {
   visible: boolean;
-  onPay: () => void;
+  onSelectExtension: (extensionId: string) => void;
   onEndCall: () => void;
   timeLeft: number;
+  credits: number;
 }
 
-function PaymentModal({ visible, onPay, onEndCall, timeLeft }: PaymentModalProps) {
+function ExtensionModal({ 
+  visible, 
+  onSelectExtension, 
+  onEndCall, 
+  timeLeft,
+  credits,
+}: ExtensionModalProps) {
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets();
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -62,38 +66,89 @@ function PaymentModal({ visible, onPay, onEndCall, timeLeft }: PaymentModalProps
           </View>
 
           <ThemedText type="h2" style={styles.modalTitle}>
-            Keep Talking?
+            Extend Your Call?
           </ThemedText>
           
           <ThemedText
             type="body"
             style={[styles.modalDescription, { color: theme.textSecondary }]}
           >
-            Extend by 10 minutes for RM 1.90
+            Choose how long you want to continue talking
           </ThemedText>
 
-          <View style={styles.modalButtons}>
-            <Button
-              onPress={onPay}
-              style={[styles.payButton, { backgroundColor: theme.primary }]}
-            >
-              Pay & Continue
-            </Button>
-            <Pressable
-              onPress={onEndCall}
-              style={({ pressed }) => [
-                styles.endCallButton,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <ThemedText
-                type="body"
-                style={[styles.endCallText, { color: theme.textSecondary }]}
-              >
-                End Call
-              </ThemedText>
-            </Pressable>
+          <View style={styles.creditsBalance}>
+            <Feather name="zap" size={16} color={theme.primary} />
+            <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
+              {credits} credits available
+            </ThemedText>
           </View>
+
+          <ScrollView 
+            style={styles.extensionsList}
+            showsVerticalScrollIndicator={false}
+          >
+            {CALL_EXTENSIONS.map((ext) => {
+              const canAfford = credits >= ext.cost;
+              return (
+                <Pressable
+                  key={ext.id}
+                  onPress={() => canAfford && onSelectExtension(ext.id)}
+                  disabled={!canAfford}
+                  style={({ pressed }) => [
+                    styles.extensionOption,
+                    {
+                      backgroundColor: canAfford 
+                        ? (pressed ? `${theme.primary}15` : theme.backgroundSecondary)
+                        : theme.backgroundSecondary,
+                      borderColor: canAfford ? theme.primary : theme.border,
+                      opacity: canAfford ? (pressed ? 0.9 : 1) : 0.5,
+                    },
+                  ]}
+                >
+                  <View style={styles.extensionInfo}>
+                    <ThemedText type="h4" style={{ color: canAfford ? theme.text : theme.textDisabled }}>
+                      +{ext.minutes} minutes
+                    </ThemedText>
+                    <ThemedText 
+                      type="small" 
+                      style={{ color: canAfford ? theme.textSecondary : theme.textDisabled }}
+                    >
+                      {ext.cost} credits
+                    </ThemedText>
+                  </View>
+                  {canAfford ? (
+                    <Feather name="chevron-right" size={20} color={theme.primary} />
+                  ) : (
+                    <ThemedText type="small" style={{ color: theme.textDisabled }}>
+                      Need more
+                    </ThemedText>
+                  )}
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <ThemedText
+            type="small"
+            style={[styles.refundNote, { color: theme.textSecondary }]}
+          >
+            Unused time will be refunded as credits if call ends early
+          </ThemedText>
+
+          <Pressable
+            onPress={onEndCall}
+            style={({ pressed }) => [
+              styles.endCallButton,
+              { opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <ThemedText
+              type="body"
+              style={[styles.endCallText, { color: theme.textSecondary }]}
+            >
+              End Call Instead
+            </ThemedText>
+          </Pressable>
         </Animated.View>
       </View>
     </Modal>
@@ -165,14 +220,17 @@ function ControlButton({
 export default function ActiveCallScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
 
   const [timeRemaining, setTimeRemaining] = useState(INITIAL_TIME);
   const [isMuted, setIsMuted] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [isConnecting, setIsConnecting] = useState(true);
   const [hasExtended, setHasExtended] = useState(false);
+  const [currentExtension, setCurrentExtension] = useState<string | null>(null);
+  const [extensionStartTime, setExtensionStartTime] = useState<number | null>(null);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -188,7 +246,6 @@ export default function ActiveCallScreen() {
   };
 
   useEffect(() => {
-    // Simulate connection delay
     const connectTimeout = setTimeout(() => {
       setIsConnecting(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -209,7 +266,7 @@ export default function ActiveCallScreen() {
         }
         
         if (prev === WARNING_TIME + 1 && !hasExtended) {
-          setShowPaymentModal(true);
+          setShowExtensionModal(true);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
         
@@ -270,26 +327,45 @@ export default function ActiveCallScreen() {
     setIsMuted(!isMuted);
   };
 
-  const handleEndCall = async () => {
+  const handleEndCall = useCallback(async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    setShowPaymentModal(false);
+    setShowExtensionModal(false);
+
+    if (currentExtension && extensionStartTime !== null) {
+      const ext = CALL_EXTENSIONS.find((e) => e.id === currentExtension);
+      if (ext) {
+        const elapsedMinutes = (Date.now() - extensionStartTime) / 60000;
+        const unusedMinutes = Math.max(0, ext.minutes - elapsedMinutes);
+        if (unusedMinutes > 1) {
+          refundUnusedMinutes(unusedMinutes, currentExtension);
+        }
+      }
+    }
+
     navigation.replace("CallEnded", { reason: "ended" });
-  };
+  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    // In a real app, this would open a report modal
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
     navigation.replace("CallEnded", { reason: "reported" });
   };
 
-  const handlePayment = async () => {
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    setShowPaymentModal(false);
-    setHasExtended(true);
-    setTimeRemaining((prev) => prev + EXTENDED_TIME);
+  const handleSelectExtension = async (extensionId: string) => {
+    const result = purchaseCallExtension(extensionId);
+    if (result.success) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setShowExtensionModal(false);
+      setHasExtended(true);
+      setCurrentExtension(extensionId);
+      setExtensionStartTime(Date.now());
+      setTimeRemaining((prev) => prev + (result.minutes * 60));
+    }
   };
 
   return (
@@ -397,6 +473,15 @@ export default function ActiveCallScreen() {
                 {hasExtended ? "Extended" : "Remaining"}
               </ThemedText>
             </Animated.View>
+
+            {hasExtended ? (
+              <View style={[styles.extendedBadge, { backgroundColor: `${theme.success}20` }]}>
+                <Feather name="check-circle" size={14} color={theme.success} />
+                <ThemedText type="small" style={{ color: theme.success }}>
+                  Call Extended
+                </ThemedText>
+              </View>
+            ) : null}
           </Animated.View>
         )}
       </View>
@@ -422,11 +507,12 @@ export default function ActiveCallScreen() {
         />
       </Animated.View>
 
-      <PaymentModal
-        visible={showPaymentModal}
-        onPay={handlePayment}
+      <ExtensionModal
+        visible={showExtensionModal}
+        onSelectExtension={handleSelectExtension}
         onEndCall={handleEndCall}
         timeLeft={timeRemaining}
+        credits={credits}
       />
     </ThemedView>
   );
@@ -498,6 +584,14 @@ const styles = StyleSheet.create({
     lineHeight: 64,
     letterSpacing: 2,
   },
+  extendedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+  },
   controls: {
     flexDirection: "row",
     justifyContent: "center",
@@ -527,10 +621,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 360,
     borderRadius: BorderRadius["2xl"],
-    padding: Spacing["3xl"],
+    padding: Spacing["2xl"],
     alignItems: "center",
+    maxHeight: "80%",
   },
   modalBadge: {
     flexDirection: "row",
@@ -548,18 +643,39 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     textAlign: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   modalDescription: {
     textAlign: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.lg,
   },
-  modalButtons: {
-    width: "100%",
-    gap: Spacing.md,
+  creditsBalance: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.lg,
   },
-  payButton: {
+  extensionsList: {
     width: "100%",
+    maxHeight: 200,
+  },
+  extensionOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    marginBottom: Spacing.sm,
+  },
+  extensionInfo: {
+    gap: 2,
+  },
+  refundNote: {
+    textAlign: "center",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+    fontStyle: "italic",
   },
   endCallButton: {
     padding: Spacing.md,
