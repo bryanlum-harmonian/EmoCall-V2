@@ -8,7 +8,6 @@ import { useTheme } from "@/hooks/useTheme";
 
 import TermsGateScreen from "@/screens/TermsGateScreen";
 import MoodSelectionScreen from "@/screens/MoodSelectionScreen";
-import BlindCardPickerScreen from "@/screens/BlindCardPickerScreen";
 import ActiveCallScreen from "@/screens/ActiveCallScreen";
 import CallEndedScreen from "@/screens/CallEndedScreen";
 import VibeCheckScreen from "@/screens/VibeCheckScreen";
@@ -17,7 +16,6 @@ import SettingsScreen from "@/screens/SettingsScreen";
 export type RootStackParamList = {
   TermsGate: undefined;
   MoodSelection: undefined;
-  BlindCardPicker: { mood: "vent" | "listen" };
   ActiveCall: { mood: "vent" | "listen"; matchId: string };
   VibeCheck: { callDuration?: number };
   CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left" };
@@ -49,14 +47,6 @@ export default function RootStackNavigator() {
         name="MoodSelection"
         component={MoodSelectionScreen}
         options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="BlindCardPicker"
-        component={BlindCardPickerScreen}
-        options={{
-          headerTitle: "10 Daily Cards",
-          headerBackTitle: "Back",
-        }}
       />
       <Stack.Screen
         name="ActiveCall"

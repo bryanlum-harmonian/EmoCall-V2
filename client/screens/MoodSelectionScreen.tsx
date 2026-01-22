@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, StyleSheet, Pressable, Image, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -10,6 +10,9 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withRepeat,
+  withSequence,
+  withTiming,
   WithSpringConfig,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
@@ -20,6 +23,8 @@ import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
+import { useMatchmaking } from "@/hooks/useMatchmaking";
+import { useSession } from "@/contexts/SessionContext";
 import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext";
 import { useKarma } from "@/contexts/KarmaContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -192,20 +197,87 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
 export default function MoodSelectionScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { credits, isPremium, dailyMatchesLeft, refillMatches } = useCredits();
+  const { session } = useSession();
+  const { credits, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useCredits();
   const { karma, currentLevel } = useKarma();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showRefillModal, setShowRefillModal] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const pulseScale = useSharedValue(1);
 
   const noMatchesLeft = dailyMatchesLeft <= 0;
 
-  const handleMoodSelect = (mood: MoodType) => {
+  const handleMatchFound = useCallback((match: { callId: string; partnerId: string; duration: number }) => {
+    console.log("[MoodSelection] Match found:", match);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setIsSearching(false);
+    const currentMood = selectedMood || "vent";
+    setSelectedMood(null);
+    // Use replace to prevent going back to this screen with stale state
+    navigation.replace("ActiveCall", { mood: currentMood, matchId: match.callId });
+  }, [navigation, selectedMood]);
+
+  const { state: matchState, matchResult, clearMatchResult, joinQueue, leaveQueue } = useMatchmaking({
+    sessionId: session?.id || null,
+    onMatchFound: handleMatchFound,
+  });
+
+  // Handle match result
+  useEffect(() => {
+    if (matchResult && isSearching) {
+      handleMatchFound(matchResult);
+      clearMatchResult();
+    }
+  }, [matchResult, isSearching, handleMatchFound, clearMatchResult]);
+
+  // Animate search icon
+  useEffect(() => {
+    if (isSearching) {
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.1, { duration: 800 }),
+          withTiming(1, { duration: 800 })
+        ),
+        -1,
+        true
+      );
+    } else {
+      pulseScale.value = withTiming(1, { duration: 200 });
+    }
+  }, [isSearching, pulseScale]);
+
+  const pulseAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
+
+  const handleMoodSelect = async (mood: MoodType) => {
     if (noMatchesLeft) {
       setShowRefillModal(true);
       return;
     }
-    navigation.navigate("BlindCardPicker", { mood });
+    
+    // Use a daily match
+    const matchUsed = await useMatch();
+    if (!matchUsed) {
+      return;
+    }
+    
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedMood(mood);
+    setIsSearching(true);
+    
+    // Join matchmaking with a dummy card ID since cards are removed
+    joinQueue(mood, "direct");
+  };
+
+  const handleCancelSearch = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    leaveQueue();
+    setIsSearching(false);
+    setSelectedMood(null);
   };
 
   const handleSettingsPress = async () => {
@@ -425,6 +497,41 @@ export default function MoodSelectionScreen() {
         }}
         onCancel={() => setShowRefillConfirm(false)}
       />
+
+      <Modal visible={isSearching} transparent animationType="fade">
+        <View style={styles.searchingOverlay}>
+          <Animated.View
+            entering={FadeInUp.duration(300)}
+            style={[styles.searchingCard, { backgroundColor: theme.surface }]}
+          >
+            <Animated.View style={[styles.searchingIconContainer, pulseAnimatedStyle]}>
+              <Feather name="search" size={48} color={theme.primary} />
+            </Animated.View>
+            <ThemedText type="h2" style={{ textAlign: "center", marginTop: Spacing.lg }}>
+              {selectedMood === "vent" ? "Waiting for a Listener..." : "Connecting..."}
+            </ThemedText>
+            <ThemedText 
+              type="body" 
+              style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}
+            >
+              {selectedMood === "vent" 
+                ? "Someone will connect with you soon" 
+                : "Finding someone who needs to talk"}
+            </ThemedText>
+            <Pressable
+              onPress={handleCancelSearch}
+              style={({ pressed }) => [
+                styles.cancelButton,
+                { backgroundColor: theme.error, opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                Cancel
+              </ThemedText>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -607,5 +714,33 @@ const styles = StyleSheet.create({
   waitButton: {
     padding: Spacing.md,
     alignItems: "center",
+  },
+  searchingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  searchingCard: {
+    width: "100%",
+    maxWidth: 320,
+    borderRadius: BorderRadius["2xl"],
+    padding: Spacing["2xl"],
+    alignItems: "center",
+  },
+  searchingIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cancelButton: {
+    width: "100%",
+    paddingVertical: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    marginTop: Spacing.xl,
   },
 });
