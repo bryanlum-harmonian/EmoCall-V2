@@ -349,7 +349,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
       } catch (err) {
         console.log("[Matchmaking] HTTP poll error (will retry):", err);
       }
-    }, 2000); // Check every 2 seconds
+    }, 1000); // Check every 1 second for faster match detection
     
     return () => {
       clearInterval(checkMatchInterval);
