@@ -23,11 +23,10 @@ Preferred communication style: Simple, everyday language.
 ### Screen Flow Architecture
 The app follows a strict linear flow designed for speed and anonymity:
 1. **TermsGateScreen** - Legal compliance gate (18+, T&C acceptance)
-2. **MoodSelectionScreen** - User selects "Vent" or "Listen" mode
-3. **BlindCardPickerScreen** - Random match selection (5 cards per mood, refresh option available)
-4. **ActiveCallScreen** - Enhanced voice call with dual-user display, sound wave animations, in-call credits store, 1-minute fate reminders, and extension modal at 10 seconds
-5. **CallEndedScreen** - Session completion with various end states
-6. **SettingsScreen** - App preferences and dark mode toggle
+2. **MoodSelectionScreen** - User selects "Vent" or "Listen" mode, matchmaking starts immediately with waiting overlay
+3. **ActiveCallScreen** - Enhanced voice call with dual-user display, sound wave animations, in-call credits store, 1-minute fate reminders, and extension modal at 10 seconds
+4. **CallEndedScreen** - Session completion with various end states
+5. **SettingsScreen** - App preferences and dark mode toggle
 
 ### Backend (Express.js)
 - **Runtime:** Node.js with TypeScript (tsx for development, esbuild for production)
@@ -178,10 +177,14 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 - `GET /terms` - Terms of Service page (HTML)
 
 ## Recent Changes (January 2026)
+- **Removed Blind Card Feature**:
+  - Users now tap mood and immediately enter matchmaking
+  - No more card picking - direct "tap mood → wait → connect" flow
+  - Reduced onboarding from 3 taps to 2 taps
+  - BlindCardPickerScreen removed entirely
 - **Simplified Matchmaking System**:
-  - Vent users: Pick a card (just for fun), then wait in pool for a listener
-  - Listen users: Pick a card, instantly connect to any random waiting venter
-  - Cards are decorative only - no matching logic based on cards
+  - Vent users: Tap "I Need to Vent", wait in pool for a listener
+  - Listen users: Tap "I Can Listen", instantly connect to any random waiting venter
   - Removed complex queue position tracking
   - Stale session cleanup: removes disconnected venters before matching
 - **Matchmaking Reliability Improvements**: 
