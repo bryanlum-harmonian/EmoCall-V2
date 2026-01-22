@@ -254,14 +254,24 @@ export default function MoodSelectionScreen() {
   }));
 
   const handleMoodSelect = async (mood: MoodType) => {
+    console.log("[MoodSelection] handleMoodSelect START, mood:", mood);
     if (noMatchesLeft) {
+      console.log("[MoodSelection] No matches left!");
       setShowRefillModal(true);
       return;
     }
     
     // Use a daily match
-    const matchUsed = await useMatch();
-    if (!matchUsed) {
+    console.log("[MoodSelection] Calling useMatch()...");
+    try {
+      const matchUsed = await useMatch();
+      console.log("[MoodSelection] useMatch result:", matchUsed);
+      if (!matchUsed) {
+        console.log("[MoodSelection] useMatch returned false, exiting");
+        return;
+      }
+    } catch (err) {
+      console.error("[MoodSelection] useMatch threw error:", err);
       return;
     }
     
@@ -270,7 +280,9 @@ export default function MoodSelectionScreen() {
     setIsSearching(true);
     
     // Join matchmaking queue
+    console.log("[MoodSelection] About to call joinQueue with:", mood);
     joinQueue(mood, "direct");
+    console.log("[MoodSelection] joinQueue called");
   };
 
   const handleCancelSearch = async () => {

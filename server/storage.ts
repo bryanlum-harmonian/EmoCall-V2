@@ -297,57 +297,41 @@ export async function findMatch(
   return null;
 }
 
-// Find any waiting Venter who has an active WebSocket connection
+// Find any waiting Venter in the queue
+// Note: We no longer require active WebSocket - match will be delivered via HTTP polling
 export async function findWaitingVenter(
   activeConnections: Map<string, { readyState: number }>
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  // Get all venters waiting in queue, prioritized by priority then join time
-  const venters = await db.query.matchmakingQueue.findMany({
+  // Get the first venter waiting in queue, prioritized by priority then join time
+  const venter = await db.query.matchmakingQueue.findFirst({
     where: eq(matchmakingQueue.mood, "vent"),
     orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
   });
 
-  // Find first venter with active WebSocket connection
-  for (const venter of venters) {
-    const ws = activeConnections.get(venter.sessionId);
-    // WebSocket.OPEN = 1
-    if (ws && ws.readyState === 1) {
-      // Remove from queue
-      await leaveQueue(venter.sessionId);
-      return { sessionId: venter.sessionId, cardId: venter.cardId };
-    } else {
-      // Remove stale entry
-      console.log("[Storage] Removing stale venter from queue:", venter.sessionId);
-      await leaveQueue(venter.sessionId);
-    }
+  if (venter) {
+    // Remove from queue
+    await leaveQueue(venter.sessionId);
+    return { sessionId: venter.sessionId, cardId: venter.cardId };
   }
 
   return null;
 }
 
-// Find any waiting Listener who has an active WebSocket connection
+// Find any waiting Listener in the queue
+// Note: We no longer require active WebSocket - match will be delivered via HTTP polling
 export async function findWaitingListener(
   activeConnections: Map<string, { readyState: number }>
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  // Get all listeners waiting in queue, prioritized by priority then join time
-  const listeners = await db.query.matchmakingQueue.findMany({
+  // Get the first listener waiting in queue, prioritized by priority then join time
+  const listener = await db.query.matchmakingQueue.findFirst({
     where: eq(matchmakingQueue.mood, "listen"),
     orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
   });
 
-  // Find first listener with active WebSocket connection
-  for (const listener of listeners) {
-    const ws = activeConnections.get(listener.sessionId);
-    // WebSocket.OPEN = 1
-    if (ws && ws.readyState === 1) {
-      // Remove from queue
-      await leaveQueue(listener.sessionId);
-      return { sessionId: listener.sessionId, cardId: listener.cardId };
-    } else {
-      // Remove stale entry
-      console.log("[Storage] Removing stale listener from queue:", listener.sessionId);
-      await leaveQueue(listener.sessionId);
-    }
+  if (listener) {
+    // Remove from queue
+    await leaveQueue(listener.sessionId);
+    return { sessionId: listener.sessionId, cardId: listener.cardId };
   }
 
   return null;
