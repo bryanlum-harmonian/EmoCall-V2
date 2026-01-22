@@ -5,6 +5,7 @@ import { getApiUrl } from "@/lib/query-client";
 interface AgoraConfig {
   channelName: string;
   uid?: number;
+  onRemoteUserLeft?: () => void;
 }
 
 interface UseAgoraVoiceReturn {
@@ -12,6 +13,7 @@ interface UseAgoraVoiceReturn {
   isConnecting: boolean;
   isMuted: boolean;
   remoteUserJoined: boolean;
+  remoteUserLeft: boolean;
   error: string | null;
   join: () => Promise<void>;
   leave: () => Promise<void>;
@@ -45,7 +47,10 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [remoteUserJoined, setRemoteUserJoined] = useState(false);
+  const [remoteUserLeft, setRemoteUserLeft] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const onRemoteUserLeftRef = useRef(config.onRemoteUserLeft);
 
   const clientRef = useRef<any>(null);
   const localAudioTrackRef = useRef<any>(null);
@@ -132,6 +137,11 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       client.on("user-left", (user: any) => {
         console.log("[Agora] Remote user left:", user?.uid);
         setRemoteUserJoined(false);
+        setRemoteUserLeft(true);
+        if (onRemoteUserLeftRef.current) {
+          console.log("[Agora] Calling onRemoteUserLeft callback");
+          onRemoteUserLeftRef.current();
+        }
       });
 
       console.log("[Agora] Joining channel:", config.channelName);
@@ -196,11 +206,16 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
     };
   }, []);
 
+  useEffect(() => {
+    onRemoteUserLeftRef.current = config.onRemoteUserLeft;
+  }, [config.onRemoteUserLeft]);
+
   return {
     isConnected,
     isConnecting,
     isMuted,
     remoteUserJoined,
+    remoteUserLeft,
     error,
     join,
     leave,
