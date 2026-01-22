@@ -245,6 +245,22 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     };
   }, [sessionId, connect]);
 
+  // Poll for match while in queue (fallback for WebSocket message delivery issues)
+  useEffect(() => {
+    if (state !== "in_queue") return;
+    
+    const checkMatchInterval = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN && stateRef.current === "in_queue") {
+        console.log("[Matchmaking] Polling for match...");
+        wsRef.current.send(JSON.stringify({ type: "check_match" }));
+      }
+    }, 3000); // Check every 3 seconds
+    
+    return () => {
+      clearInterval(checkMatchInterval);
+    };
+  }, [state]);
+
   return {
     state,
     queuePosition,

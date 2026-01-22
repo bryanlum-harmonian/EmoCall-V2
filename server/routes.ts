@@ -47,6 +47,8 @@ import {
 const activeConnections = new Map<string, WebSocket>();
 // Active calls tracking
 const activeCalls = new Map<string, { callId: string; partnerId: string; endTime: number }>();
+// Pending matches for users who weren't connected when match was found
+const pendingMatches = new Map<string, { callId: string; partnerId: string; duration: number }>();
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -56,6 +58,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     let sessionId: string | null = null;
+    let pingInterval: NodeJS.Timeout | null = null;
+    
+    // Keep connection alive with ping/pong
+    pingInterval = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.ping();
+      }
+    }, 30000); // Ping every 30 seconds
+    
+    ws.on("pong", () => {
+      // Connection is alive
+    });
     
     ws.on("message", async (data: RawData) => {
       try {
@@ -65,8 +79,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case "register":
             sessionId = message.sessionId;
             if (sessionId) {
-              console.log("[WS] Registering session:", sessionId);
+              console.log("[WS] Registering session:", sessionId, "- Total active connections:", activeConnections.size + 1);
+              // Close any existing connection for this session
+              const existingWs = activeConnections.get(sessionId);
+              if (existingWs && existingWs !== ws && existingWs.readyState === WebSocket.OPEN) {
+                console.log("[WS] Closing existing connection for session:", sessionId);
+                existingWs.close();
+              }
               activeConnections.set(sessionId, ws);
+              
+              // Check for pending matches
+              const pendingMatch = pendingMatches.get(sessionId);
+              if (pendingMatch) {
+                console.log("[WS] Found pending match for session:", sessionId, "callId:", pendingMatch.callId);
+                ws.send(JSON.stringify({
+                  type: "match_found",
+                  callId: pendingMatch.callId,
+                  partnerId: pendingMatch.partnerId,
+                  duration: pendingMatch.duration,
+                }));
+                pendingMatches.delete(sessionId);
+              }
             }
             break;
             
@@ -98,6 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Notify both users
                 console.log("[WS] Match found! Notifying session:", sessionId, "and partner:", match.sessionId);
+                console.log("[WS] Active connections:", Array.from(activeConnections.keys()).join(", "));
                 ws.send(JSON.stringify({
                   type: "match_found",
                   callId: call.id,
@@ -107,7 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log("[WS] Sent match_found to current user:", sessionId);
                 
                 const partnerWs = activeConnections.get(match.sessionId);
-                console.log("[WS] Partner WebSocket lookup for:", match.sessionId, "found:", !!partnerWs, "state:", partnerWs?.readyState);
+                console.log("[WS] Partner WebSocket lookup for:", match.sessionId, "found:", !!partnerWs, "state:", partnerWs?.readyState, "OPEN:", WebSocket.OPEN);
                 if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
                   partnerWs.send(JSON.stringify({
                     type: "match_found",
@@ -117,7 +151,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }));
                   console.log("[WS] Sent match_found to partner:", match.sessionId);
                 } else {
-                  console.log("[WS] WARNING: Could not send match_found to partner - WebSocket not available");
+                  console.log("[WS] WARNING: Could not send match_found to partner - storing as pending match");
+                  // Store pending match so partner gets it when they reconnect
+                  pendingMatches.set(match.sessionId, {
+                    callId: call.id,
+                    partnerId: sessionId,
+                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  });
                 }
               } else {
                 // Send queue position
@@ -130,6 +170,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case "leave_queue":
             if (sessionId) {
               await leaveQueue(sessionId);
+            }
+            break;
+          
+          case "check_match":
+            // Allow clients to poll for pending matches
+            if (sessionId) {
+              const pendingMatch = pendingMatches.get(sessionId);
+              if (pendingMatch) {
+                console.log("[WS] Sending pending match to session:", sessionId);
+                ws.send(JSON.stringify({
+                  type: "match_found",
+                  callId: pendingMatch.callId,
+                  partnerId: pendingMatch.partnerId,
+                  duration: pendingMatch.duration,
+                }));
+                pendingMatches.delete(sessionId);
+              } else {
+                // Check if already in an active call
+                const activeCall = activeCalls.get(sessionId);
+                if (activeCall) {
+                  ws.send(JSON.stringify({
+                    type: "match_found",
+                    callId: activeCall.callId,
+                    partnerId: activeCall.partnerId,
+                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  }));
+                }
+              }
             }
             break;
             
@@ -210,13 +278,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     ws.on("close", async () => {
+      // Clear ping interval
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
       if (sessionId) {
+        console.log("[WS] Connection closed for session:", sessionId);
         // Only delete from activeConnections if THIS websocket is the current one
         // This prevents race condition when a new connection registers before old one closes
         const currentWs = activeConnections.get(sessionId);
         if (currentWs === ws) {
           activeConnections.delete(sessionId);
-          await leaveQueue(sessionId);
+          // Don't leave queue on disconnect - they may reconnect
+          // await leaveQueue(sessionId);
           
           // Handle disconnection during call
           const activeCall = activeCalls.get(sessionId);
@@ -238,6 +314,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         // If currentWs !== ws, a new connection has already replaced this one, so don't cleanup
       }
+    });
+    
+    ws.on("error", (error) => {
+      console.error("[WS] WebSocket error:", error);
     });
   });
 
