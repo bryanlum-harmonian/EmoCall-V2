@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { View, StyleSheet, Pressable, Image, Dimensions, Alert } from "react-native";
+import { View, StyleSheet, Pressable, Image, Dimensions, Alert, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -431,13 +431,18 @@ export default function BlindCardPickerScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[
-        styles.content,
-        {
-          paddingTop: headerHeight + Spacing.lg,
-          paddingBottom: insets.bottom + Spacing.xl,
-        }
-      ]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.content,
+          {
+            paddingTop: headerHeight + Spacing.lg,
+            paddingBottom: insets.bottom + Spacing.xl,
+          }
+        ]}
+        showsVerticalScrollIndicator={false}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+      >
         <Animated.View entering={FadeIn.duration(400)} style={styles.listHeader}>
           <View style={styles.headerRow}>
             <View style={[styles.deckBadge, { backgroundColor: theme.backgroundSecondary }]}>
@@ -474,7 +479,7 @@ export default function BlindCardPickerScreen() {
             />
           ))}
         </View>
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -483,8 +488,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  content: {
     paddingHorizontal: Spacing.lg,
   },
   listHeader: {
