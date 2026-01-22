@@ -472,11 +472,33 @@ export default function ActiveCallScreen() {
     isConnecting: isVoiceConnecting,
     isMuted,
     remoteUserJoined,
+    remoteUserLeft,
     error: voiceError,
     join: joinVoice,
     leave: leaveVoice,
     toggleMute,
-  } = useAgoraVoice({ channelName: matchId });
+  } = useAgoraVoice({ 
+    channelName: matchId,
+  });
+
+  const hasEndedRef = useRef(false);
+
+  useEffect(() => {
+    if (remoteUserLeft && !hasEndedRef.current) {
+      console.log("[ActiveCall] Detected partner left Agora channel - ending call");
+      hasEndedRef.current = true;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (speakingRef.current) {
+        clearInterval(speakingRef.current);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      leaveVoice().then(() => {
+        navigation.replace("CallEnded", { reason: "partner_left" });
+      });
+    }
+  }, [remoteUserLeft, leaveVoice, navigation]);
 
   const [timeRemaining, setTimeRemaining] = useState(INITIAL_TIME);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
@@ -503,8 +525,9 @@ export default function ActiveCallScreen() {
   });
 
   useEffect(() => {
-    if (callEndedByPartner) {
-      console.log("[ActiveCall] Partner ended call (via state), reason:", callEndedByPartner);
+    if (callEndedByPartner && !hasEndedRef.current) {
+      console.log("[ActiveCall] Partner ended call (via WebSocket), reason:", callEndedByPartner);
+      hasEndedRef.current = true;
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
@@ -653,7 +676,12 @@ export default function ActiveCallScreen() {
   };
 
   const handleEndCall = useCallback(async () => {
+    if (hasEndedRef.current) {
+      console.log("[ActiveCall] handleEndCall called but call already ended");
+      return;
+    }
     console.log("[ActiveCall] handleEndCall triggered, timeRemaining:", timeRemaining);
+    hasEndedRef.current = true;
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     if (timerRef.current) {
       clearInterval(timerRef.current);
