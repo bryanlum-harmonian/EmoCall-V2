@@ -430,6 +430,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===============================
+  // Pending Match API (for polling when WebSocket is unreliable)
+  // ===============================
+  
+  // Check for pending match (mobile fallback when WebSocket disconnects)
+  app.get("/api/sessions/:id/pending-match", async (req: SessionRequest, res: Response) => {
+    try {
+      const sessionId = req.params.id;
+      
+      // Check pending matches map
+      const pendingMatch = pendingMatches.get(sessionId);
+      if (pendingMatch) {
+        console.log("[API] Found pending match for session:", sessionId);
+        pendingMatches.delete(sessionId);
+        return res.json({
+          hasMatch: true,
+          callId: pendingMatch.callId,
+          partnerId: pendingMatch.partnerId,
+          duration: pendingMatch.duration,
+        });
+      }
+      
+      // Also check if session is already in an active call
+      const activeCall = activeCalls.get(sessionId);
+      if (activeCall) {
+        console.log("[API] Session already in active call:", sessionId);
+        return res.json({
+          hasMatch: true,
+          callId: activeCall.callId,
+          partnerId: activeCall.partnerId,
+          duration: Math.floor((activeCall.endTime - Date.now()) / 1000),
+        });
+      }
+      
+      res.json({ hasMatch: false });
+    } catch (error) {
+      console.error("Error checking pending match:", error);
+      res.status(500).json({ error: "Failed to check pending match" });
+    }
+  });
+
+  // ===============================
   // Daily Matches APIs
   // ===============================
   

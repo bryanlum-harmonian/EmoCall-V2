@@ -304,21 +304,50 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     };
   }, [sessionId, connect]);
 
-  // Poll for match while in queue (fallback for WebSocket message delivery issues)
+  // Poll for match while in queue (HTTP fallback for unreliable WebSocket on mobile)
   useEffect(() => {
-    if (state !== "in_queue") return;
+    if (state !== "in_queue" || !sessionId) return;
     
-    const checkMatchInterval = setInterval(() => {
-      if (wsRef.current?.readyState === WebSocket.OPEN && stateRef.current === "in_queue") {
-        console.log("[Matchmaking] Polling for match...");
+    const checkMatchInterval = setInterval(async () => {
+      if (stateRef.current !== "in_queue") return;
+      
+      // First try WebSocket if connected
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log("[Matchmaking] Polling via WebSocket...");
         wsRef.current.send(JSON.stringify({ type: "check_match" }));
       }
-    }, 3000); // Check every 3 seconds
+      
+      // Also poll HTTP API as a fallback (more reliable on mobile)
+      try {
+        const apiUrl = getApiUrl();
+        const response = await fetch(`${apiUrl}/api/sessions/${sessionId}/pending-match`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.hasMatch && stateRef.current === "in_queue") {
+            console.log("[Matchmaking] HTTP poll found match! callId:", data.callId);
+            currentQueueRef.current = null;
+            const match = {
+              callId: data.callId,
+              partnerId: data.partnerId,
+              duration: data.duration,
+            };
+            setState("matched");
+            setQueuePosition(null);
+            setMatchResult(match);
+            if (onMatchFoundRef.current) {
+              onMatchFoundRef.current(match);
+            }
+          }
+        }
+      } catch (err) {
+        console.log("[Matchmaking] HTTP poll error (will retry):", err);
+      }
+    }, 2000); // Check every 2 seconds
     
     return () => {
       clearInterval(checkMatchInterval);
     };
-  }, [state]);
+  }, [state, sessionId]);
 
   return {
     state,
