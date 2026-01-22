@@ -342,14 +342,14 @@ export default function BlindCardPickerScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
-  const { credits, isPremium, preferredGender, refreshCards, useMatch } = useCredits();
+  const { credits, dailyMatchesLeft, isPremium, preferredGender, refreshCards, useMatch } = useCredits();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "BlindCardPicker">>();
   const mood = route.params?.mood || "vent";
 
-  const generateCards = useCallback(() => {
+  const generateCards = useCallback((cardCount: number) => {
     const genders: ("male" | "female" | "any")[] = ["male", "female", "any"];
-    return Array.from({ length: CARDS_PER_MOOD }, (_, i) => ({
+    return Array.from({ length: cardCount }, (_, i) => ({
       id: `card-${mood}-${i + 1}-${Date.now()}`,
       number: i + 1,
       isUsed: false,
@@ -362,7 +362,7 @@ export default function BlindCardPickerScreen() {
     }));
   }, [mood, isPremium, preferredGender]);
 
-  const [cards, setCards] = useState<BlindCardData[]>(generateCards);
+  const [cards, setCards] = useState<BlindCardData[]>(() => generateCards(dailyMatchesLeft));
 
   const availableCards = cards.filter((card) => !card.isUsed);
   const canRefresh = credits >= REFRESH_CARDS_COST;
@@ -407,7 +407,7 @@ export default function BlindCardPickerScreen() {
           onPress: async () => {
             const success = await refreshCards();
             if (success) {
-              setCards(generateCards());
+              setCards(generateCards(CARDS_PER_MOOD));
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             }
           },
