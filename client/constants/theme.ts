@@ -30,6 +30,8 @@ export const AppThemes = {
       listen: "#A8E6CF",
       ventGradient: ["#FFB3C6", "#FF8FAB"] as [string, string],
       listenGradient: ["#A8E6CF", "#7DD3B8"] as [string, string],
+      avatarYou: "#FF8574",
+      avatarThem: "#A8E6CF",
     },
     dark: {
       text: "#FFF8E7",
@@ -57,6 +59,8 @@ export const AppThemes = {
       listen: "#A8E6CF",
       ventGradient: ["#FFB3C6", "#FF8FAB"] as [string, string],
       listenGradient: ["#A8E6CF", "#7DD3B8"] as [string, string],
+      avatarYou: "#FF8574",
+      avatarThem: "#A8E6CF",
     },
   },
   coral: {
@@ -86,6 +90,8 @@ export const AppThemes = {
       listen: "#4CAF50",
       ventGradient: ["#FFB8D0", "#FF6B4A"] as [string, string],
       listenGradient: ["#FFD93D", "#4CAF50"] as [string, string],
+      avatarYou: "#FF6B4A",
+      avatarThem: "#4CAF50",
     },
     dark: {
       text: "#FFFFFF",
@@ -113,6 +119,8 @@ export const AppThemes = {
       listen: "#4CAF50",
       ventGradient: ["#FFB8D0", "#FF6B4A"] as [string, string],
       listenGradient: ["#FFD93D", "#4CAF50"] as [string, string],
+      avatarYou: "#FF6B4A",
+      avatarThem: "#4CAF50",
     },
   },
 };

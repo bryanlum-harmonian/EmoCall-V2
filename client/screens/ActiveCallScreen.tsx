@@ -146,7 +146,7 @@ function UserAvatar({ label, isYou = false, isSpeaking, isMuted }: UserAvatarPro
     opacity: glowOpacity.value,
   }));
 
-  const avatarColor = isYou ? theme.primary : theme.success;
+  const avatarColor = isYou ? (theme as any).avatarYou || "#FF8574" : (theme as any).avatarThem || theme.success;
 
   return (
     <View style={styles.userAvatarContainer}>
@@ -351,10 +351,10 @@ function ExtensionModal({
                       onPress={onOpenStore}
                       style={({ pressed }) => [
                         styles.buyCreditsButton,
-                        { backgroundColor: `${theme.primary}20`, opacity: pressed ? 0.7 : 1 }
+                        { backgroundColor: `${theme.primary}30`, opacity: pressed ? 0.7 : 1 }
                       ]}
                     >
-                      <ThemedText type="small" style={{ color: theme.primary, fontWeight: "500" }}>
+                      <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>
                         Get Credits
                       </ThemedText>
                     </Pressable>
