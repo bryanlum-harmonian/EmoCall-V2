@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type { IncomingMessage } from "node:http";
+import { RtcTokenBuilder, RtcRole } from "agora-token";
 
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
@@ -528,6 +529,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting time bank:", error);
       res.status(500).json({ error: "Failed to get time bank" });
+    }
+  });
+
+  // ===============================
+  // Agora Voice Token API
+  // ===============================
+
+  app.post("/api/agora/token", async (req: Request, res: Response) => {
+    try {
+      const { channelName, uid, role } = req.body;
+
+      if (!channelName) {
+        return res.status(400).json({ error: "Channel name is required" });
+      }
+
+      const appId = process.env.AGORA_APP_ID;
+      const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+      if (!appId || !appCertificate) {
+        console.error("Agora credentials not configured");
+        return res.status(500).json({ error: "Voice calling not configured" });
+      }
+
+      const userUid = uid || 0;
+      const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+      const expirationTimeInSeconds = 3600;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+      const token = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channelName,
+        userUid,
+        userRole,
+        privilegeExpiredTs,
+        privilegeExpiredTs
+      );
+
+      res.json({
+        token,
+        appId,
+        channelName,
+        uid: userUid,
+      });
+    } catch (error) {
+      console.error("Error generating Agora token:", error);
+      res.status(500).json({ error: "Failed to generate voice token" });
     }
   });
 
