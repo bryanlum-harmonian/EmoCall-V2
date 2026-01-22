@@ -498,24 +498,27 @@ export default function ActiveCallScreen() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const speakingRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handlePartnerEndedCall = useCallback(async (reason: string) => {
-    console.log("[ActiveCall] Partner ended call, reason:", reason);
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    if (speakingRef.current) {
-      clearInterval(speakingRef.current);
-    }
-    setShowExtensionModal(false);
-    setShowReminderModal(false);
-    await leaveVoice();
-    navigation.replace("CallEnded", { reason: "partner_ended" });
-  }, [leaveVoice, navigation]);
-
-  const { endCall: endCallWs } = useMatchmaking({
+  const { endCall: endCallWs, callEndedByPartner, clearCallEnded } = useMatchmaking({
     sessionId: session?.id || null,
-    onCallEnded: handlePartnerEndedCall,
   });
+
+  useEffect(() => {
+    if (callEndedByPartner) {
+      console.log("[ActiveCall] Partner ended call (via state), reason:", callEndedByPartner);
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (speakingRef.current) {
+        clearInterval(speakingRef.current);
+      }
+      setShowExtensionModal(false);
+      setShowReminderModal(false);
+      clearCallEnded();
+      leaveVoice().then(() => {
+        navigation.replace("CallEnded", { reason: "partner_ended" });
+      });
+    }
+  }, [callEndedByPartner, clearCallEnded, leaveVoice, navigation]);
 
   const isWarningTime = timeRemaining <= WARNING_TIME && !hasExtended;
   const isUrgent = timeRemaining <= WARNING_TIME;
