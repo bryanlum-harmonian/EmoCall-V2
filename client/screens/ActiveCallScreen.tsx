@@ -26,6 +26,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { ReportModal, ReportReasonId } from "@/components/ReportModal";
 import { useTheme } from "@/hooks/useTheme";
+import { useAgoraVoice } from "@/hooks/useAgoraVoice";
 import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
 import { useKarma } from "@/contexts/KarmaContext";
 import { useSession } from "@/contexts/SessionContext";
@@ -462,8 +463,20 @@ export default function ActiveCallScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
 
+  const matchId = route.params?.matchId || "default-channel";
+  
+  const {
+    isConnected: isVoiceConnected,
+    isConnecting: isVoiceConnecting,
+    isMuted,
+    remoteUserJoined,
+    error: voiceError,
+    join: joinVoice,
+    leave: leaveVoice,
+    toggleMute,
+  } = useAgoraVoice({ channelName: matchId });
+
   const [timeRemaining, setTimeRemaining] = useState(INITIAL_TIME);
-  const [isMuted, setIsMuted] = useState(false);
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
@@ -500,6 +513,12 @@ export default function ActiveCallScreen() {
 
     return () => clearTimeout(connectTimeout);
   }, []);
+
+  useEffect(() => {
+    if (!isConnecting) {
+      joinVoice();
+    }
+  }, [isConnecting, joinVoice]);
 
   useEffect(() => {
     if (isConnecting) return;
@@ -606,7 +625,7 @@ export default function ActiveCallScreen() {
 
   const handleMuteToggle = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setIsMuted(!isMuted);
+    toggleMute();
   };
 
   const handleEndCall = useCallback(async () => {
@@ -616,6 +635,8 @@ export default function ActiveCallScreen() {
     }
     setShowExtensionModal(false);
     setShowReminderModal(false);
+
+    await leaveVoice();
 
     if (currentExtension && extensionStartTime !== null) {
       const ext = CALL_EXTENSIONS.find((e) => e.id === currentExtension);
@@ -629,7 +650,7 @@ export default function ActiveCallScreen() {
     }
 
     navigation.replace("VibeCheck", {});
-  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation]);
+  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation, leaveVoice]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
