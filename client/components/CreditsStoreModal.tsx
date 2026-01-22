@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
   Modal,
   Pressable,
   ScrollView,
-  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -13,6 +12,7 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import {
@@ -28,49 +28,69 @@ interface CreditsStoreModalProps {
   onClose: () => void;
 }
 
+interface PurchaseConfirmation {
+  type: "credits" | "premium" | "premium_active";
+  packageId?: string;
+  name?: string;
+  price?: number;
+}
+
 export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { credits, priorityTokens, isPremium, purchasePackage, setPremium } = useCredits();
+  const [confirmation, setConfirmation] = useState<PurchaseConfirmation | null>(null);
 
   const handlePurchase = async (packageId: string, price: number, name: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "Purchase Credits",
-      `Buy ${name} for $${price.toFixed(2)}?\n\nFor this demo, credits will be added for free.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Buy Now",
-          onPress: () => {
-            purchasePackage(packageId);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
+    setConfirmation({ type: "credits", packageId, name, price });
+  };
+
+  const handleConfirmPurchase = async () => {
+    if (confirmation?.type === "credits" && confirmation.packageId) {
+      await purchasePackage(confirmation.packageId);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else if (confirmation?.type === "premium") {
+      await setPremium(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+    setConfirmation(null);
   };
 
   const handlePremiumSubscribe = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (isPremium) {
-      Alert.alert("Premium Active", "You already have an active premium subscription.");
+      setConfirmation({ type: "premium_active" });
       return;
     }
-    Alert.alert(
-      "Subscribe to Premium",
-      `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n- ${PREMIUM_BONUS_CREDITS} bonus credits\n- Gender filter on daily cards\n- Priority matching\n\nFor this demo, premium will be activated for free.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Subscribe",
-          onPress: () => {
-            setPremium(true);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
+    setConfirmation({ type: "premium" });
+  };
+
+  const getConfirmationContent = () => {
+    if (!confirmation) return { title: "", message: "", confirmText: "OK" };
+    
+    switch (confirmation.type) {
+      case "credits":
+        return {
+          title: "Purchase Credits",
+          message: `Buy ${confirmation.name} for $${confirmation.price?.toFixed(2)}?\n\nFor this demo, credits will be added for free.`,
+          confirmText: "Buy Now",
+        };
+      case "premium":
+        return {
+          title: "Subscribe to Premium",
+          message: `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n• ${PREMIUM_BONUS_CREDITS} bonus credits\n• Gender filter on daily cards\n• Priority matching\n\nFor this demo, premium will be activated for free.`,
+          confirmText: "Subscribe",
+        };
+      case "premium_active":
+        return {
+          title: "Premium Active",
+          message: "You already have an active premium subscription.",
+          confirmText: "OK",
+        };
+      default:
+        return { title: "", message: "", confirmText: "OK" };
+    }
   };
 
   return (
@@ -298,6 +318,16 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
           </Animated.View>
         </ScrollView>
       </View>
+      
+      <ConfirmDialog
+        visible={confirmation !== null}
+        title={getConfirmationContent().title}
+        message={getConfirmationContent().message}
+        confirmText={getConfirmationContent().confirmText}
+        cancelText={confirmation?.type === "premium_active" ? undefined : "Cancel"}
+        onConfirm={handleConfirmPurchase}
+        onCancel={() => setConfirmation(null)}
+      />
     </Modal>
   );
 }
