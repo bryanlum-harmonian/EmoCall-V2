@@ -32,7 +32,7 @@ export const CALL_EXTENSIONS: CallExtension[] = [
 ];
 
 export const REFRESH_CARDS_COST = 100;
-export const DAILY_MATCHES_REFILL_COST = 0.99;
+export const DAILY_MATCHES_REFILL_COST = 100;
 export const PREMIUM_MONTHLY_PRICE = 10;
 export const PREMIUM_BONUS_CREDITS = 200;
 
@@ -209,11 +209,17 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const refillMatches = useCallback(async (): Promise<boolean> => {
     if (!session?.id) return false;
 
+    if (credits < DAILY_MATCHES_REFILL_COST) {
+      console.log("Not enough credits to refill matches");
+      return false;
+    }
+
     try {
       setIsLoading(true);
       const response = await apiRequest("POST", `/api/sessions/${session.id}/matches/refill`, {});
       const data = await response.json();
       setDailyMatchesLeft(data.dailyMatchesLeft);
+      setCredits(data.credits);
       return true;
     } catch (err) {
       console.error("Failed to refill matches:", err);
@@ -221,7 +227,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [session?.id]);
+  }, [session?.id, credits]);
 
   return (
     <CreditsContext.Provider

@@ -204,17 +204,29 @@ export async function useDailyMatch(sessionId: string): Promise<Session | undefi
   return updated;
 }
 
-export async function refillDailyMatches(sessionId: string): Promise<Session | undefined> {
+const REFILL_MATCHES_COST = 100;
+
+export async function refillDailyMatches(sessionId: string): Promise<{ session?: Session; error?: string }> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { error: "Session not found" };
+  }
+  
+  if (session.credits < REFILL_MATCHES_COST) {
+    return { error: "Not enough credits" };
+  }
+  
   const [updated] = await db
     .update(sessions)
     .set({
       dailyMatchesLeft: MAX_DAILY_MATCHES,
+      credits: session.credits - REFILL_MATCHES_COST,
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId))
     .returning();
 
-  return updated;
+  return { session: updated };
 }
 
 // Call Management

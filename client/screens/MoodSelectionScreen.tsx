@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, Image, Modal, Alert } from "react-native";
+import { View, StyleSheet, Pressable, Image, Modal } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -18,6 +18,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
 import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext";
 import { useKarma } from "@/contexts/KarmaContext";
@@ -167,7 +168,7 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
             ]}
           >
             <ThemedText style={styles.refillButtonText}>
-              Refill for ${DAILY_MATCHES_REFILL_COST.toFixed(2)}
+              Refill for {DAILY_MATCHES_REFILL_COST} credits
             </ThemedText>
           </Pressable>
 
@@ -217,23 +218,21 @@ export default function MoodSelectionScreen() {
     setShowCreditsStore(true);
   };
 
+  const [showRefillConfirm, setShowRefillConfirm] = useState(false);
+  const canRefillMatches = credits >= DAILY_MATCHES_REFILL_COST;
+
   const handleRefill = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert(
-      "Refill Matches",
-      `Refill 10 matches for $${DAILY_MATCHES_REFILL_COST.toFixed(2)}?\n\nFor this demo, matches will be refilled for free.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Refill",
-          onPress: () => {
-            refillMatches();
-            setShowRefillModal(false);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
+    setShowRefillConfirm(true);
+  };
+
+  const handleConfirmRefill = async () => {
+    setShowRefillConfirm(false);
+    const success = await refillMatches();
+    if (success) {
+      setShowRefillModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
   };
 
   return (
@@ -409,6 +408,22 @@ export default function MoodSelectionScreen() {
         visible={showRefillModal}
         onClose={() => setShowRefillModal(false)}
         onRefill={handleRefill}
+      />
+      
+      <ConfirmDialog
+        visible={showRefillConfirm}
+        title="Refill Matches"
+        message={canRefillMatches 
+          ? `Spend ${DAILY_MATCHES_REFILL_COST} credits to refill 10 matches?`
+          : `You need ${DAILY_MATCHES_REFILL_COST} credits to refill matches. You have ${credits} credits.`}
+        confirmText={canRefillMatches ? "Refill" : "Get Credits"}
+        cancelText="Cancel"
+        onConfirm={canRefillMatches ? handleConfirmRefill : () => {
+          setShowRefillConfirm(false);
+          setShowRefillModal(false);
+          setShowCreditsStore(true);
+        }}
+        onCancel={() => setShowRefillConfirm(false)}
       />
     </ThemedView>
   );

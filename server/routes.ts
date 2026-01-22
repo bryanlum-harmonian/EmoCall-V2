@@ -367,15 +367,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Refill daily matches (paid)
+  // Refill daily matches (costs 100 credits)
   app.post("/api/sessions/:id/matches/refill", async (req: SessionRequest, res: Response) => {
     try {
-      // In production, this would verify Stripe payment of $0.99
-      const session = await refillDailyMatches(req.params.id);
-      if (!session) {
-        return res.status(404).json({ error: "Session not found" });
+      const result = await refillDailyMatches(req.params.id);
+      if (result.error) {
+        const status = result.error === "Session not found" ? 404 : 400;
+        return res.status(status).json({ error: result.error });
       }
-      res.json(session);
+      res.json(result.session);
     } catch (error) {
       console.error("Error refilling matches:", error);
       res.status(500).json({ error: "Failed to refill matches" });
