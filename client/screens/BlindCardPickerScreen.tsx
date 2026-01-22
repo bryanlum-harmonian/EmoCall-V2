@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { View, StyleSheet, Pressable, Image, Dimensions, Alert, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -208,6 +208,7 @@ function BlindCard({ item, index, onPress, showGender }: BlindCardProps) {
           onPressOut={handlePressOut}
           disabled={item.isUsed || item.isFlipping}
           style={styles.cardPressable}
+          testID={`card-${index}`}
         >
           <Animated.View style={[styles.blindCard, frontAnimatedStyle]}>
             <LinearGradient
@@ -243,7 +244,10 @@ function BlindCard({ item, index, onPress, showGender }: BlindCardProps) {
             </LinearGradient>
           </Animated.View>
 
-          <Animated.View style={[styles.cardBack, backAnimatedStyle]}>
+          <Animated.View 
+            style={[styles.cardBack, backAnimatedStyle]}
+            pointerEvents="none"
+          >
             <LinearGradient
               colors={[theme.success, "#3DBDB4"]}
               start={{ x: 0, y: 0 }}
@@ -353,14 +357,20 @@ export default function BlindCardPickerScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
-  const { state: matchState, queuePosition, joinQueue, leaveQueue } = useMatchmaking({
+  const { state: matchState, queuePosition, matchResult, clearMatchResult, joinQueue, leaveQueue } = useMatchmaking({
     sessionId: session?.id || null,
-    onMatchFound: (match) => {
-      console.log("[BlindCardPicker] Match found! Navigating with callId:", match.callId);
-      setIsSearching(false);
-      navigation.navigate("ActiveCall", { mood, matchId: match.callId });
-    },
   });
+
+  useEffect(() => {
+    if (matchResult) {
+      console.log("[BlindCardPicker] Match found (via state)! Navigating with callId:", matchResult.callId);
+      setIsSearching(false);
+      setSelectedCardId(null);
+      clearMatchResult();
+      // Use replace to prevent going back to this screen with stale state
+      navigation.replace("ActiveCall", { mood, matchId: matchResult.callId });
+    }
+  }, [matchResult, clearMatchResult, navigation, mood]);
 
   const generateCards = useCallback((cardCount: number) => {
     const genders: ("male" | "female" | "any")[] = ["male", "female", "any"];

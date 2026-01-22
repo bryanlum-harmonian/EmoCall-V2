@@ -65,6 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case "register":
             sessionId = message.sessionId;
             if (sessionId) {
+              console.log("[WS] Registering session:", sessionId);
               activeConnections.set(sessionId, ws);
             }
             break;
@@ -96,14 +97,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 activeCalls.set(match.sessionId, { callId: call.id, partnerId: sessionId, endTime });
                 
                 // Notify both users
+                console.log("[WS] Match found! Notifying session:", sessionId, "and partner:", match.sessionId);
                 ws.send(JSON.stringify({
                   type: "match_found",
                   callId: call.id,
                   partnerId: match.sessionId,
                   duration: DEFAULT_CALL_DURATION_SECONDS,
                 }));
+                console.log("[WS] Sent match_found to current user:", sessionId);
                 
                 const partnerWs = activeConnections.get(match.sessionId);
+                console.log("[WS] Partner WebSocket lookup for:", match.sessionId, "found:", !!partnerWs, "state:", partnerWs?.readyState);
                 if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
                   partnerWs.send(JSON.stringify({
                     type: "match_found",
@@ -111,6 +115,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     partnerId: sessionId,
                     duration: DEFAULT_CALL_DURATION_SECONDS,
                   }));
+                  console.log("[WS] Sent match_found to partner:", match.sessionId);
+                } else {
+                  console.log("[WS] WARNING: Could not send match_found to partner - WebSocket not available");
                 }
               } else {
                 // Send queue position
@@ -127,8 +134,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
             
           case "end_call":
+            console.log("[WS] Received end_call from session:", sessionId, "reason:", message.reason);
             if (sessionId) {
               const activeCall = activeCalls.get(sessionId);
+              console.log("[WS] Active call found:", !!activeCall, activeCall ? `partnerId: ${activeCall.partnerId}` : "no active call");
               if (activeCall) {
                 await updateCall(activeCall.callId, {
                   status: "ended",
@@ -147,13 +156,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Notify partner
                 const partnerWs = activeConnections.get(activeCall.partnerId);
+                console.log("[WS] Partner WebSocket found:", !!partnerWs, "state:", partnerWs?.readyState, "OPEN =", WebSocket.OPEN);
                 if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
+                  console.log("[WS] Sending call_ended to partner:", activeCall.partnerId);
                   partnerWs.send(JSON.stringify({ type: "call_ended", reason: message.reason }));
+                } else {
+                  console.log("[WS] WARNING: Partner WebSocket not available");
                 }
                 
                 // Clean up
                 activeCalls.delete(sessionId);
                 activeCalls.delete(activeCall.partnerId);
+              } else {
+                console.log("[WS] WARNING: No active call found for session:", sessionId);
               }
             }
             break;
@@ -196,26 +211,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     ws.on("close", async () => {
       if (sessionId) {
-        activeConnections.delete(sessionId);
-        await leaveQueue(sessionId);
-        
-        // Handle disconnection during call
-        const activeCall = activeCalls.get(sessionId);
-        if (activeCall) {
-          await updateCall(activeCall.callId, {
-            status: "ended",
-            endedAt: new Date(),
-            endReason: "disconnected",
-          });
+        // Only delete from activeConnections if THIS websocket is the current one
+        // This prevents race condition when a new connection registers before old one closes
+        const currentWs = activeConnections.get(sessionId);
+        if (currentWs === ws) {
+          activeConnections.delete(sessionId);
+          await leaveQueue(sessionId);
           
-          const partnerWs = activeConnections.get(activeCall.partnerId);
-          if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-            partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
+          // Handle disconnection during call
+          const activeCall = activeCalls.get(sessionId);
+          if (activeCall) {
+            await updateCall(activeCall.callId, {
+              status: "ended",
+              endedAt: new Date(),
+              endReason: "disconnected",
+            });
+            
+            const partnerWs = activeConnections.get(activeCall.partnerId);
+            if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
+              partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
+            }
+            
+            activeCalls.delete(sessionId);
+            activeCalls.delete(activeCall.partnerId);
           }
-          
-          activeCalls.delete(sessionId);
-          activeCalls.delete(activeCall.partnerId);
         }
+        // If currentWs !== ws, a new connection has already replaced this one, so don't cleanup
       }
     });
   });

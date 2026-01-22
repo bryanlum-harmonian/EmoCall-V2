@@ -653,6 +653,7 @@ export default function ActiveCallScreen() {
   };
 
   const handleEndCall = useCallback(async () => {
+    console.log("[ActiveCall] handleEndCall triggered, timeRemaining:", timeRemaining);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -663,8 +664,11 @@ export default function ActiveCallScreen() {
     setShowExtensionModal(false);
     setShowReminderModal(false);
 
+    console.log("[ActiveCall] Calling endCallWs...");
     endCallWs("normal", timeRemaining);
+    console.log("[ActiveCall] Leaving voice...");
     await leaveVoice();
+    console.log("[ActiveCall] Voice left, navigating to VibeCheck...");
 
     if (currentExtension && extensionStartTime !== null) {
       const ext = CALL_EXTENSIONS.find((e) => e.id === currentExtension);

@@ -19,6 +19,8 @@ interface UseMatchmakingReturn {
   state: MatchmakingState;
   queuePosition: number | null;
   error: string | null;
+  matchResult: MatchResult | null;
+  clearMatchResult: () => void;
   callEndedByPartner: string | null;
   clearCallEnded: () => void;
   joinQueue: (mood: string, cardId: string) => void;
@@ -30,6 +32,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   const [state, setState] = useState<MatchmakingState>("idle");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [callEndedByPartner, setCallEndedByPartner] = useState<string | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
@@ -42,6 +45,10 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   stateRef.current = state;
   onMatchFoundRef.current = onMatchFound;
   onCallEndedRef.current = onCallEnded;
+  
+  const clearMatchResult = useCallback(() => {
+    setMatchResult(null);
+  }, []);
   
   const clearCallEnded = useCallback(() => {
     setCallEndedByPartner(null);
@@ -97,14 +104,16 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
 
             case "match_found":
               console.log("[Matchmaking] Match found! callId:", message.callId);
+              const match = {
+                callId: message.callId,
+                partnerId: message.partnerId,
+                duration: message.duration,
+              };
               setState("matched");
               setQueuePosition(null);
+              setMatchResult(match);
               if (onMatchFoundRef.current) {
-                onMatchFoundRef.current({
-                  callId: message.callId,
-                  partnerId: message.partnerId,
-                  duration: message.duration,
-                });
+                onMatchFoundRef.current(match);
               }
               break;
 
@@ -151,31 +160,45 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   const joinQueue = useCallback((mood: string, cardId: string) => {
     console.log("[Matchmaking] Joining queue:", { mood, cardId });
     
+    const sendJoinQueue = () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log("[Matchmaking] Sending join_queue message");
+        wsRef.current.send(JSON.stringify({
+          type: "join_queue",
+          mood,
+          cardId,
+          isPriority: false,
+        }));
+        setState("in_queue");
+        return true;
+      }
+      return false;
+    };
+    
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.log("[Matchmaking] Not connected, connecting first...");
       connect();
-      // Retry after connection
-      setTimeout(() => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          wsRef.current.send(JSON.stringify({
-            type: "join_queue",
-            mood,
-            cardId,
-            isPriority: false,
-          }));
-          setState("in_queue");
+      
+      // Poll for connection with increasing delays (up to 5 seconds total)
+      let attempts = 0;
+      const maxAttempts = 10;
+      const pollInterval = setInterval(() => {
+        attempts++;
+        console.log("[Matchmaking] Checking connection, attempt:", attempts);
+        
+        if (sendJoinQueue()) {
+          clearInterval(pollInterval);
+        } else if (attempts >= maxAttempts) {
+          console.log("[Matchmaking] Failed to connect after max attempts");
+          clearInterval(pollInterval);
+          setState("error");
+          setError("Failed to connect to matchmaking server");
         }
-      }, 1000);
+      }, 500);
       return;
     }
 
-    wsRef.current.send(JSON.stringify({
-      type: "join_queue",
-      mood,
-      cardId,
-      isPriority: false,
-    }));
-    setState("in_queue");
+    sendJoinQueue();
   }, [connect]);
 
   const leaveQueue = useCallback(() => {
@@ -190,13 +213,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
 
   const endCall = useCallback((reason?: string, remainingSeconds?: number) => {
     console.log("[Matchmaking] Ending call:", { reason, remainingSeconds });
+    console.log("[Matchmaking] WebSocket state:", wsRef.current?.readyState, "OPEN =", WebSocket.OPEN);
     
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log("[Matchmaking] Sending end_call message via WebSocket");
       wsRef.current.send(JSON.stringify({
         type: "end_call",
         reason: reason || "normal",
         remainingSeconds,
       }));
+    } else {
+      console.log("[Matchmaking] WARNING: WebSocket not open, cannot send end_call");
     }
     setState("idle");
   }, []);
@@ -222,6 +249,8 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     state,
     queuePosition,
     error,
+    matchResult,
+    clearMatchResult,
     callEndedByPartner,
     clearCallEnded,
     joinQueue,
