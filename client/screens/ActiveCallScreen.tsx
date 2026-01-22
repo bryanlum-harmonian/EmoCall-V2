@@ -801,6 +801,23 @@ export default function ActiveCallScreen() {
             >
               {isUrgent && !hasExtended ? "Time Almost Up!" : "Connected"}
             </ThemedText>
+            
+            {/* Voice status indicator */}
+            <View style={styles.voiceStatusContainer}>
+              <View style={[
+                styles.voiceStatusDot,
+                { backgroundColor: voiceError ? theme.error : (isVoiceConnected ? theme.success : theme.warning) }
+              ]} />
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                {voiceError 
+                  ? `Voice Error: ${voiceError}` 
+                  : isVoiceConnecting 
+                    ? "Connecting voice..." 
+                    : isVoiceConnected 
+                      ? (remoteUserJoined ? "Voice: Partner connected" : "Voice: Waiting for partner") 
+                      : "Voice: Initializing..."}
+              </ThemedText>
+            </View>
 
             <View style={styles.usersContainer}>
               <UserAvatar 
@@ -1007,6 +1024,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+  voiceStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  voiceStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   usersContainer: {
     flexDirection: "row",
