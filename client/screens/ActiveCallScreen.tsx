@@ -535,7 +535,7 @@ export default function ActiveCallScreen() {
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
-          navigation.replace("CallEnded", { reason: "timeout" });
+          navigation.replace("VibeCheck", {});
           return 0;
         }
         
@@ -628,9 +628,8 @@ export default function ActiveCallScreen() {
       }
     }
 
-    awardCallCompletion();
-    navigation.replace("CallEnded", { reason: "ended" });
-  }, [currentExtension, extensionStartTime, refundUnusedMinutes, awardCallCompletion, navigation]);
+    navigation.replace("VibeCheck", {});
+  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

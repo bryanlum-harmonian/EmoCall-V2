@@ -11,6 +11,7 @@ import MoodSelectionScreen from "@/screens/MoodSelectionScreen";
 import BlindCardPickerScreen from "@/screens/BlindCardPickerScreen";
 import ActiveCallScreen from "@/screens/ActiveCallScreen";
 import CallEndedScreen from "@/screens/CallEndedScreen";
+import VibeCheckScreen from "@/screens/VibeCheckScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 
 export type RootStackParamList = {
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   MoodSelection: undefined;
   BlindCardPicker: { mood: "vent" | "listen" };
   ActiveCall: { mood: "vent" | "listen"; matchId: string };
+  VibeCheck: { callDuration?: number };
   CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" };
   Settings: undefined;
 };
@@ -59,6 +61,15 @@ export default function RootStackNavigator() {
       <Stack.Screen
         name="ActiveCall"
         component={ActiveCallScreen}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+          animation: "fade",
+        }}
+      />
+      <Stack.Screen
+        name="VibeCheck"
+        component={VibeCheckScreen}
         options={{
           headerShown: false,
           gestureEnabled: false,
