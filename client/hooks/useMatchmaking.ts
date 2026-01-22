@@ -30,12 +30,21 @@ export function useMatchmaking({ sessionId, onMatchFound }: UseMatchmakingOption
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stateRef = useRef<MatchmakingState>("idle");
+  const onMatchFoundRef = useRef(onMatchFound);
+  
+  // Keep refs in sync with latest values
+  stateRef.current = state;
+  onMatchFoundRef.current = onMatchFound;
 
   const getWsUrl = useCallback(() => {
     const apiUrl = getApiUrl();
-    const wsProtocol = apiUrl.startsWith("https") ? "wss" : "ws";
-    const host = apiUrl.replace(/^https?:\/\//, "");
-    return `${wsProtocol}://${host}/ws`;
+    const url = new URL(apiUrl);
+    const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+    url.protocol = wsProtocol;
+    url.pathname = "/ws";
+    console.log("[Matchmaking] WebSocket URL:", url.toString());
+    return url.toString();
   }, []);
 
   const connect = useCallback(() => {
@@ -80,8 +89,8 @@ export function useMatchmaking({ sessionId, onMatchFound }: UseMatchmakingOption
               console.log("[Matchmaking] Match found! callId:", message.callId);
               setState("matched");
               setQueuePosition(null);
-              if (onMatchFound) {
-                onMatchFound({
+              if (onMatchFoundRef.current) {
+                onMatchFoundRef.current({
                   callId: message.callId,
                   partnerId: message.partnerId,
                   duration: message.duration,
@@ -115,20 +124,14 @@ export function useMatchmaking({ sessionId, onMatchFound }: UseMatchmakingOption
         console.log("[Matchmaking] Connection closed");
         wsRef.current = null;
         
-        // Reconnect after a delay if we were in queue
-        if (state === "in_queue" || state === "connecting") {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log("[Matchmaking] Attempting reconnect...");
-            connect();
-          }, 2000);
-        }
+        // Don't auto-reconnect - let joinQueue handle it
       };
     } catch (err: any) {
       console.error("[Matchmaking] Failed to create WebSocket:", err);
       setError(err.message || "Failed to connect");
       setState("error");
     }
-  }, [sessionId, getWsUrl, onMatchFound, state]);
+  }, [sessionId, getWsUrl]);
 
   const joinQueue = useCallback((mood: string, cardId: string) => {
     console.log("[Matchmaking] Joining queue:", { mood, cardId });
