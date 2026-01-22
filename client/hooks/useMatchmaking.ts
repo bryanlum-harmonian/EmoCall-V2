@@ -23,6 +23,7 @@ interface UseMatchmakingReturn {
   clearMatchResult: () => void;
   callEndedByPartner: string | null;
   clearCallEnded: () => void;
+  isConnected: boolean;
   joinQueue: (mood: string, cardId: string) => void;
   leaveQueue: () => void;
   endCall: (reason?: string, remainingSeconds?: number) => void;
@@ -34,12 +35,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   const [error, setError] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [callEndedByPartner, setCallEndedByPartner] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stateRef = useRef<MatchmakingState>("idle");
   const onMatchFoundRef = useRef(onMatchFound);
   const onCallEndedRef = useRef(onCallEnded);
+  // Store current queue info for auto-rejoin after reconnect
+  const currentQueueRef = useRef<{ mood: string; cardId: string } | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const maxReconnectAttempts = 10;
   
   // Keep refs in sync with latest values
   stateRef.current = state;
@@ -88,7 +94,25 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
       ws.onopen = () => {
         console.log("[Matchmaking] Connected, registering session:", sessionId);
         ws.send(JSON.stringify({ type: "register", sessionId }));
-        setState("idle");
+        setIsConnected(true);
+        reconnectAttemptsRef.current = 0;
+        
+        // If we were in queue before disconnect, re-join the queue
+        if (currentQueueRef.current && stateRef.current === "in_queue") {
+          console.log("[Matchmaking] Re-joining queue after reconnect:", currentQueueRef.current);
+          setTimeout(() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN && currentQueueRef.current) {
+              wsRef.current.send(JSON.stringify({
+                type: "join_queue",
+                mood: currentQueueRef.current.mood,
+                cardId: currentQueueRef.current.cardId,
+                isPriority: false,
+              }));
+            }
+          }, 100);
+        } else {
+          setState("idle");
+        }
       };
 
       ws.onmessage = (event) => {
@@ -104,6 +128,8 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
 
             case "match_found":
               console.log("[Matchmaking] Match found! callId:", message.callId);
+              // Clear queue info since we're matched
+              currentQueueRef.current = null;
               const match = {
                 callId: message.callId,
                 partnerId: message.partnerId,
@@ -145,10 +171,28 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
       };
 
       ws.onclose = () => {
-        console.log("[Matchmaking] Connection closed");
+        console.log("[Matchmaking] Connection closed, state:", stateRef.current);
         wsRef.current = null;
+        setIsConnected(false);
         
-        // Don't auto-reconnect - let joinQueue handle it
+        // Auto-reconnect if we were in queue or matched (call in progress)
+        if (stateRef.current === "in_queue" || stateRef.current === "matched") {
+          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+            reconnectAttemptsRef.current++;
+            const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000);
+            console.log("[Matchmaking] Auto-reconnecting in", delay, "ms (attempt", reconnectAttemptsRef.current, ")");
+            
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (stateRef.current === "in_queue" || stateRef.current === "matched") {
+                connect();
+              }
+            }, delay);
+          } else {
+            console.log("[Matchmaking] Max reconnect attempts reached");
+            setError("Connection lost. Please try again.");
+            setState("error");
+          }
+        }
       };
     } catch (err: any) {
       console.error("[Matchmaking] Failed to create WebSocket:", err);
@@ -159,6 +203,10 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
 
   const joinQueue = useCallback((mood: string, cardId: string) => {
     console.log("[Matchmaking] Joining queue:", { mood, cardId });
+    
+    // Store queue info for auto-rejoin after reconnect
+    currentQueueRef.current = { mood, cardId };
+    reconnectAttemptsRef.current = 0;
     
     const sendJoinQueue = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -177,6 +225,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       console.log("[Matchmaking] Not connected, connecting first...");
+      setState("in_queue"); // Set state early so onopen can re-join
       connect();
       
       // Poll for connection with increasing delays (up to 5 seconds total)
@@ -193,6 +242,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
           clearInterval(pollInterval);
           setState("error");
           setError("Failed to connect to matchmaking server");
+          currentQueueRef.current = null;
         }
       }, 500);
       return;
@@ -203,6 +253,15 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
 
   const leaveQueue = useCallback(() => {
     console.log("[Matchmaking] Leaving queue");
+    
+    // Clear queue info to prevent auto-rejoin
+    currentQueueRef.current = null;
+    
+    // Cancel any pending reconnect
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
     
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "leave_queue" }));
@@ -269,6 +328,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     clearMatchResult,
     callEndedByPartner,
     clearCallEnded,
+    isConnected,
     joinQueue,
     leaveQueue,
     endCall,
