@@ -19,6 +19,8 @@ interface UseMatchmakingReturn {
   state: MatchmakingState;
   queuePosition: number | null;
   error: string | null;
+  callEndedByPartner: string | null;
+  clearCallEnded: () => void;
   joinQueue: (mood: string, cardId: string) => void;
   leaveQueue: () => void;
   endCall: (reason?: string, remainingSeconds?: number) => void;
@@ -28,6 +30,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   const [state, setState] = useState<MatchmakingState>("idle");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [callEndedByPartner, setCallEndedByPartner] = useState<string | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -39,6 +42,10 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   stateRef.current = state;
   onMatchFoundRef.current = onMatchFound;
   onCallEndedRef.current = onCallEnded;
+  
+  const clearCallEnded = useCallback(() => {
+    setCallEndedByPartner(null);
+  }, []);
 
   const getWsUrl = useCallback(() => {
     const apiUrl = getApiUrl();
@@ -103,9 +110,11 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
 
             case "call_ended":
               console.log("[Matchmaking] Call ended by partner:", message.reason);
+              const endReason = message.reason || "partner_ended";
               setState("idle");
+              setCallEndedByPartner(endReason);
               if (onCallEndedRef.current) {
-                onCallEndedRef.current(message.reason || "partner_ended");
+                onCallEndedRef.current(endReason);
               }
               break;
 
@@ -213,6 +222,8 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     state,
     queuePosition,
     error,
+    callEndedByPartner,
+    clearCallEnded,
     joinQueue,
     leaveQueue,
     endCall,
