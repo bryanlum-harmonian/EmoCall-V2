@@ -269,7 +269,7 @@ export default function MoodSelectionScreen() {
     setSelectedMood(mood);
     setIsSearching(true);
     
-    // Join matchmaking with a dummy card ID since cards are removed
+    // Join matchmaking queue
     joinQueue(mood, "direct");
   };
 

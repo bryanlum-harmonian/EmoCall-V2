@@ -325,6 +325,34 @@ export async function findWaitingVenter(
   return null;
 }
 
+// Find any waiting Listener who has an active WebSocket connection
+export async function findWaitingListener(
+  activeConnections: Map<string, { readyState: number }>
+): Promise<{ sessionId: string; cardId: string | null } | null> {
+  // Get all listeners waiting in queue, prioritized by priority then join time
+  const listeners = await db.query.matchmakingQueue.findMany({
+    where: eq(matchmakingQueue.mood, "listen"),
+    orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
+  });
+
+  // Find first listener with active WebSocket connection
+  for (const listener of listeners) {
+    const ws = activeConnections.get(listener.sessionId);
+    // WebSocket.OPEN = 1
+    if (ws && ws.readyState === 1) {
+      // Remove from queue
+      await leaveQueue(listener.sessionId);
+      return { sessionId: listener.sessionId, cardId: listener.cardId };
+    } else {
+      // Remove stale entry
+      console.log("[Storage] Removing stale listener from queue:", listener.sessionId);
+      await leaveQueue(listener.sessionId);
+    }
+  }
+
+  return null;
+}
+
 export async function getQueuePosition(sessionId: string): Promise<number> {
   const entry = await db.query.matchmakingQueue.findFirst({
     where: eq(matchmakingQueue.sessionId, sessionId),

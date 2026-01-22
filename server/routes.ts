@@ -29,6 +29,7 @@ import {
   leaveQueue,
   findMatch,
   findWaitingVenter,
+  findWaitingListener,
   getQueuePosition,
   createReport,
   activatePremium,
@@ -136,19 +137,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
               }
               
               // SIMPLIFIED MATCHMAKING:
-              // - Vent users: Just wait in the pool
-              // - Listen users: Instantly connect to any waiting Vent user
+              // - Both users check for opposite mood first
+              // - If no match found, wait in pool
               
               if (message.mood === "vent") {
-                // Vent users just wait - add to pool
-                await joinQueue({
-                  sessionId,
-                  mood: message.mood,
-                  cardId: message.cardId,
-                  isPriority: message.isPriority || false,
-                });
-                console.log("[WS] Venter joined waiting pool:", sessionId);
-                ws.send(JSON.stringify({ type: "waiting", mood: "vent" }));
+                // Check if any listeners are waiting first
+                console.log("[WS] Venter joining, checking for waiting listeners. Active connections:", activeConnections.size);
+                const listener = await findWaitingListener(activeConnections);
+                console.log("[WS] findWaitingListener result:", listener ? listener.sessionId : "none");
+                
+                if (listener) {
+                  // Create the call - venter matched with waiting listener
+                  const call = await createCall({
+                    callerSessionId: sessionId,
+                    listenerSessionId: listener.sessionId,
+                    callerMood: "vent",
+                    status: "connected",
+                    startedAt: new Date(),
+                  });
+                  
+                  // Track active call
+                  const startTime = Date.now();
+                  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
+                  activeCalls.set(sessionId, { callId: call.id, partnerId: listener.sessionId, endTime, startTime });
+                  activeCalls.set(listener.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
+                  
+                  // Notify venter (current user)
+                  console.log("[WS] Match found! Venter:", sessionId, "connected to Listener:", listener.sessionId);
+                  ws.send(JSON.stringify({
+                    type: "match_found",
+                    callId: call.id,
+                    partnerId: listener.sessionId,
+                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  }));
+                  
+                  // Notify listener
+                  const listenerWs = activeConnections.get(listener.sessionId);
+                  if (listenerWs && listenerWs.readyState === WebSocket.OPEN) {
+                    listenerWs.send(JSON.stringify({
+                      type: "match_found",
+                      callId: call.id,
+                      partnerId: sessionId,
+                      duration: DEFAULT_CALL_DURATION_SECONDS,
+                    }));
+                    console.log("[WS] Sent match_found to listener:", listener.sessionId);
+                  } else {
+                    // Store as pending match
+                    pendingMatches.set(listener.sessionId, {
+                      callId: call.id,
+                      partnerId: sessionId,
+                      duration: DEFAULT_CALL_DURATION_SECONDS,
+                    });
+                    console.log("[WS] Stored pending match for listener:", listener.sessionId);
+                  }
+                } else {
+                  // No listeners waiting - venter waits
+                  await joinQueue({
+                    sessionId,
+                    mood: message.mood,
+                    cardId: message.cardId,
+                    isPriority: message.isPriority || false,
+                  });
+                  console.log("[WS] Venter joined waiting pool:", sessionId);
+                  ws.send(JSON.stringify({ type: "waiting", mood: "vent" }));
+                }
               } else {
                 // Listen users instantly connect to any waiting Vent user
                 const ventUser = await findWaitingVenter(activeConnections);
@@ -205,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     cardId: message.cardId,
                     isPriority: message.isPriority || false,
                   });
-                  console.log("[WS] No venters available, listener waiting:", sessionId);
+                  console.log("[WS] No venters available, listener added to queue:", sessionId);
                   ws.send(JSON.stringify({ type: "waiting", mood: "listen" }));
                 }
               }

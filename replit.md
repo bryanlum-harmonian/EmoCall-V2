@@ -183,10 +183,11 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - Reduced onboarding from 3 taps to 2 taps
   - BlindCardPickerScreen removed entirely
 - **Simplified Matchmaking System**:
-  - Vent users: Tap "I Need to Vent", wait in pool for a listener
-  - Listen users: Tap "I Can Listen", instantly connect to any random waiting venter
+  - Vent users: Tap "I Need to Vent", check for waiting listeners first, wait if none
+  - Listen users: Tap "I Can Listen", check for waiting venters first, wait if none
+  - Bidirectional matching: whoever joins second finds the waiting user
   - Removed complex queue position tracking
-  - Stale session cleanup: removes disconnected venters before matching
+  - Stale session cleanup: removes disconnected users before matching
 - **Matchmaking Reliability Improvements**: 
   - WebSocket auto-reconnect with exponential backoff (max 10 attempts)
   - HTTP polling fallback for match delivery on mobile (2s intervals)
