@@ -20,7 +20,7 @@ export type RootStackParamList = {
   BlindCardPicker: { mood: "vent" | "listen" };
   ActiveCall: { mood: "vent" | "listen"; matchId: string };
   VibeCheck: { callDuration?: number };
-  CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" };
+  CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" };
   Settings: undefined;
 };
 

@@ -14,7 +14,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
-type EndReason = "timeout" | "ended" | "reported" | "disconnected";
+type EndReason = "timeout" | "ended" | "reported" | "disconnected" | "partner_ended";
 
 const getEndReasonContent = (reason: EndReason) => {
   switch (reason) {
@@ -41,6 +41,12 @@ const getEndReasonContent = (reason: EndReason) => {
         icon: "wifi-off" as const,
         title: "Connection Lost",
         message: "The call was disconnected. Please try again.",
+      };
+    case "partner_ended":
+      return {
+        icon: "user-x" as const,
+        title: "Partner Left",
+        message: "Your call partner ended the session. We hope you found some comfort.",
       };
     default:
       return {

@@ -27,6 +27,7 @@ import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { ReportModal, ReportReasonId } from "@/components/ReportModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useAgoraVoice } from "@/hooks/useAgoraVoice";
+import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
 import { useKarma } from "@/contexts/KarmaContext";
 import { useSession } from "@/contexts/SessionContext";
@@ -464,6 +465,7 @@ export default function ActiveCallScreen() {
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
 
   const matchId = route.params?.matchId || "default-channel";
+  const mood = route.params?.mood || "vent";
   
   const {
     isConnected: isVoiceConnected,
@@ -495,6 +497,25 @@ export default function ActiveCallScreen() {
   const connectionPulse = useSharedValue(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const speakingRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handlePartnerEndedCall = useCallback(async (reason: string) => {
+    console.log("[ActiveCall] Partner ended call, reason:", reason);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    if (speakingRef.current) {
+      clearInterval(speakingRef.current);
+    }
+    setShowExtensionModal(false);
+    setShowReminderModal(false);
+    await leaveVoice();
+    navigation.replace("CallEnded", { reason: "partner_ended" });
+  }, [leaveVoice, navigation]);
+
+  const { endCall: endCallWs } = useMatchmaking({
+    sessionId: session?.id || null,
+    onCallEnded: handlePartnerEndedCall,
+  });
 
   const isWarningTime = timeRemaining <= WARNING_TIME && !hasExtended;
   const isUrgent = timeRemaining <= WARNING_TIME;
@@ -633,9 +654,13 @@ export default function ActiveCallScreen() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
+    if (speakingRef.current) {
+      clearInterval(speakingRef.current);
+    }
     setShowExtensionModal(false);
     setShowReminderModal(false);
 
+    endCallWs("normal", timeRemaining);
     await leaveVoice();
 
     if (currentExtension && extensionStartTime !== null) {
@@ -650,7 +675,7 @@ export default function ActiveCallScreen() {
     }
 
     navigation.replace("VibeCheck", {});
-  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation, leaveVoice]);
+  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation, leaveVoice, endCallWs, timeRemaining]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

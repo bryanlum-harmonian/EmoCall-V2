@@ -12,6 +12,7 @@ interface MatchResult {
 interface UseMatchmakingOptions {
   sessionId: string | null;
   onMatchFound?: (match: MatchResult) => void;
+  onCallEnded?: (reason: string) => void;
 }
 
 interface UseMatchmakingReturn {
@@ -23,7 +24,7 @@ interface UseMatchmakingReturn {
   endCall: (reason?: string, remainingSeconds?: number) => void;
 }
 
-export function useMatchmaking({ sessionId, onMatchFound }: UseMatchmakingOptions): UseMatchmakingReturn {
+export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatchmakingOptions): UseMatchmakingReturn {
   const [state, setState] = useState<MatchmakingState>("idle");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,10 +33,12 @@ export function useMatchmaking({ sessionId, onMatchFound }: UseMatchmakingOption
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stateRef = useRef<MatchmakingState>("idle");
   const onMatchFoundRef = useRef(onMatchFound);
+  const onCallEndedRef = useRef(onCallEnded);
   
   // Keep refs in sync with latest values
   stateRef.current = state;
   onMatchFoundRef.current = onMatchFound;
+  onCallEndedRef.current = onCallEnded;
 
   const getWsUrl = useCallback(() => {
     const apiUrl = getApiUrl();
@@ -101,6 +104,9 @@ export function useMatchmaking({ sessionId, onMatchFound }: UseMatchmakingOption
             case "call_ended":
               console.log("[Matchmaking] Call ended by partner:", message.reason);
               setState("idle");
+              if (onCallEndedRef.current) {
+                onCallEndedRef.current(message.reason || "partner_ended");
+              }
               break;
 
             case "error":
