@@ -28,6 +28,7 @@ import {
   joinQueue,
   leaveQueue,
   findMatch,
+  findWaitingVenter,
   getQueuePosition,
   createReport,
   activatePremium,
@@ -134,92 +135,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 break;
               }
               
-              await joinQueue({
-                sessionId,
-                mood: message.mood,
-                cardId: message.cardId,
-                isPriority: message.isPriority || false,
-              });
+              // SIMPLIFIED MATCHMAKING:
+              // - Vent users: Just wait in the pool
+              // - Listen users: Instantly connect to any waiting Vent user
               
-              // Try to find a match immediately - only match with connected sessions
-              const match = await findMatch(message.mood, sessionId);
-              if (match) {
-                // Verify partner is actually connected before creating match
-                const partnerWs = activeConnections.get(match.sessionId);
-                if (!partnerWs || partnerWs.readyState !== WebSocket.OPEN) {
-                  console.log("[WS] Found match but partner not connected, removing stale queue entry:", match.sessionId);
-                  await leaveQueue(match.sessionId);
-                  // Try to find another match
-                  const newMatch = await findMatch(message.mood, sessionId);
-                  if (newMatch) {
-                    const newPartnerWs = activeConnections.get(newMatch.sessionId);
-                    if (!newPartnerWs || newPartnerWs.readyState !== WebSocket.OPEN) {
-                      console.log("[WS] Second match also not connected, adding to queue");
-                      await leaveQueue(newMatch.sessionId);
-                      const position = await getQueuePosition(sessionId);
-                      ws.send(JSON.stringify({ type: "queue_position", position }));
-                      break;
-                    }
-                    // Use new match
-                    Object.assign(match, newMatch);
-                  } else {
-                    // No valid match found, add to queue
-                    const position = await getQueuePosition(sessionId);
-                    ws.send(JSON.stringify({ type: "queue_position", position }));
-                    break;
-                  }
-                }
-                
-                // Create the call (now we know partner is connected)
-                const call = await createCall({
-                  callerSessionId: sessionId,
-                  listenerSessionId: match.sessionId,
-                  callerMood: message.mood,
-                  status: "connected",
-                  startedAt: new Date(),
+              if (message.mood === "vent") {
+                // Vent users just wait - add to pool
+                await joinQueue({
+                  sessionId,
+                  mood: message.mood,
+                  cardId: message.cardId,
+                  isPriority: message.isPriority || false,
                 });
+                console.log("[WS] Venter joined waiting pool:", sessionId);
+                ws.send(JSON.stringify({ type: "waiting", mood: "vent" }));
+              } else {
+                // Listen users instantly connect to any waiting Vent user
+                const ventUser = await findWaitingVenter(activeConnections);
                 
-                // Track active call with startTime for grace period handling
-                const startTime = Date.now();
-                const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
-                activeCalls.set(sessionId, { callId: call.id, partnerId: match.sessionId, endTime, startTime });
-                activeCalls.set(match.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
-                
-                // Notify both users
-                console.log("[WS] Match found! Notifying session:", sessionId, "and partner:", match.sessionId);
-                console.log("[WS] Active connections:", Array.from(activeConnections.keys()).join(", "));
-                ws.send(JSON.stringify({
-                  type: "match_found",
-                  callId: call.id,
-                  partnerId: match.sessionId,
-                  duration: DEFAULT_CALL_DURATION_SECONDS,
-                }));
-                console.log("[WS] Sent match_found to current user:", sessionId);
-                
-                // Re-verify partner connection and send match notification
-                const partnerWsForNotify = activeConnections.get(match.sessionId);
-                console.log("[WS] Partner WebSocket lookup for:", match.sessionId, "found:", !!partnerWsForNotify, "state:", partnerWsForNotify?.readyState, "OPEN:", WebSocket.OPEN);
-                if (partnerWsForNotify && partnerWsForNotify.readyState === WebSocket.OPEN) {
-                  partnerWsForNotify.send(JSON.stringify({
+                if (ventUser) {
+                  // Create the call
+                  const call = await createCall({
+                    callerSessionId: ventUser.sessionId,
+                    listenerSessionId: sessionId,
+                    callerMood: "vent",
+                    status: "connected",
+                    startedAt: new Date(),
+                  });
+                  
+                  // Track active call
+                  const startTime = Date.now();
+                  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
+                  activeCalls.set(sessionId, { callId: call.id, partnerId: ventUser.sessionId, endTime, startTime });
+                  activeCalls.set(ventUser.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
+                  
+                  // Notify listener (current user)
+                  console.log("[WS] Match found! Listener:", sessionId, "connected to Venter:", ventUser.sessionId);
+                  ws.send(JSON.stringify({
                     type: "match_found",
                     callId: call.id,
-                    partnerId: sessionId,
+                    partnerId: ventUser.sessionId,
                     duration: DEFAULT_CALL_DURATION_SECONDS,
                   }));
-                  console.log("[WS] Sent match_found to partner:", match.sessionId);
+                  
+                  // Notify venter
+                  const venterWs = activeConnections.get(ventUser.sessionId);
+                  if (venterWs && venterWs.readyState === WebSocket.OPEN) {
+                    venterWs.send(JSON.stringify({
+                      type: "match_found",
+                      callId: call.id,
+                      partnerId: sessionId,
+                      duration: DEFAULT_CALL_DURATION_SECONDS,
+                    }));
+                    console.log("[WS] Sent match_found to venter:", ventUser.sessionId);
+                  } else {
+                    // Store as pending match for venter to retrieve
+                    pendingMatches.set(ventUser.sessionId, {
+                      callId: call.id,
+                      partnerId: sessionId,
+                      duration: DEFAULT_CALL_DURATION_SECONDS,
+                    });
+                    console.log("[WS] Stored pending match for venter:", ventUser.sessionId);
+                  }
                 } else {
-                  console.log("[WS] WARNING: Could not send match_found to partner - storing as pending match");
-                  // Store pending match so partner gets it when they reconnect
-                  pendingMatches.set(match.sessionId, {
-                    callId: call.id,
-                    partnerId: sessionId,
-                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  // No venters waiting - listener waits (rare case)
+                  await joinQueue({
+                    sessionId,
+                    mood: message.mood,
+                    cardId: message.cardId,
+                    isPriority: message.isPriority || false,
                   });
+                  console.log("[WS] No venters available, listener waiting:", sessionId);
+                  ws.send(JSON.stringify({ type: "waiting", mood: "listen" }));
                 }
-              } else {
-                // Send queue position
-                const position = await getQueuePosition(sessionId);
-                ws.send(JSON.stringify({ type: "queue_position", position }));
               }
             }
             break;

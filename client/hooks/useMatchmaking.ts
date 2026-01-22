@@ -126,6 +126,13 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
               setState("in_queue");
               break;
 
+            case "waiting":
+              // Simplified matchmaking - just waiting for a match
+              console.log("[Matchmaking] Waiting for", message.mood === "vent" ? "listener" : "venter");
+              setState("in_queue");
+              setQueuePosition(null); // No position tracking
+              break;
+
             case "match_found":
               console.log("[Matchmaking] Match found! callId:", message.callId);
               // Clear queue info since we're matched

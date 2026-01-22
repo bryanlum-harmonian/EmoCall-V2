@@ -476,24 +476,16 @@ export default function BlindCardPickerScreen() {
                 <Feather name="search" size={48} color={theme.primary} />
               </Animated.View>
               <ThemedText type="h2" style={{ textAlign: "center", marginTop: Spacing.lg }}>
-                Finding Your Match...
+                {mood === "vent" ? "Waiting for a Listener..." : "Connecting..."}
               </ThemedText>
               <ThemedText 
                 type="body" 
                 style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}
               >
                 {mood === "vent" 
-                  ? "Looking for someone ready to listen" 
-                  : "Looking for someone who needs to talk"}
+                  ? "Someone will connect with you soon" 
+                  : "Finding someone who needs to talk"}
               </ThemedText>
-              {queuePosition !== null && queuePosition > 0 ? (
-                <ThemedText 
-                  type="caption" 
-                  style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}
-                >
-                  Queue position: {queuePosition}
-                </ThemedText>
-              ) : null}
               <Button
                 onPress={handleCancelSearch}
                 style={[styles.cancelButton, { backgroundColor: theme.error }]}
