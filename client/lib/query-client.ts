@@ -13,7 +13,8 @@ export function getApiUrl(): string {
 
   let url = new URL(`https://${host}`);
 
-  return url.href;
+  // Remove trailing slash to avoid double slashes when concatenating paths
+  return url.href.replace(/\/$/, "");
 }
 
 async function throwIfResNotOk(res: Response) {

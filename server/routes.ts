@@ -45,10 +45,12 @@ import {
 
 // Active WebSocket connections for matchmaking
 const activeConnections = new Map<string, WebSocket>();
-// Active calls tracking
-const activeCalls = new Map<string, { callId: string; partnerId: string; endTime: number }>();
+// Active calls tracking (includes startTime to handle grace period on disconnect)
+const activeCalls = new Map<string, { callId: string; partnerId: string; endTime: number; startTime: number }>();
 // Pending matches for users who weren't connected when match was found
 const pendingMatches = new Map<string, { callId: string; partnerId: string; duration: number }>();
+// Grace period before ending call on disconnect (in milliseconds) - allows time for reconnect
+const CALL_DISCONNECT_GRACE_PERIOD = 15000; // 15 seconds
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -139,10 +141,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 isPriority: message.isPriority || false,
               });
               
-              // Try to find a match immediately
+              // Try to find a match immediately - only match with connected sessions
               const match = await findMatch(message.mood, sessionId);
               if (match) {
-                // Create the call
+                // Verify partner is actually connected before creating match
+                const partnerWs = activeConnections.get(match.sessionId);
+                if (!partnerWs || partnerWs.readyState !== WebSocket.OPEN) {
+                  console.log("[WS] Found match but partner not connected, removing stale queue entry:", match.sessionId);
+                  await leaveQueue(match.sessionId);
+                  // Try to find another match
+                  const newMatch = await findMatch(message.mood, sessionId);
+                  if (newMatch) {
+                    const newPartnerWs = activeConnections.get(newMatch.sessionId);
+                    if (!newPartnerWs || newPartnerWs.readyState !== WebSocket.OPEN) {
+                      console.log("[WS] Second match also not connected, adding to queue");
+                      await leaveQueue(newMatch.sessionId);
+                      const position = await getQueuePosition(sessionId);
+                      ws.send(JSON.stringify({ type: "queue_position", position }));
+                      break;
+                    }
+                    // Use new match
+                    Object.assign(match, newMatch);
+                  } else {
+                    // No valid match found, add to queue
+                    const position = await getQueuePosition(sessionId);
+                    ws.send(JSON.stringify({ type: "queue_position", position }));
+                    break;
+                  }
+                }
+                
+                // Create the call (now we know partner is connected)
                 const call = await createCall({
                   callerSessionId: sessionId,
                   listenerSessionId: match.sessionId,
@@ -151,10 +179,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   startedAt: new Date(),
                 });
                 
-                // Track active call
-                const endTime = Date.now() + DEFAULT_CALL_DURATION_SECONDS * 1000;
-                activeCalls.set(sessionId, { callId: call.id, partnerId: match.sessionId, endTime });
-                activeCalls.set(match.sessionId, { callId: call.id, partnerId: sessionId, endTime });
+                // Track active call with startTime for grace period handling
+                const startTime = Date.now();
+                const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
+                activeCalls.set(sessionId, { callId: call.id, partnerId: match.sessionId, endTime, startTime });
+                activeCalls.set(match.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
                 
                 // Notify both users
                 console.log("[WS] Match found! Notifying session:", sessionId, "and partner:", match.sessionId);
@@ -167,10 +196,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }));
                 console.log("[WS] Sent match_found to current user:", sessionId);
                 
-                const partnerWs = activeConnections.get(match.sessionId);
-                console.log("[WS] Partner WebSocket lookup for:", match.sessionId, "found:", !!partnerWs, "state:", partnerWs?.readyState, "OPEN:", WebSocket.OPEN);
-                if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-                  partnerWs.send(JSON.stringify({
+                // Re-verify partner connection and send match notification
+                const partnerWsForNotify = activeConnections.get(match.sessionId);
+                console.log("[WS] Partner WebSocket lookup for:", match.sessionId, "found:", !!partnerWsForNotify, "state:", partnerWsForNotify?.readyState, "OPEN:", WebSocket.OPEN);
+                if (partnerWsForNotify && partnerWsForNotify.readyState === WebSocket.OPEN) {
+                  partnerWsForNotify.send(JSON.stringify({
                     type: "match_found",
                     callId: call.id,
                     partnerId: sessionId,
@@ -321,22 +351,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Don't leave queue on disconnect - they may reconnect
           // await leaveQueue(sessionId);
           
-          // Handle disconnection during call
+          // Handle disconnection during call with grace period
           const activeCall = activeCalls.get(sessionId);
           if (activeCall) {
-            await updateCall(activeCall.callId, {
-              status: "ended",
-              endedAt: new Date(),
-              endReason: "disconnected",
-            });
+            const callDuration = Date.now() - activeCall.startTime;
             
-            const partnerWs = activeConnections.get(activeCall.partnerId);
-            if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-              partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
+            // If call just started (within grace period), don't end it yet
+            // Give time for user to reconnect (common on mobile)
+            if (callDuration < CALL_DISCONNECT_GRACE_PERIOD) {
+              console.log("[WS] Call just started, giving grace period for reconnection. Session:", sessionId, "Duration:", callDuration, "ms");
+              // Capture sessionId for closure (we know it's not null here)
+              const disconnectedSessionId = sessionId;
+              // Schedule delayed check - if still disconnected after grace period, end the call
+              setTimeout(async () => {
+                const reconnectedWs = activeConnections.get(disconnectedSessionId);
+                if (!reconnectedWs || reconnectedWs.readyState !== WebSocket.OPEN) {
+                  // Still disconnected after grace period - end the call
+                  console.log("[WS] Grace period expired, ending call for session:", disconnectedSessionId);
+                  const stillActiveCall = activeCalls.get(disconnectedSessionId);
+                  if (stillActiveCall) {
+                    await updateCall(stillActiveCall.callId, {
+                      status: "ended",
+                      endedAt: new Date(),
+                      endReason: "disconnected",
+                    });
+                    
+                    const partnerWs = activeConnections.get(stillActiveCall.partnerId);
+                    if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
+                      partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
+                    }
+                    
+                    activeCalls.delete(disconnectedSessionId);
+                    activeCalls.delete(stillActiveCall.partnerId);
+                  }
+                } else {
+                  console.log("[WS] Session reconnected within grace period:", disconnectedSessionId);
+                }
+              }, CALL_DISCONNECT_GRACE_PERIOD - callDuration);
+            } else {
+              // Call has been active long enough, end immediately
+              console.log("[WS] Call active for", callDuration, "ms, ending due to disconnect");
+              await updateCall(activeCall.callId, {
+                status: "ended",
+                endedAt: new Date(),
+                endReason: "disconnected",
+              });
+              
+              const partnerWs = activeConnections.get(activeCall.partnerId);
+              if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
+                partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
+              }
+              
+              activeCalls.delete(sessionId);
+              activeCalls.delete(activeCall.partnerId);
             }
-            
-            activeCalls.delete(sessionId);
-            activeCalls.delete(activeCall.partnerId);
           }
         }
         // If currentWs !== ws, a new connection has already replaced this one, so don't cleanup

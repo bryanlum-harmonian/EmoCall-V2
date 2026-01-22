@@ -178,6 +178,13 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 - `GET /terms` - Terms of Service page (HTML)
 
 ## Recent Changes (January 2026)
+- **Matchmaking Reliability Improvements**: 
+  - WebSocket auto-reconnect with exponential backoff (max 10 attempts)
+  - HTTP polling fallback for match delivery on mobile (2s intervals)
+  - Stale session validation: verifies partner WebSocket is connected before matching
+  - 15-second grace period before ending calls on disconnect (allows mobile reconnection)
+  - Automatic cleanup of stale queue entries for disconnected sessions
+  - Fixed URL construction (removed double-slash bug in API calls)
 - **Theme Redesign**: Transformed from Fire & Ice to kawaii/cute aesthetic inspired by Parkette
   - New color palette: Sunny Yellow (#FFD93D), Bubblegum Pink (#FFB3C6), Grass Green (#A8E6CF), Sky Blue (#A8D8EA)
   - Cream background (#FFF8E7) for warm, inviting feel
