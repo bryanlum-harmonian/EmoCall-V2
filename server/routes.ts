@@ -162,33 +162,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   activeCalls.set(sessionId, { callId: call.id, partnerId: listener.sessionId, endTime, startTime });
                   activeCalls.set(listener.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
                   
-                  // Notify venter (current user)
-                  console.log("[WS] Match found! Venter:", sessionId, "connected to Listener:", listener.sessionId);
-                  ws.send(JSON.stringify({
-                    type: "match_found",
+                  // ALWAYS store pending match for BOTH users as backup for HTTP polling
+                  // This ensures match delivery even if WebSocket messages are missed
+                  pendingMatches.set(sessionId, {
                     callId: call.id,
                     partnerId: listener.sessionId,
                     duration: DEFAULT_CALL_DURATION_SECONDS,
-                  }));
+                  });
+                  pendingMatches.set(listener.sessionId, {
+                    callId: call.id,
+                    partnerId: sessionId,
+                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  });
+                  console.log("[WS] Match found! Venter:", sessionId, "connected to Listener:", listener.sessionId);
+                  console.log("[WS] Stored pending matches for both users");
                   
-                  // Notify listener
-                  const listenerWs = activeConnections.get(listener.sessionId);
-                  if (listenerWs && listenerWs.readyState === WebSocket.OPEN) {
-                    listenerWs.send(JSON.stringify({
+                  // Try to notify venter via WebSocket
+                  try {
+                    ws.send(JSON.stringify({
                       type: "match_found",
                       callId: call.id,
-                      partnerId: sessionId,
+                      partnerId: listener.sessionId,
                       duration: DEFAULT_CALL_DURATION_SECONDS,
                     }));
-                    console.log("[WS] Sent match_found to listener:", listener.sessionId);
+                    console.log("[WS] Sent match_found to venter:", sessionId);
+                  } catch (err) {
+                    console.log("[WS] Failed to send to venter, will use HTTP polling");
+                  }
+                  
+                  // Try to notify listener via WebSocket
+                  const listenerWs = activeConnections.get(listener.sessionId);
+                  if (listenerWs && listenerWs.readyState === WebSocket.OPEN) {
+                    try {
+                      listenerWs.send(JSON.stringify({
+                        type: "match_found",
+                        callId: call.id,
+                        partnerId: sessionId,
+                        duration: DEFAULT_CALL_DURATION_SECONDS,
+                      }));
+                      console.log("[WS] Sent match_found to listener:", listener.sessionId);
+                    } catch (err) {
+                      console.log("[WS] Failed to send to listener, will use HTTP polling");
+                    }
                   } else {
-                    // Store as pending match
-                    pendingMatches.set(listener.sessionId, {
-                      callId: call.id,
-                      partnerId: sessionId,
-                      duration: DEFAULT_CALL_DURATION_SECONDS,
-                    });
-                    console.log("[WS] Stored pending match for listener:", listener.sessionId);
+                    console.log("[WS] Listener WebSocket not open, will use HTTP polling");
                   }
                 } else {
                   // No listeners waiting - venter waits
@@ -221,33 +238,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   activeCalls.set(sessionId, { callId: call.id, partnerId: ventUser.sessionId, endTime, startTime });
                   activeCalls.set(ventUser.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
                   
-                  // Notify listener (current user)
-                  console.log("[WS] Match found! Listener:", sessionId, "connected to Venter:", ventUser.sessionId);
-                  ws.send(JSON.stringify({
-                    type: "match_found",
+                  // ALWAYS store pending match for BOTH users as backup for HTTP polling
+                  pendingMatches.set(sessionId, {
                     callId: call.id,
                     partnerId: ventUser.sessionId,
                     duration: DEFAULT_CALL_DURATION_SECONDS,
-                  }));
+                  });
+                  pendingMatches.set(ventUser.sessionId, {
+                    callId: call.id,
+                    partnerId: sessionId,
+                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  });
+                  console.log("[WS] Match found! Listener:", sessionId, "connected to Venter:", ventUser.sessionId);
+                  console.log("[WS] Stored pending matches for both users");
                   
-                  // Notify venter
-                  const venterWs = activeConnections.get(ventUser.sessionId);
-                  if (venterWs && venterWs.readyState === WebSocket.OPEN) {
-                    venterWs.send(JSON.stringify({
+                  // Try to notify listener (current user) via WebSocket
+                  try {
+                    ws.send(JSON.stringify({
                       type: "match_found",
                       callId: call.id,
-                      partnerId: sessionId,
+                      partnerId: ventUser.sessionId,
                       duration: DEFAULT_CALL_DURATION_SECONDS,
                     }));
-                    console.log("[WS] Sent match_found to venter:", ventUser.sessionId);
+                    console.log("[WS] Sent match_found to listener:", sessionId);
+                  } catch (err) {
+                    console.log("[WS] Failed to send to listener, will use HTTP polling");
+                  }
+                  
+                  // Try to notify venter via WebSocket
+                  const venterWs = activeConnections.get(ventUser.sessionId);
+                  if (venterWs && venterWs.readyState === WebSocket.OPEN) {
+                    try {
+                      venterWs.send(JSON.stringify({
+                        type: "match_found",
+                        callId: call.id,
+                        partnerId: sessionId,
+                        duration: DEFAULT_CALL_DURATION_SECONDS,
+                      }));
+                      console.log("[WS] Sent match_found to venter:", ventUser.sessionId);
+                    } catch (err) {
+                      console.log("[WS] Failed to send to venter, will use HTTP polling");
+                    }
                   } else {
-                    // Store as pending match for venter to retrieve
-                    pendingMatches.set(ventUser.sessionId, {
-                      callId: call.id,
-                      partnerId: sessionId,
-                      duration: DEFAULT_CALL_DURATION_SECONDS,
-                    });
-                    console.log("[WS] Stored pending match for venter:", ventUser.sessionId);
+                    console.log("[WS] Venter WebSocket not open, will use HTTP polling");
                   }
                 } else {
                   // No venters waiting - listener waits (rare case)
