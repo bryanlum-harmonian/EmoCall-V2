@@ -105,6 +105,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
           case "join_queue":
             if (sessionId && message.mood && message.cardId) {
+              // Check if session is already in an active call (prevent re-join after match)
+              const existingCall = activeCalls.get(sessionId);
+              if (existingCall) {
+                console.log("[WS] Session already in call, sending match info instead of joining queue");
+                ws.send(JSON.stringify({
+                  type: "match_found",
+                  callId: existingCall.callId,
+                  partnerId: existingCall.partnerId,
+                  duration: Math.floor((existingCall.endTime - Date.now()) / 1000),
+                }));
+                break;
+              }
+              
+              // Check for pending match first (in case they reconnected)
+              const existingPendingMatch = pendingMatches.get(sessionId);
+              if (existingPendingMatch) {
+                console.log("[WS] Found pending match for session trying to join queue:", sessionId);
+                ws.send(JSON.stringify({
+                  type: "match_found",
+                  callId: existingPendingMatch.callId,
+                  partnerId: existingPendingMatch.partnerId,
+                  duration: existingPendingMatch.duration,
+                }));
+                pendingMatches.delete(sessionId);
+                break;
+              }
+              
               await joinQueue({
                 sessionId,
                 mood: message.mood,

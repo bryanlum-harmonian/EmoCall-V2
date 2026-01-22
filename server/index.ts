@@ -34,6 +34,9 @@ function setupCors(app: express.Application) {
       origin?.startsWith("http://localhost:") ||
       origin?.startsWith("http://127.0.0.1:");
 
+    // Allow Expo Go mobile app requests (they may have expo:// origin or no origin)
+    const isExpoGo = !origin || origin?.startsWith("exp://") || origin?.startsWith("exps://");
+
     if (origin && (origins.has(origin) || isLocalhost)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header(
@@ -42,6 +45,14 @@ function setupCors(app: express.Application) {
       );
       res.header("Access-Control-Allow-Headers", "Content-Type");
       res.header("Access-Control-Allow-Credentials", "true");
+    } else if (isExpoGo) {
+      // For Expo Go requests without standard origin header
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS",
+      );
+      res.header("Access-Control-Allow-Headers", "Content-Type");
     }
 
     if (req.method === "OPTIONS") {
