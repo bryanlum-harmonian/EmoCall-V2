@@ -22,12 +22,20 @@ let AgoraRTC: any = null;
 
 async function loadAgoraSDK() {
   if (Platform.OS !== "web") {
+    console.log("[Agora] Not on web platform, skipping SDK load");
     return null;
   }
   if (!AgoraRTC) {
-    const module = await import("agora-rtc-sdk-ng");
-    AgoraRTC = module.default;
-    AgoraRTC.setLogLevel(4);
+    console.log("[Agora] Loading Agora SDK...");
+    try {
+      const module = await import("agora-rtc-sdk-ng");
+      AgoraRTC = module.default;
+      AgoraRTC.setLogLevel(1); // More verbose logging
+      console.log("[Agora] SDK loaded successfully");
+    } catch (err) {
+      console.error("[Agora] Failed to load SDK:", err);
+      throw err;
+    }
   }
   return AgoraRTC;
 }
@@ -43,8 +51,12 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const localAudioTrackRef = useRef<any>(null);
 
   const fetchToken = useCallback(async () => {
+    const url = new URL("/api/agora/token", getApiUrl()).toString();
+    console.log("[Agora] Fetching token from:", url);
+    console.log("[Agora] Channel:", config.channelName);
+    
     try {
-      const response = await fetch(new URL("/api/agora/token", getApiUrl()).toString(), {
+      const response = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -55,28 +67,40 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch voice token");
+        const errorText = await response.text();
+        console.error("[Agora] Token fetch failed:", response.status, errorText);
+        throw new Error(`Failed to fetch voice token: ${response.status}`);
       }
 
-      return await response.json();
+      const tokenData = await response.json();
+      console.log("[Agora] Token received, appId:", tokenData.appId ? "present" : "missing");
+      return tokenData;
     } catch (err) {
-      console.error("Token fetch error:", err);
+      console.error("[Agora] Token fetch error:", err);
       throw err;
     }
   }, [config.channelName, config.uid]);
 
   const join = useCallback(async () => {
+    console.log("[Agora] Join called, platform:", Platform.OS);
+    
     if (Platform.OS !== "web") {
-      setError("Voice calls only available in web browser for testing");
+      const msg = "Voice calls only available in web browser for testing";
+      console.log("[Agora]", msg);
+      setError(msg);
       return;
     }
 
-    if (isConnected || isConnecting) return;
+    if (isConnected || isConnecting) {
+      console.log("[Agora] Already connected or connecting, skipping");
+      return;
+    }
 
     setIsConnecting(true);
     setError(null);
 
     try {
+      console.log("[Agora] Loading SDK...");
       const sdk = await loadAgoraSDK();
       if (!sdk) {
         throw new Error("Failed to load Agora SDK");
@@ -85,10 +109,12 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       const tokenData = await fetchToken();
       const { token, appId, uid } = tokenData;
 
+      console.log("[Agora] Creating RTC client...");
       const client = sdk.createClient({ mode: "rtc", codec: "vp8" });
       clientRef.current = client;
 
       client.on("user-published", async (user: any, mediaType: string) => {
+        console.log("[Agora] Remote user published:", user.uid, mediaType);
         await client.subscribe(user, mediaType);
         if (mediaType === "audio") {
           user.audioTrack?.play();
@@ -97,27 +123,36 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       });
 
       client.on("user-unpublished", (user: any, mediaType: string) => {
+        console.log("[Agora] Remote user unpublished:", user.uid, mediaType);
         if (mediaType === "audio") {
           setRemoteUserJoined(false);
         }
       });
 
-      client.on("user-left", () => {
+      client.on("user-left", (user: any) => {
+        console.log("[Agora] Remote user left:", user?.uid);
         setRemoteUserJoined(false);
       });
 
+      console.log("[Agora] Joining channel:", config.channelName);
       await client.join(appId, config.channelName, token, uid);
+      console.log("[Agora] Joined channel successfully");
 
+      console.log("[Agora] Creating microphone audio track...");
       const localAudioTrack = await sdk.createMicrophoneAudioTrack();
       localAudioTrackRef.current = localAudioTrack;
+      console.log("[Agora] Microphone track created");
 
+      console.log("[Agora] Publishing audio track...");
       await client.publish([localAudioTrack]);
+      console.log("[Agora] Audio track published - VOICE CONNECTED!");
 
       setIsConnected(true);
       setIsConnecting(false);
     } catch (err: any) {
-      console.error("Agora join error:", err);
-      setError(err.message || "Failed to connect voice");
+      console.error("[Agora] Join error:", err);
+      const errorMessage = err.message || "Failed to connect voice";
+      setError(errorMessage);
       setIsConnecting(false);
     }
   }, [config.channelName, fetchToken, isConnected, isConnecting]);
