@@ -25,6 +25,8 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { useMatchmaking } from "@/hooks/useMatchmaking";
+import { useSession } from "@/contexts/SessionContext";
 import { useCredits, REFRESH_CARDS_COST } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -342,10 +344,23 @@ export default function BlindCardPickerScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
   const { theme } = useTheme();
+  const { session } = useSession();
   const { credits, dailyMatchesLeft, isPremium, preferredGender, refreshCards, useMatch } = useCredits();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "BlindCardPicker">>();
   const mood = route.params?.mood || "vent";
+
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
+
+  const { state: matchState, queuePosition, joinQueue, leaveQueue } = useMatchmaking({
+    sessionId: session?.id || null,
+    onMatchFound: (match) => {
+      console.log("[BlindCardPicker] Match found! Navigating with callId:", match.callId);
+      setIsSearching(false);
+      navigation.navigate("ActiveCall", { mood, matchId: match.callId });
+    },
+  });
 
   const generateCards = useCallback((cardCount: number) => {
     const genders: ("male" | "female" | "any")[] = ["male", "female", "any"];
@@ -368,6 +383,8 @@ export default function BlindCardPickerScreen() {
   const canRefresh = credits >= REFRESH_CARDS_COST;
 
   const handleCardPress = (id: string) => {
+    if (isSearching) return;
+    
     setCards((prev) =>
       prev.map((card) =>
         card.id === id ? { ...card, isFlipping: true } : card
@@ -381,8 +398,26 @@ export default function BlindCardPickerScreen() {
           card.id === id ? { ...card, isUsed: true, isFlipping: false } : card
         )
       );
-      navigation.navigate("ActiveCall", { mood, matchId: id });
+      
+      setSelectedCardId(id);
+      setIsSearching(true);
+      console.log("[BlindCardPicker] Joining queue with mood:", mood, "cardId:", id);
+      joinQueue(mood, id);
     }, 500);
+  };
+
+  const handleCancelSearch = () => {
+    console.log("[BlindCardPicker] Cancelling search");
+    leaveQueue();
+    setIsSearching(false);
+    setSelectedCardId(null);
+    if (selectedCardId) {
+      setCards((prev) =>
+        prev.map((card) =>
+          card.id === selectedCardId ? { ...card, isUsed: false } : card
+        )
+      );
+    }
   };
 
   const handleRefreshCards = async () => {
@@ -415,6 +450,54 @@ export default function BlindCardPickerScreen() {
       ]
     );
   };
+
+  if (isSearching) {
+    return (
+      <ThemedView style={styles.container}>
+        <View style={[styles.searchingContainer, { paddingTop: headerHeight + Spacing.xl }]}>
+          <Animated.View 
+            entering={FadeIn.duration(300)} 
+            style={styles.searchingContent}
+          >
+            <View style={[styles.searchingCard, { backgroundColor: theme.backgroundSecondary }]}>
+              <Animated.View
+                style={styles.searchingIconContainer}
+              >
+                <Feather name="search" size={48} color={theme.primary} />
+              </Animated.View>
+              <ThemedText type="h2" style={{ textAlign: "center", marginTop: Spacing.lg }}>
+                Finding Your Match...
+              </ThemedText>
+              <ThemedText 
+                type="body" 
+                style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}
+              >
+                {mood === "vent" 
+                  ? "Looking for someone ready to listen" 
+                  : "Looking for someone who needs to talk"}
+              </ThemedText>
+              {queuePosition !== null && queuePosition > 0 ? (
+                <ThemedText 
+                  type="caption" 
+                  style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.md }}
+                >
+                  Queue position: {queuePosition}
+                </ThemedText>
+              ) : null}
+              <Button
+                onPress={handleCancelSearch}
+                style={[styles.cancelButton, { backgroundColor: theme.error }]}
+              >
+                <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                  Cancel
+                </ThemedText>
+              </Button>
+            </View>
+          </Animated.View>
+        </View>
+      </ThemedView>
+    );
+  }
 
   if (availableCards.length === 0) {
     return (
@@ -487,6 +570,34 @@ export default function BlindCardPickerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  searchingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.lg,
+  },
+  searchingContent: {
+    width: "100%",
+    maxWidth: 320,
+  },
+  searchingCard: {
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.xl,
+    alignItems: "center",
+  },
+  searchingIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cancelButton: {
+    marginTop: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
   },
   scrollView: {
     flex: 1,
