@@ -458,6 +458,7 @@ export default function MoodSelectionScreen() {
               <Feather name="globe" size={18} color={theme.accent2} />
             </Pressable>
             <Pressable
+              testID="button-settings"
               onPress={handleSettingsPress}
               style={({ pressed }) => [
                 styles.settingsButton,
