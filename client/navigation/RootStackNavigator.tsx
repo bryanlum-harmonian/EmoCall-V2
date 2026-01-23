@@ -24,7 +24,7 @@ export type RootStackParamList = {
     duration: number;
     isPreview?: boolean;
   };
-  VibeCheck: { callDuration?: number };
+  VibeCheck: { callDuration?: number; callId?: string };
   CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left"; callId?: string };
   Settings: undefined;
   PrivacyPolicy: undefined;

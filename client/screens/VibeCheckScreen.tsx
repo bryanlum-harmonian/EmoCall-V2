@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable, ScrollView } from "react-native";
+import { View, StyleSheet, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
@@ -18,36 +18,33 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
+import { StarRating } from "@/components/StarRating";
 import { useTheme } from "@/hooks/useTheme";
-import { useAura, AURA_REWARDS } from "@/contexts/AuraContext";
+import { useSession } from "@/contexts/SessionContext";
+import { useAura } from "@/contexts/AuraContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+import { getApiUrl } from "@/lib/query-client";
 
 export default function VibeCheckScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { aura, awardCallCompletion } = useAura();
+  const { syncWithBackend } = useAura();
+  const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, "VibeCheck">>();
 
-  const [hasVoted, setHasVoted] = useState(false);
-  const [voteType, setVoteType] = useState<"up" | "down" | null>(null);
-  const [showReward, setShowReward] = useState(false);
-  const [earnedKarma, setEarnedKarma] = useState(0);
+  const callId = (route.params as any)?.callId;
 
-  const thumbsUpScale = useSharedValue(1);
-  const thumbsDownScale = useSharedValue(1);
+  const [voiceQuality, setVoiceQuality] = useState(0);
+  const [strangerQuality, setStrangerQuality] = useState(0);
+  const [overallExperience, setOverallExperience] = useState(0);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [auraEarned, setAuraEarned] = useState(0);
+
   const rewardScale = useSharedValue(0);
   const heartScale = useSharedValue(1);
-
-  const thumbsUpStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: thumbsUpScale.value }],
-  }));
-
-  const thumbsDownStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: thumbsDownScale.value }],
-  }));
 
   const rewardStyle = useAnimatedStyle(() => ({
     transform: [{ scale: rewardScale.value }],
@@ -58,8 +55,9 @@ export default function VibeCheckScreen() {
     transform: [{ scale: heartScale.value }],
   }));
 
+  const canSubmit = voiceQuality > 0 && strangerQuality > 0 && overallExperience > 0;
+
   const showRewardAnimation = () => {
-    setShowReward(true);
     rewardScale.value = withSpring(1, { damping: 12, stiffness: 150 });
     heartScale.value = withSequence(
       withSpring(1.3, { damping: 10 }),
@@ -67,35 +65,50 @@ export default function VibeCheckScreen() {
     );
   };
 
-  const handleVote = async (type: "up" | "down") => {
-    if (hasVoted) return;
+  const handleSubmitRating = async () => {
+    if (!canSubmit) return;
     
+    setIsSubmitting(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setVoteType(type);
-    setHasVoted(true);
 
-    if (type === "up") {
-      thumbsUpScale.value = withSequence(
-        withSpring(1.3, { damping: 10, stiffness: 200 }),
-        withSpring(1.1, { damping: 10 })
-      );
-      thumbsDownScale.value = withSpring(0.8, { damping: 15 });
-    } else {
-      thumbsDownScale.value = withSequence(
-        withSpring(1.3, { damping: 10, stiffness: 200 }),
-        withSpring(1.1, { damping: 10 })
-      );
-      thumbsUpScale.value = withSpring(0.8, { damping: 15 });
-    }
+    try {
+      if (callId && session?.id) {
+        const response = await fetch(
+          new URL(`/api/calls/${callId}/ratings`, getApiUrl()).toString(),
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId: session.id,
+              voiceQuality,
+              strangerQuality,
+              overallExperience,
+            }),
+          }
+        );
 
-    const earnedAura = AURA_REWARDS.COMPLETE_CALL;
-    setEarnedKarma(earnedAura);
-    awardCallCompletion();
-    
-    setTimeout(() => {
+        const data = await response.json();
+
+        if (response.ok) {
+          setAuraEarned(data.auraAwarded || 100);
+          syncWithBackend();
+        }
+      } else {
+        setAuraEarned(100);
+      }
+
+      setHasSubmitted(true);
       showRewardAnimation();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 300);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error("Rating submission error:", error);
+      setAuraEarned(100);
+      setHasSubmitted(true);
+      showRewardAnimation();
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleGoHome = async () => {
@@ -103,9 +116,9 @@ export default function VibeCheckScreen() {
     navigation.replace("MoodSelection");
   };
 
-  const handleReport = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.replace("CallEnded", { reason: "reported" });
+  const handleSkip = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    navigation.replace("MoodSelection");
   };
 
   return (
@@ -151,129 +164,92 @@ export default function VibeCheckScreen() {
           </ThemedText>
         </Animated.View>
 
-        <Animated.View 
-          entering={FadeInUp.delay(600).duration(500)}
-          style={styles.votingContainer}
-        >
-          <AnimatedPressable
-            onPress={() => handleVote("up")}
-            disabled={hasVoted}
-            style={[
-              styles.voteButton,
-              {
-                backgroundColor: voteType === "up" ? theme.success : theme.backgroundSecondary,
-                borderColor: voteType === "up" ? theme.success : theme.border,
-                opacity: hasVoted && voteType !== "up" ? 0.4 : 1,
-              },
-              thumbsUpStyle,
-            ]}
+        {!hasSubmitted ? (
+          <Animated.View 
+            entering={FadeInUp.delay(600).duration(500)}
+            style={[styles.ratingsCard, { backgroundColor: theme.backgroundSecondary }]}
           >
-            <Feather
-              name="thumbs-up"
-              size={28}
-              color={voteType === "up" ? "#FFFFFF" : theme.success}
+            <StarRating
+              label="Voice Quality"
+              rating={voiceQuality}
+              onRatingChange={setVoiceQuality}
             />
-            <ThemedText
-              type="small"
-              style={{
-                color: voteType === "up" ? "#FFFFFF" : theme.success,
-                fontWeight: "600",
-                marginTop: Spacing.xs,
-              }}
-            >
-              Good Vibes
-            </ThemedText>
-          </AnimatedPressable>
 
-          <AnimatedPressable
-            onPress={() => handleVote("down")}
-            disabled={hasVoted}
-            style={[
-              styles.voteButton,
-              {
-                backgroundColor: voteType === "down" ? theme.error : theme.backgroundSecondary,
-                borderColor: voteType === "down" ? theme.error : theme.border,
-                opacity: hasVoted && voteType !== "down" ? 0.4 : 1,
-              },
-              thumbsDownStyle,
-            ]}
-          >
-            <Feather
-              name="thumbs-down"
-              size={28}
-              color={voteType === "down" ? "#FFFFFF" : theme.error}
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <StarRating
+              label="Stranger Quality"
+              rating={strangerQuality}
+              onRatingChange={setStrangerQuality}
             />
-            <ThemedText
-              type="small"
-              style={{
-                color: voteType === "down" ? "#FFFFFF" : theme.error,
-                fontWeight: "600",
-                marginTop: Spacing.xs,
-              }}
-            >
-              Bad Vibes
-            </ThemedText>
-          </AnimatedPressable>
-        </Animated.View>
 
-        {showReward ? (
-          <Animated.View style={[styles.rewardContainer, rewardStyle]}>
-            <View style={[styles.rewardBadge, { backgroundColor: `${theme.primary}20` }]}>
-              <Animated.View style={heartStyle}>
-                <Feather name="heart" size={20} color={theme.secondary} />
-              </Animated.View>
-              <ThemedText type="body" style={[styles.rewardText, { color: theme.primary }]}>
-                +{earnedKarma} Aura
-              </ThemedText>
-            </View>
-            <ThemedText
-              type="caption"
-              style={[styles.rewardSubtext, { color: theme.textSecondary }]}
-            >
-              Thanks for connecting!
-            </ThemedText>
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <StarRating
+              label="Experience"
+              rating={overallExperience}
+              onRatingChange={setOverallExperience}
+            />
+
+            {canSubmit ? (
+              <View style={styles.auraRewardBadge}>
+                <Feather name="zap" size={16} color="#FFD700" />
+                <ThemedText type="caption" style={styles.auraRewardText}>
+                  +100 Aura for your feedback
+                </ThemedText>
+              </View>
+            ) : null}
           </Animated.View>
         ) : (
-          <View style={styles.rewardPlaceholder} />
+          <Animated.View style={[styles.rewardContainer, rewardStyle]}>
+            <View style={[styles.successCard, { backgroundColor: `${theme.primary}15` }]}>
+              <View style={[styles.successIconContainer, { backgroundColor: theme.primary }]}>
+                <Feather name="check" size={24} color="#FFFFFF" />
+              </View>
+              <ThemedText type="h4" style={styles.successTitle}>
+                Thanks for your feedback!
+              </ThemedText>
+              <View style={styles.auraEarnedRow}>
+                <Animated.View style={heartStyle}>
+                  <Feather name="zap" size={20} color="#FFD700" />
+                </Animated.View>
+                <ThemedText type="body" style={styles.auraEarnedText}>
+                  +{auraEarned} Aura earned
+                </ThemedText>
+              </View>
+            </View>
+          </Animated.View>
         )}
 
+        <View style={styles.spacer} />
+
         <View style={styles.actionsContainer}>
-          {hasVoted ? (
+          {hasSubmitted ? (
             <Animated.View entering={FadeIn.delay(300)} style={styles.fullWidth}>
-              <Button onPress={handleGoHome}>Back to Home</Button>
+              <Button onPress={handleGoHome}>Start Another Call</Button>
             </Animated.View>
           ) : (
-            <ThemedText
-              type="caption"
-              style={[styles.skipText, { color: theme.textSecondary }]}
-            >
-              Rate your experience to continue
-            </ThemedText>
+            <>
+              <Button
+                onPress={handleSubmitRating}
+                disabled={!canSubmit || isSubmitting}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: canSubmit ? theme.primary : theme.backgroundSecondary },
+                ]}
+              >
+                {isSubmitting ? "Submitting..." : "Submit Feedback"}
+              </Button>
+              <Button
+                onPress={handleSkip}
+                variant="secondary"
+                style={styles.secondaryButton}
+              >
+                Skip
+              </Button>
+            </>
           )}
         </View>
-
-        {voteType === "down" ? (
-          <Animated.View entering={FadeInUp.delay(200)} style={styles.reportSection}>
-            <Pressable
-              onPress={handleReport}
-              style={({ pressed }) => [
-                styles.reportButton,
-                { 
-                  backgroundColor: theme.backgroundSecondary,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
-            >
-              <Feather name="flag" size={14} color={theme.error} />
-              <ThemedText
-                type="caption"
-                style={{ color: theme.error, marginLeft: Spacing.xs }}
-              >
-                Report this user
-              </ThemedText>
-            </Pressable>
-          </Animated.View>
-        ) : null}
       </ScrollView>
     </ThemedView>
   );
@@ -314,58 +290,73 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: Spacing.lg,
   },
-  votingContainer: {
-    flexDirection: "row",
-    gap: Spacing.md,
+  ratingsCard: {
+    width: "100%",
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
     marginBottom: Spacing.lg,
   },
-  voteButton: {
-    width: 110,
-    height: 100,
+  divider: {
+    height: 1,
+    marginVertical: Spacing.sm,
+  },
+  auraRewardBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.md,
+    gap: Spacing.xs,
+  },
+  auraRewardText: {
+    color: "#FFD700",
+    fontWeight: "600",
+  },
+  rewardContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: Spacing.lg,
+  },
+  successCard: {
+    width: "100%",
+    padding: Spacing.xl,
     borderRadius: BorderRadius.lg,
-    borderWidth: 2,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  successIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
   },
-  rewardContainer: {
-    alignItems: "center",
-    marginBottom: Spacing.lg,
+  successTitle: {
+    textAlign: "center",
   },
-  rewardBadge: {
+  auraEarnedRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.lg,
     gap: Spacing.xs,
   },
-  rewardText: {
-    fontWeight: "700",
+  auraEarnedText: {
+    fontWeight: "600",
   },
-  rewardSubtext: {
-    marginTop: Spacing.xs,
-  },
-  rewardPlaceholder: {
-    height: 60,
+  spacer: {
+    flex: 1,
+    minHeight: Spacing.xl,
   },
   actionsContainer: {
     width: "100%",
     alignItems: "center",
+    gap: Spacing.md,
   },
   fullWidth: {
     width: "100%",
   },
-  skipText: {
-    textAlign: "center",
+  primaryButton: {
+    width: "100%",
   },
-  reportSection: {
-    marginTop: Spacing.md,
-  },
-  reportButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.md,
+  secondaryButton: {
+    width: "100%",
   },
 });
