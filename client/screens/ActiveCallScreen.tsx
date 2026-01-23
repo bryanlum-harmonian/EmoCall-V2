@@ -25,6 +25,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { ReportModal, ReportReasonId } from "@/components/ReportModal";
+import { AuraInfoModal } from "@/components/AuraInfoModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useAgoraVoice } from "@/hooks/useAgoraVoice";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
@@ -703,6 +704,7 @@ export default function ActiveCallScreen() {
   const [lastSafetyCheckTime, setLastSafetyCheckTime] = useState(INITIAL_TIME);
   const [lastAuraAwardTime, setLastAuraAwardTime] = useState(INITIAL_TIME);
   const [showEndCallConfirm, setShowEndCallConfirm] = useState(false);
+  const [showAuraInfo, setShowAuraInfo] = useState(false);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -1045,18 +1047,23 @@ export default function ActiveCallScreen() {
         </Animated.View>
 
         <Animated.View entering={FadeIn.duration(400).delay(100)}>
-          <View
-            style={[
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowAuraInfo(true);
+            }}
+            style={({ pressed }) => [
               styles.karmaHeaderDisplay,
               { 
                 backgroundColor: isUrgent && !hasExtended 
                   ? "rgba(255,255,255,0.2)" 
                   : theme.backgroundSecondary,
+                opacity: pressed ? 0.7 : 1,
               },
             ]}
           >
             <Feather 
-              name="heart" 
+              name="star" 
               size={16} 
               color={isUrgent && !hasExtended ? "#FFFFFF" : "#FF6B6B"} 
             />
@@ -1069,7 +1076,7 @@ export default function ActiveCallScreen() {
             >
               {aura}
             </ThemedText>
-          </View>
+          </Pressable>
         </Animated.View>
       </View>
 
@@ -1293,6 +1300,11 @@ export default function ActiveCallScreen() {
       <CreditsStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
+      />
+
+      <AuraInfoModal
+        visible={showAuraInfo}
+        onClose={() => setShowAuraInfo(false)}
       />
 
       <SafetyCheckModal
