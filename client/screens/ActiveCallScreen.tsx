@@ -39,6 +39,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const INITIAL_TIME = 300;
 const WARNING_TIME = 10;
 const MINUTE_REMINDER_INTERVAL = 60;
+const TOPUP_REMINDER_THRESHOLD = 600; // Start showing reminders when 10 minutes or less remaining
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -614,7 +615,8 @@ export default function ActiveCallScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
         
-        if (!hasExtended && prev > WARNING_TIME && (lastReminderTime - prev) >= MINUTE_REMINDER_INTERVAL) {
+        // Only show topup reminders when 10 minutes or less remaining, then every minute
+        if (!hasExtended && prev <= TOPUP_REMINDER_THRESHOLD && prev > WARNING_TIME && (lastReminderTime - prev) >= MINUTE_REMINDER_INTERVAL) {
           const randomMessage = FATE_MESSAGES[Math.floor(Math.random() * FATE_MESSAGES.length)];
           setReminderMessage(randomMessage);
           setShowReminderModal(true);
