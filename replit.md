@@ -237,3 +237,11 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - First Mission badge: +50 aura bonus for completing first call (new users)
   - Database fields: dailyStreak, lastCheckIn, lastMoodCheck, firstCallCompleted
   - MoodSelectionScreen updated with streak display and vibe card UI
+- **Post-Call Rating System**: Detailed star-based feedback for app improvement analytics
+  - VibeCheckScreen enhanced with 3 rating categories: Voice Quality, Stranger Quality, Experience
+  - StarRating component with 5 tappable golden stars and haptic feedback
+  - +100 Aura reward for submitting ratings (incentivizes feedback)
+  - API endpoint: POST /api/calls/:callId/ratings
+  - Database table: call_ratings with sessionId, callId, and ratings (1-5 scale)
+  - Skip option for users who don't want to rate
+  - Success animation with aura earned display
