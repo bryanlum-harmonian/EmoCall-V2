@@ -26,7 +26,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useSession } from "@/contexts/SessionContext";
 import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext";
-import { useKarma } from "@/contexts/KarmaContext";
+import { useAura } from "@/contexts/AuraContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -199,7 +199,7 @@ export default function MoodSelectionScreen() {
   const { theme } = useTheme();
   const { session } = useSession();
   const { credits, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useCredits();
-  const { karma, currentLevel } = useKarma();
+  const { aura, currentLevel } = useAura();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showRefillModal, setShowRefillModal] = useState(false);
@@ -351,9 +351,9 @@ export default function MoodSelectionScreen() {
               },
             ]}
           >
-            <Feather name="heart" size={16} color={theme.error} />
+            <Feather name="star" size={16} color={theme.error} />
             <ThemedText type="small" style={{ color: theme.error, fontWeight: "600" }}>
-              {karma}
+              {aura}
             </ThemedText>
           </Pressable>
           <Pressable

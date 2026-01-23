@@ -19,7 +19,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
-import { useKarma, KARMA_REWARDS } from "@/contexts/KarmaContext";
+import { useAura, AURA_REWARDS } from "@/contexts/AuraContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -28,7 +28,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 export default function VibeCheckScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { karma, awardCallCompletion } = useKarma();
+  const { aura, awardCallCompletion } = useAura();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [hasVoted, setHasVoted] = useState(false);
@@ -88,8 +88,8 @@ export default function VibeCheckScreen() {
       thumbsUpScale.value = withSpring(0.8, { damping: 15 });
     }
 
-    const karma = KARMA_REWARDS.COMPLETE_CALL;
-    setEarnedKarma(karma);
+    const earnedAura = AURA_REWARDS.COMPLETE_CALL;
+    setEarnedKarma(earnedAura);
     awardCallCompletion();
     
     setTimeout(() => {

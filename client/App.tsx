@@ -14,7 +14,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { CreditsProvider } from "@/contexts/CreditsContext";
-import { KarmaProvider } from "@/contexts/KarmaContext";
+import { AuraProvider } from "@/contexts/AuraContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 function AppContent() {
@@ -40,9 +40,9 @@ export default function App() {
           <ThemeProvider>
             <SessionProvider>
               <CreditsProvider>
-                <KarmaProvider>
+                <AuraProvider>
                   <AppContent />
-                </KarmaProvider>
+                </AuraProvider>
               </CreditsProvider>
             </SessionProvider>
           </ThemeProvider>

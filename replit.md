@@ -115,21 +115,22 @@ The app follows a strict linear flow designed for speed and anonymity:
 
 Note: Payment processing uses mock purchases (UI complete, Stripe integration needed for production)
 
-### Karma Points System
-- **KarmaContext** (`client/contexts/KarmaContext.tsx`) - Syncs with backend APIs for karma tracking
+### Aura Points System
+- **AuraContext** (`client/contexts/AuraContext.tsx`) - Syncs with backend APIs for aura tracking (backend uses karmaPoints field for compatibility)
 
-**Karma Levels:**
-1. New Soul (0+ karma)
-2. Kind Listener (50+ karma)
-3. Empathetic Soul (150+ karma)
-4. Trusted Companion (300+ karma)
-5. Guardian Angel (500+ karma)
-6. Heart of Gold (1000+ karma)
+**Aura Levels:**
+1. New Soul (0+ aura)
+2. Kind Listener (50+ aura)
+3. Empathetic Soul (150+ aura)
+4. Trusted Companion (300+ aura)
+5. Guardian Angel (500+ aura)
+6. Heart of Gold (1000+ aura)
 
-**Karma Rewards:**
-- Complete a call: +10 karma
-- Extend a call: +50 karma
-- Get reported: -25 karma
+**Aura Rewards:**
+- Each minute during call: +10 aura
+- Complete a call: +10 aura
+- Extend a call: +50 aura
+- Get reported: -25 aura
 
 ### Database
 - **pg** - PostgreSQL client
