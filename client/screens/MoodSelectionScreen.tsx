@@ -23,6 +23,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AuraInfoModal } from "@/components/AuraInfoModal";
+import { GlobalRankingsModal } from "@/components/GlobalRankingsModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useSession } from "@/contexts/SessionContext";
@@ -206,6 +207,7 @@ export default function MoodSelectionScreen() {
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showRefillModal, setShowRefillModal] = useState(false);
   const [showAuraInfo, setShowAuraInfo] = useState(false);
+  const [showRankings, setShowRankings] = useState(false);
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   
@@ -441,6 +443,21 @@ export default function MoodSelectionScreen() {
               </ThemedText>
             </Pressable>
             <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowRankings(true);
+              }}
+              style={({ pressed }) => [
+                styles.rankingsButton,
+                {
+                  backgroundColor: `${theme.accent2}15`,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Feather name="globe" size={18} color={theme.accent2} />
+            </Pressable>
+            <Pressable
               onPress={handleSettingsPress}
               style={({ pressed }) => [
                 styles.settingsButton,
@@ -639,6 +656,11 @@ export default function MoodSelectionScreen() {
         onClose={() => setShowAuraInfo(false)}
       />
 
+      <GlobalRankingsModal
+        visible={showRankings}
+        onClose={() => setShowRankings(false)}
+      />
+
       <RefillModal
         visible={showRefillModal}
         onClose={() => setShowRefillModal(false)}
@@ -756,6 +778,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
+  },
+  rankingsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
   },
   settingsButton: {
     padding: Spacing.xs,
