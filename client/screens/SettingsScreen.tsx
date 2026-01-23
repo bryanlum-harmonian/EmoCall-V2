@@ -12,6 +12,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
+import { BackupRestoreModal } from "@/components/BackupRestoreModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
@@ -116,6 +117,7 @@ export default function SettingsScreen() {
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
+  const [showBackupRestore, setShowBackupRestore] = useState(false);
 
   const handleBlockToggle = async (value: boolean) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -422,12 +424,20 @@ export default function SettingsScreen() {
 
         <SettingsSection title="ACCOUNT" delay={800}>
           <SettingsItem
+            icon="download-cloud"
+            title="Backup & Restore"
+            subtitle="Save or recover your session"
+            onPress={() => setShowBackupRestore(true)}
+            delay={850}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <SettingsItem
             icon="trash-2"
             title="Delete My Data"
             subtitle="Permanently remove all local data"
             onPress={handleDeleteData}
             isDestructive
-            delay={850}
+            delay={900}
           />
         </SettingsSection>
 
@@ -453,6 +463,14 @@ export default function SettingsScreen() {
       <CreditsStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
+      />
+
+      <BackupRestoreModal
+        visible={showBackupRestore}
+        onClose={() => setShowBackupRestore(false)}
+        onRestoreSuccess={() => {
+          Alert.alert("Success", "Your session has been restored successfully!");
+        }}
       />
     </ThemedView>
   );
