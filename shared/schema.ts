@@ -27,6 +27,8 @@ export const sessions = pgTable("sessions", {
   restoreToken: text("restore_token"), // Server-generated token for validating restores
   transferredAt: timestamp("transferred_at"), // When this session was transferred to another device
   transferredToSessionId: text("transferred_to_session_id"), // Session ID it was transferred to
+  // Country tracking for global rankings
+  countryCode: text("country_code"), // ISO 3166-1 alpha-2 country code (e.g., "MY", "US")
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`NOW()`),
 });
@@ -131,6 +133,20 @@ export const callRatings = pgTable("call_ratings", {
 export const insertCallRatingSchema = createInsertSchema(callRatings);
 export type InsertCallRating = z.infer<typeof insertCallRatingSchema>;
 export type CallRating = typeof callRatings.$inferSelect;
+
+// Country rankings cache (refreshed every 12 hours)
+export const countryRankings = pgTable("country_rankings", {
+  countryCode: text("country_code").primaryKey(), // ISO 3166-1 alpha-2 (e.g., "MY", "US")
+  countryName: text("country_name").notNull(),
+  totalAura: integer("total_aura").notNull().default(0),
+  userCount: integer("user_count").notNull().default(0),
+  rank: integer("rank").notNull().default(0),
+  lastUpdatedAt: timestamp("last_updated_at").notNull().default(sql`NOW()`),
+});
+
+export const insertCountryRankingSchema = createInsertSchema(countryRankings);
+export type InsertCountryRanking = z.infer<typeof insertCountryRankingSchema>;
+export type CountryRanking = typeof countryRankings.$inferSelect;
 
 // Matchmaking queue
 export const matchmakingQueue = pgTable("matchmaking_queue", {

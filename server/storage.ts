@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { db } from "./db";
 import {
@@ -9,6 +9,7 @@ import {
   reports,
   matchmakingQueue,
   callRatings,
+  countryRankings,
   type Session,
   type InsertSession,
   type Call,
@@ -19,6 +20,7 @@ import {
   type InsertMatchmakingQueue,
   type InsertCallRating,
   type CallRating,
+  type CountryRanking,
   MAX_DAILY_MATCHES,
 } from "@shared/schema";
 
@@ -603,4 +605,114 @@ export async function validateAndRestoreSession(
     .where(eq(sessions.id, oldSessionId));
   
   return { success: true, session: updatedNewSession };
+}
+
+// Country code to name mapping
+const COUNTRY_NAMES: Record<string, string> = {
+  AF: "Afghanistan", AL: "Albania", DZ: "Algeria", AD: "Andorra", AO: "Angola",
+  AR: "Argentina", AM: "Armenia", AU: "Australia", AT: "Austria", AZ: "Azerbaijan",
+  BS: "Bahamas", BH: "Bahrain", BD: "Bangladesh", BB: "Barbados", BY: "Belarus",
+  BE: "Belgium", BZ: "Belize", BJ: "Benin", BT: "Bhutan", BO: "Bolivia",
+  BA: "Bosnia", BW: "Botswana", BR: "Brazil", BN: "Brunei", BG: "Bulgaria",
+  KH: "Cambodia", CM: "Cameroon", CA: "Canada", CL: "Chile", CN: "China",
+  CO: "Colombia", CR: "Costa Rica", HR: "Croatia", CU: "Cuba", CY: "Cyprus",
+  CZ: "Czechia", DK: "Denmark", DO: "Dominican Republic", EC: "Ecuador", EG: "Egypt",
+  SV: "El Salvador", EE: "Estonia", ET: "Ethiopia", FI: "Finland", FR: "France",
+  GE: "Georgia", DE: "Germany", GH: "Ghana", GR: "Greece", GT: "Guatemala",
+  HK: "Hong Kong", HU: "Hungary", IS: "Iceland", IN: "India", ID: "Indonesia",
+  IR: "Iran", IQ: "Iraq", IE: "Ireland", IL: "Israel", IT: "Italy",
+  JM: "Jamaica", JP: "Japan", JO: "Jordan", KZ: "Kazakhstan", KE: "Kenya",
+  KR: "South Korea", KW: "Kuwait", LV: "Latvia", LB: "Lebanon", LT: "Lithuania",
+  LU: "Luxembourg", MY: "Malaysia", MV: "Maldives", MX: "Mexico", MA: "Morocco",
+  MM: "Myanmar", NP: "Nepal", NL: "Netherlands", NZ: "New Zealand", NG: "Nigeria",
+  NO: "Norway", OM: "Oman", PK: "Pakistan", PA: "Panama", PY: "Paraguay",
+  PE: "Peru", PH: "Philippines", PL: "Poland", PT: "Portugal", QA: "Qatar",
+  RO: "Romania", RU: "Russia", SA: "Saudi Arabia", RS: "Serbia", SG: "Singapore",
+  SK: "Slovakia", SI: "Slovenia", ZA: "South Africa", ES: "Spain", LK: "Sri Lanka",
+  SE: "Sweden", CH: "Switzerland", TW: "Taiwan", TH: "Thailand", TR: "Turkey",
+  UA: "Ukraine", AE: "UAE", GB: "United Kingdom", US: "United States", UY: "Uruguay",
+  UZ: "Uzbekistan", VE: "Venezuela", VN: "Vietnam", ZW: "Zimbabwe",
+};
+
+export function getCountryName(code: string): string {
+  return COUNTRY_NAMES[code.toUpperCase()] || code;
+}
+
+// Update session with country code
+export async function updateSessionCountry(
+  sessionId: string,
+  countryCode: string
+): Promise<Session | undefined> {
+  const [updated] = await db
+    .update(sessions)
+    .set({ countryCode: countryCode.toUpperCase(), updatedAt: new Date() })
+    .where(eq(sessions.id, sessionId))
+    .returning();
+  return updated;
+}
+
+// Get cached country rankings
+export async function getCountryRankings(): Promise<CountryRanking[]> {
+  return db.query.countryRankings.findMany({
+    orderBy: [desc(countryRankings.totalAura)],
+  });
+}
+
+// Check if rankings need refresh (older than 12 hours)
+export async function shouldRefreshRankings(): Promise<boolean> {
+  const result = await db.query.countryRankings.findFirst();
+  if (!result) return true;
+  
+  const now = new Date();
+  const lastUpdate = new Date(result.lastUpdatedAt);
+  const hoursSinceUpdate = (now.getTime() - lastUpdate.getTime()) / (1000 * 60 * 60);
+  
+  return hoursSinceUpdate >= 12;
+}
+
+// Refresh country rankings from session data
+export async function refreshCountryRankings(): Promise<CountryRanking[]> {
+  const now = new Date();
+  
+  // Aggregate aura points by country
+  const aggregation = await db.execute(sql`
+    SELECT 
+      country_code,
+      SUM(aura_points) as total_aura,
+      COUNT(*) as user_count
+    FROM sessions
+    WHERE country_code IS NOT NULL AND country_code != ''
+    GROUP BY country_code
+    ORDER BY total_aura DESC
+  `);
+  
+  // Clear existing rankings
+  await db.delete(countryRankings);
+  
+  // Insert new rankings with rank positions
+  const rankings: CountryRanking[] = [];
+  let rank = 1;
+  
+  for (const row of aggregation.rows as any[]) {
+    const countryCode = row.country_code as string;
+    const totalAura = parseInt(row.total_aura as string) || 0;
+    const userCount = parseInt(row.user_count as string) || 0;
+    
+    const [inserted] = await db
+      .insert(countryRankings)
+      .values({
+        countryCode,
+        countryName: getCountryName(countryCode),
+        totalAura,
+        userCount,
+        rank,
+        lastUpdatedAt: now,
+      })
+      .returning();
+    
+    rankings.push(inserted);
+    rank++;
+  }
+  
+  return rankings;
 }

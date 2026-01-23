@@ -41,6 +41,11 @@ import {
   checkPremiumStatus,
   generateRestoreToken,
   validateAndRestoreSession,
+  updateSessionCountry,
+  getCountryRankings,
+  shouldRefreshRankings,
+  refreshCountryRankings,
+  getCountryName,
 } from "./storage";
 import {
   CREDIT_PACKAGES,
@@ -509,6 +514,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "deviceId is required" });
       }
       const session = await getOrCreateSession(deviceId);
+      
+      // Detect country from IP if not already set
+      if (!session.countryCode) {
+        try {
+          // Get client IP from headers (Replit proxy) or socket
+          const forwardedFor = req.headers["x-forwarded-for"];
+          const clientIp = typeof forwardedFor === "string" 
+            ? forwardedFor.split(",")[0].trim() 
+            : req.socket.remoteAddress;
+          
+          if (clientIp && clientIp !== "127.0.0.1" && clientIp !== "::1") {
+            // Use ip-api.com for free geolocation (no API key needed)
+            const geoRes = await fetch(`http://ip-api.com/json/${clientIp}?fields=countryCode`);
+            if (geoRes.ok) {
+              const geoData = await geoRes.json() as { countryCode?: string };
+              if (geoData.countryCode) {
+                const updatedSession = await updateSessionCountry(session.id, geoData.countryCode);
+                return res.json(updatedSession || session);
+              }
+            }
+          }
+        } catch (geoError) {
+          console.error("Error detecting country:", geoError);
+          // Continue without country - not critical
+        }
+      }
+      
       res.json(session);
     } catch (error) {
       console.error("Error creating session:", error);
@@ -969,6 +1001,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating report:", error);
       res.status(500).json({ error: "Failed to create report" });
+    }
+  });
+
+  // ===============================
+  // Country Rankings API
+  // ===============================
+  
+  // Get global country rankings (cached, refreshed every 12 hours)
+  app.get("/api/rankings/countries", async (_req: Request, res: Response) => {
+    try {
+      // Check if we need to refresh the cache
+      const needsRefresh = await shouldRefreshRankings();
+      
+      if (needsRefresh) {
+        console.log("[Rankings] Refreshing country rankings cache...");
+        const rankings = await refreshCountryRankings();
+        return res.json({
+          rankings,
+          lastUpdated: new Date().toISOString(),
+          nextUpdate: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString(),
+        });
+      }
+      
+      const rankings = await getCountryRankings();
+      const lastUpdated = rankings[0]?.lastUpdatedAt || new Date();
+      
+      res.json({
+        rankings,
+        lastUpdated: new Date(lastUpdated).toISOString(),
+        nextUpdate: new Date(new Date(lastUpdated).getTime() + 12 * 60 * 60 * 1000).toISOString(),
+      });
+    } catch (error) {
+      console.error("Error getting country rankings:", error);
+      res.status(500).json({ error: "Failed to get rankings" });
+    }
+  });
+  
+  // Force refresh rankings (admin use)
+  app.post("/api/rankings/refresh", async (_req: Request, res: Response) => {
+    try {
+      console.log("[Rankings] Force refreshing country rankings...");
+      const rankings = await refreshCountryRankings();
+      res.json({
+        rankings,
+        lastUpdated: new Date().toISOString(),
+        message: "Rankings refreshed successfully",
+      });
+    } catch (error) {
+      console.error("Error refreshing rankings:", error);
+      res.status(500).json({ error: "Failed to refresh rankings" });
+    }
+  });
+  
+  // Get user's country info
+  app.get("/api/sessions/:id/country", async (req: SessionRequest, res: Response) => {
+    try {
+      const session = await getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      if (!session.countryCode) {
+        return res.json({ countryCode: null, countryName: null, rank: null });
+      }
+      
+      const rankings = await getCountryRankings();
+      const countryRanking = rankings.find(r => r.countryCode === session.countryCode);
+      
+      res.json({
+        countryCode: session.countryCode,
+        countryName: getCountryName(session.countryCode),
+        rank: countryRanking?.rank || null,
+        totalAura: countryRanking?.totalAura || 0,
+        userCount: countryRanking?.userCount || 0,
+      });
+    } catch (error) {
+      console.error("Error getting session country:", error);
+      res.status(500).json({ error: "Failed to get country info" });
     }
   });
 
