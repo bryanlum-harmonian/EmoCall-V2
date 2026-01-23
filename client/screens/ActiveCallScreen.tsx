@@ -247,6 +247,119 @@ function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }
   );
 }
 
+interface SafetyCheckModalProps {
+  visible: boolean;
+  onFeelSafe: () => void;
+  onNotSafe: () => void;
+  onContinueAnyway: () => void;
+  onEndCall: () => void;
+  showFollowUp: boolean;
+}
+
+function SafetyCheckModal({ 
+  visible, 
+  onFeelSafe, 
+  onNotSafe, 
+  onContinueAnyway, 
+  onEndCall,
+  showFollowUp 
+}: SafetyCheckModalProps) {
+  const { theme } = useTheme();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.reminderOverlay}>
+        <Animated.View
+          entering={FadeInUp.duration(300)}
+          style={[styles.reminderContent, { backgroundColor: theme.surface }]}
+        >
+          <View style={[styles.reminderIcon, { backgroundColor: showFollowUp ? `${theme.warning}15` : `${theme.success}15` }]}>
+            <Feather 
+              name={showFollowUp ? "alert-circle" : "shield"} 
+              size={24} 
+              color={showFollowUp ? theme.warning : theme.success} 
+            />
+          </View>
+
+          {showFollowUp ? (
+            <>
+              <ThemedText type="h3" style={styles.reminderTitle}>
+                We understand
+              </ThemedText>
+              <ThemedText
+                type="body"
+                style={[styles.reminderMessage, { color: theme.textSecondary }]}
+              >
+                Would you like to continue the conversation or end the call now?
+              </ThemedText>
+              <View style={styles.reminderButtons}>
+                <Pressable
+                  onPress={onEndCall}
+                  style={({ pressed }) => [
+                    styles.reminderButton,
+                    styles.reminderButtonPrimary,
+                    { backgroundColor: theme.error, opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <Feather name="phone-off" size={18} color="#FFFFFF" />
+                  <ThemedText style={styles.reminderButtonText}>End Call</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={onContinueAnyway}
+                  style={({ pressed }) => [
+                    styles.reminderButton,
+                    { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
+                    Continue Anyway
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <>
+              <ThemedText type="h3" style={styles.reminderTitle}>
+                Safety Check
+              </ThemedText>
+              <ThemedText
+                type="body"
+                style={[styles.reminderMessage, { color: theme.textSecondary }]}
+              >
+                Are you feeling safe during this call?
+              </ThemedText>
+              <View style={styles.reminderButtons}>
+                <Pressable
+                  onPress={onFeelSafe}
+                  style={({ pressed }) => [
+                    styles.reminderButton,
+                    styles.reminderButtonPrimary,
+                    { backgroundColor: theme.success, opacity: pressed ? 0.9 : 1 },
+                  ]}
+                >
+                  <Feather name="check-circle" size={18} color="#FFFFFF" />
+                  <ThemedText style={styles.reminderButtonText}>Yes, I'm Safe</ThemedText>
+                </Pressable>
+                <Pressable
+                  onPress={onNotSafe}
+                  style={({ pressed }) => [
+                    styles.reminderButton,
+                    { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+                  ]}
+                >
+                  <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
+                    No, Not Really
+                  </ThemedText>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 interface ExtensionModalProps {
   visible: boolean;
   onSelectExtension: (extensionId: string) => void;
