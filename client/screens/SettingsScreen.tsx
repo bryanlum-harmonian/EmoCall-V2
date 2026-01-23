@@ -113,7 +113,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { theme, isDark, appTheme } = useTheme();
   const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
-  const { credits, isPremium, preferredGender, setPremium, setPreferredGender } = useCredits();
+  const { credits, isPremium, setPremium } = useCredits();
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
@@ -206,41 +206,6 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleGenderFilterPress = async () => {
-    await Haptics.selectionAsync();
-    if (!isPremium) {
-      Alert.alert(
-        "Premium Feature",
-        "Gender filter is a premium feature. Subscribe to unlock it.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Go Premium", onPress: handlePremiumSubscribe },
-        ]
-      );
-      return;
-    }
-    
-    Alert.alert(
-      "Gender Preference",
-      "Choose who you'd like to match with:",
-      [
-        { text: "Anyone", onPress: () => setPreferredGender("any") },
-        { text: "Male Only", onPress: () => setPreferredGender("male") },
-        { text: "Female Only", onPress: () => setPreferredGender("female") },
-        { text: "Cancel", style: "cancel" },
-      ]
-    );
-  };
-
-  const getGenderLabel = () => {
-    if (!isPremium) return "Premium only";
-    switch (preferredGender) {
-      case "male": return "Male only";
-      case "female": return "Female only";
-      default: return "Anyone";
-    }
-  };
-
   return (
     <ThemedView style={styles.container}>
       <KeyboardAwareScrollViewCompat
@@ -270,31 +235,7 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
-        <SettingsSection title="PREMIUM FEATURES" delay={200}>
-          <SettingsItem
-            icon="users"
-            title="Gender Filter"
-            subtitle={getGenderLabel()}
-            onPress={handleGenderFilterPress}
-            isPremium={isPremium}
-            rightElement={
-              isPremium ? (
-                <View style={[styles.filterBadge, { backgroundColor: `${theme.success}20` }]}>
-                  <ThemedText type="small" style={{ color: theme.success }}>
-                    {preferredGender === "any" ? "All" : preferredGender === "male" ? "M" : "F"}
-                  </ThemedText>
-                </View>
-              ) : (
-                <View style={[styles.lockBadge, { backgroundColor: theme.backgroundSecondary }]}>
-                  <Feather name="lock" size={14} color={theme.textSecondary} />
-                </View>
-              )
-            }
-            delay={250}
-          />
-        </SettingsSection>
-
-        <SettingsSection title="APPEARANCE" delay={300}>
+        <SettingsSection title="APPEARANCE" delay={200}>
           <Animated.View entering={FadeInUp.delay(320).duration(400)}>
             <View style={styles.themePickerContainer}>
               <ThemedText type="body" style={[styles.themePickerLabel, { color: theme.text }]}>
@@ -532,18 +473,6 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginLeft: Spacing.lg + 36 + Spacing.md,
-  },
-  filterBadge: {
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
-    borderRadius: BorderRadius.full,
-  },
-  lockBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
   },
   footer: {
     alignItems: "center",
