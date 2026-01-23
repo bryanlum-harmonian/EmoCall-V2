@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, StyleSheet, Pressable, Image, Modal } from "react-native";
+import { View, StyleSheet, Pressable, Image, Modal, ScrollView, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -94,15 +94,15 @@ function MoodCard({ type, icon, title, onPress, delay, disabled }: MoodCardProps
       >
         <Feather
           name={icon}
-          size={40}
+          size={32}
           color="#FFFFFF"
         />
       </View>
       <ThemedText
-        type="h3"
+        type="body"
         style={[
           styles.cardTitle,
-          { color: "#FFFFFF" },
+          { color: "#FFFFFF", fontWeight: "700", fontSize: 18 },
         ]}
       >
         {title}
@@ -380,93 +380,104 @@ export default function MoodSelectionScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + Spacing.lg }]}>
-        <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.logoContainer}>
-          <Image
-            source={require("../../assets/images/icon.png")}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <ThemedText type="h4" style={styles.appName}>
-            EmoCall
-          </ThemedText>
-          {isPremium ? (
-            <View style={[styles.premiumBadge, { backgroundColor: theme.success }]}>
-              <Feather name="star" size={10} color="#FFFFFF" />
-            </View>
-          ) : null}
-        </Animated.View>
-        <Animated.View entering={FadeIn.delay(300).duration(400)} style={styles.headerRight}>
-          <Pressable
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setShowAuraInfo(true);
-            }}
-            style={({ pressed }) => [
-              styles.karmaButton,
-              {
-                backgroundColor: `${theme.error}15`,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Feather name="star" size={16} color={theme.error} />
-            <ThemedText type="small" style={{ color: theme.error, fontWeight: "600" }}>
-              {aura}
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={handleCreditsPress}
-            style={({ pressed }) => [
-              styles.creditsButton,
-              {
-                backgroundColor: `${theme.primary}15`,
-                opacity: pressed ? 0.7 : 1,
-              },
-            ]}
-          >
-            <Feather name="zap" size={16} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
-              {credits}
-            </ThemedText>
-          </Pressable>
-          <Pressable
-            onPress={handleSettingsPress}
-            style={({ pressed }) => [
-              styles.settingsButton,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Feather name="settings" size={24} color={theme.textSecondary} />
-          </Pressable>
-        </Animated.View>
-      </View>
-
-      <Animated.View 
-        entering={FadeIn.delay(350).duration(400)} 
-        style={styles.karmaLevelContainer}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + Spacing.md, paddingBottom: insets.bottom + Spacing.lg }
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
       >
-        <View style={styles.levelStreakRow}>
-          <View style={[styles.karmaLevelBadge, { backgroundColor: theme.backgroundSecondary }]}>
-            <Feather name="award" size={14} color={theme.primary} />
-            <ThemedText type="small" style={{ color: theme.text, fontWeight: "500" }}>
-              Level {currentLevel.level}: {currentLevel.name}
+        {/* Header */}
+        <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("../../assets/images/icon.png")}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+            <ThemedText type="body" style={[styles.appName, { fontWeight: "700" }]}>
+              EmoCall
             </ThemedText>
+            {isPremium ? (
+              <View style={[styles.premiumBadge, { backgroundColor: theme.success }]}>
+                <Feather name="star" size={8} color="#FFFFFF" />
+              </View>
+            ) : null}
           </View>
-          {dailyStreak > 0 ? (
-            <View style={[styles.streakBadge, { backgroundColor: `${theme.warning}20` }]}>
-              <Feather name="zap" size={14} color={theme.warning} />
-              <ThemedText type="small" style={{ color: theme.warning, fontWeight: "600" }}>
-                {dailyStreak} day streak
+          <View style={styles.headerRight}>
+            <Pressable
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowAuraInfo(true);
+              }}
+              style={({ pressed }) => [
+                styles.karmaButton,
+                {
+                  backgroundColor: `${theme.error}15`,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Feather name="star" size={14} color={theme.error} />
+              <ThemedText type="caption" style={{ color: theme.error, fontWeight: "600" }}>
+                {aura}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={handleCreditsPress}
+              style={({ pressed }) => [
+                styles.creditsButton,
+                {
+                  backgroundColor: `${theme.primary}15`,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Feather name="zap" size={14} color={theme.primary} />
+              <ThemedText type="caption" style={{ color: theme.primary, fontWeight: "600" }}>
+                {credits}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={handleSettingsPress}
+              style={({ pressed }) => [
+                styles.settingsButton,
+                { opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <Feather name="settings" size={20} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+        </Animated.View>
+
+        {/* Level & Streak Badges */}
+        <Animated.View 
+          entering={FadeIn.delay(250).duration(400)} 
+          style={styles.karmaLevelContainer}
+        >
+          <View style={styles.levelStreakRow}>
+            <View style={[styles.karmaLevelBadge, { backgroundColor: theme.backgroundSecondary }]}>
+              <Feather name="award" size={12} color={theme.primary} />
+              <ThemedText type="caption" style={{ color: theme.text, fontWeight: "500" }}>
+                Level {currentLevel.level}: {currentLevel.name}
               </ThemedText>
             </View>
-          ) : null}
-        </View>
-      </Animated.View>
+            {dailyStreak > 0 ? (
+              <View style={[styles.streakBadge, { backgroundColor: `${theme.warning}20` }]}>
+                <Feather name="zap" size={12} color={theme.warning} />
+                <ThemedText type="caption" style={{ color: theme.warning, fontWeight: "600" }}>
+                  {dailyStreak} day streak
+                </ThemedText>
+              </View>
+            ) : null}
+          </View>
+        </Animated.View>
 
-      <View style={styles.content}>
-        <Animated.View entering={FadeInUp.delay(400).duration(500)}>
-          <ThemedText type="h2" style={styles.headline}>
+        {/* Headline */}
+        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+          <ThemedText type="h3" style={styles.headline}>
             How are you feeling?
           </ThemedText>
         </Animated.View>
@@ -474,16 +485,16 @@ export default function MoodSelectionScreen() {
         {/* Daily Vibe Card */}
         {dailyVibe ? (
           <Animated.View 
-            entering={FadeInUp.delay(450).duration(400)}
+            entering={FadeInUp.delay(350).duration(400)}
             style={[styles.vibeCard, { backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}30` }]}
           >
             <View style={styles.vibeHeader}>
-              <Feather name="message-square" size={16} color={theme.primary} />
-              <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+              <Feather name="message-square" size={14} color={theme.primary} />
+              <ThemedText type="caption" style={{ color: theme.primary, fontWeight: "600" }}>
                 Today's Vibe
               </ThemedText>
             </View>
-            <ThemedText type="body" style={[styles.vibePrompt, { color: theme.text }]}>
+            <ThemedText type="small" style={[styles.vibePrompt, { color: theme.text }]}>
               "{dailyVibe}"
             </ThemedText>
           </Animated.View>
@@ -492,26 +503,27 @@ export default function MoodSelectionScreen() {
         {/* First Mission Badge */}
         {showFirstMission ? (
           <Animated.View 
-            entering={FadeInUp.delay(480).duration(400)}
+            entering={FadeInUp.delay(380).duration(400)}
             style={[styles.missionCard, { backgroundColor: `${theme.success}15`, borderColor: `${theme.success}40` }]}
           >
             <View style={styles.missionIcon}>
-              <Feather name="target" size={20} color={theme.success} />
+              <Feather name="target" size={16} color={theme.success} />
             </View>
             <View style={styles.missionContent}>
-              <ThemedText type="small" style={{ color: theme.success, fontWeight: "700" }}>
+              <ThemedText type="caption" style={{ color: theme.success, fontWeight: "700" }}>
                 First Mission
               </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-                Complete 1 call today for +50 Aura
+              <ThemedText type="caption" style={{ color: theme.textSecondary, fontSize: 11 }}>
+                Complete 1 call for +50 Aura
               </ThemedText>
             </View>
           </Animated.View>
         ) : null}
 
+        {/* Matches Counter */}
         <View style={styles.matchesCounter}>
           <Animated.View 
-            entering={FadeIn.delay(500).duration(400)}
+            entering={FadeIn.delay(400).duration(400)}
             style={[
               styles.matchesBadge,
               { 
@@ -522,11 +534,11 @@ export default function MoodSelectionScreen() {
           >
             <Feather 
               name="layers" 
-              size={16} 
+              size={14} 
               color={noMatchesLeft ? theme.error : theme.primary} 
             />
             <ThemedText 
-              type="body" 
+              type="small" 
               style={{ 
                 color: noMatchesLeft ? theme.error : theme.text,
                 fontWeight: "600",
@@ -542,7 +554,7 @@ export default function MoodSelectionScreen() {
                   { backgroundColor: theme.error, opacity: pressed ? 0.8 : 1 },
                 ]}
               >
-                <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 10 }}>
                   Refill
                 </ThemedText>
               </Pressable>
@@ -550,13 +562,14 @@ export default function MoodSelectionScreen() {
           </Animated.View>
         </View>
 
+        {/* Mood Cards */}
         <View style={styles.cardsContainer}>
           <MoodCard
             type="vent"
             icon="message-circle"
             title="I Need to Vent"
             onPress={() => handleMoodSelect("vent")}
-            delay={600}
+            delay={450}
             disabled={noMatchesLeft}
           />
           <MoodCard
@@ -564,14 +577,15 @@ export default function MoodSelectionScreen() {
             icon="headphones"
             title="I Can Listen"
             onPress={() => handleMoodSelect("listen")}
-            delay={800}
+            delay={550}
             disabled={noMatchesLeft}
           />
         </View>
 
-        <Animated.View entering={FadeIn.delay(1000).duration(500)}>
+        {/* Subtitle */}
+        <Animated.View entering={FadeIn.delay(650).duration(400)}>
           <ThemedText
-            type="small"
+            type="caption"
             style={[styles.subtitle, { color: theme.textSecondary }]}
           >
             {noMatchesLeft 
@@ -580,10 +594,9 @@ export default function MoodSelectionScreen() {
             }
           </ThemedText>
         </Animated.View>
-      </View>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + Spacing.xl }]}>
-        <Animated.View entering={FadeIn.delay(1200).duration(500)}>
+        {/* Footer */}
+        <Animated.View entering={FadeIn.delay(750).duration(400)} style={styles.footer}>
           <ThemedText
             type="caption"
             style={[styles.footerText, { color: theme.textDisabled }]}
@@ -591,36 +604,7 @@ export default function MoodSelectionScreen() {
             Anonymous voice calls for emotional relief
           </ThemedText>
         </Animated.View>
-        
-        {/* TEMPORARY: Preview Call button for design testing - REMOVE BEFORE PRODUCTION */}
-        <Pressable
-          onPress={() => {
-            navigation.navigate("ActiveCall", {
-              callId: "preview-call-123",
-              partnerId: "preview-partner-456",
-              duration: 300,
-              isPreview: true,
-            });
-          }}
-          style={({ pressed }) => [
-            {
-              marginTop: Spacing.md,
-              paddingVertical: Spacing.sm,
-              paddingHorizontal: Spacing.lg,
-              backgroundColor: theme.backgroundSecondary,
-              borderRadius: BorderRadius.md,
-              borderWidth: 1,
-              borderColor: theme.border,
-              borderStyle: "dashed",
-              opacity: pressed ? 0.7 : 1,
-            },
-          ]}
-        >
-          <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center" }}>
-            Preview Call Screen (DEV)
-          </ThemedText>
-        </Pressable>
-      </View>
+      </ScrollView>
 
       <CreditsStoreModal
         visible={showCreditsStore}
@@ -696,114 +680,120 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: Spacing.lg,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   logoContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   logo: {
-    width: 32,
-    height: 32,
+    width: 28,
+    height: 28,
   },
   appName: {
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   premiumBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: -4,
+    marginLeft: -2,
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   karmaButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: 3,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
   },
   creditsButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    gap: 3,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
   },
   settingsButton: {
-    padding: Spacing.sm,
+    padding: Spacing.xs,
   },
   karmaLevelContainer: {
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   karmaLevelBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
     borderRadius: BorderRadius.full,
   },
   levelStreakRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
     flexWrap: "wrap",
     justifyContent: "center",
   },
   streakBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.xs,
+    gap: 4,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
     borderRadius: BorderRadius.full,
   },
   vibeCard: {
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   vibeHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    gap: 4,
+    marginBottom: 2,
   },
   vibePrompt: {
     fontStyle: "italic",
     textAlign: "center",
+    lineHeight: 18,
   },
   missionCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    padding: Spacing.sm,
+    borderRadius: BorderRadius.md,
     borderWidth: 1,
-    marginBottom: Spacing.lg,
-    gap: Spacing.md,
+    marginBottom: Spacing.md,
+    gap: Spacing.sm,
   },
   missionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: "rgba(255,255,255,0.5)",
     alignItems: "center",
     justifyContent: "center",
@@ -811,54 +801,50 @@ const styles = StyleSheet.create({
   missionContent: {
     flex: 1,
   },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-    paddingHorizontal: Spacing.xl,
-  },
   headline: {
     textAlign: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.sm,
   },
   matchesCounter: {
     alignItems: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.md,
   },
   matchesBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
     borderWidth: 1,
   },
   refillBadgeButton: {
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    marginLeft: Spacing.xs,
+    marginLeft: 4,
   },
   cardsContainer: {
-    gap: Spacing.lg,
-    marginBottom: Spacing["2xl"],
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
   },
   cardWrapper: {
     width: "100%",
   },
   moodCard: {
-    borderRadius: BorderRadius["2xl"],
+    borderRadius: BorderRadius.xl,
     overflow: "hidden",
   },
   gradientCard: {
-    padding: Spacing["3xl"],
+    paddingVertical: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     alignItems: "center",
-    gap: Spacing.lg,
+    gap: Spacing.sm,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -867,10 +853,12 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     textAlign: "center",
+    marginBottom: Spacing.md,
   },
   footer: {
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
+    marginTop: "auto",
+    paddingTop: Spacing.md,
   },
   footerText: {
     textAlign: "center",
