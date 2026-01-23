@@ -22,6 +22,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { AuraInfoModal } from "@/components/AuraInfoModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useSession } from "@/contexts/SessionContext";
@@ -203,6 +204,7 @@ export default function MoodSelectionScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showRefillModal, setShowRefillModal] = useState(false);
+  const [showAuraInfo, setShowAuraInfo] = useState(false);
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
@@ -342,7 +344,10 @@ export default function MoodSelectionScreen() {
         </Animated.View>
         <Animated.View entering={FadeIn.delay(300).duration(400)} style={styles.headerRight}>
           <Pressable
-            onPress={() => {}}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowAuraInfo(true);
+            }}
             style={({ pressed }) => [
               styles.karmaButton,
               {
@@ -518,6 +523,11 @@ export default function MoodSelectionScreen() {
       <CreditsStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
+      />
+
+      <AuraInfoModal
+        visible={showAuraInfo}
+        onClose={() => setShowAuraInfo(false)}
       />
 
       <RefillModal
