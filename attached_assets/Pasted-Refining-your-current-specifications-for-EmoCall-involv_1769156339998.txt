@@ -1,0 +1,68 @@
+Refining your current specifications for EmoCall involves shifting from a "functional app" to a "habit-forming experience." To make users open the app every day, we must leverage the Habit Loop (Cue, Routine, Reward, Investment) while balancing your profit margins.
+
+Here is the refined specification, optimized for 2026 tech standards and the Malaysian Online Safety Act 2025.
+
+1. The "Aha!" Onboarding (Cue & Routine)
+The Change: Instead of a static "Terms Gate," add a "Mood Check-In" immediately after age verification.
+
+User Benefit: Users feel heard before they even talk.
+
+EmoCall Benefit: Captures "User Intent" data to improve matching speed.
+
+Addiction Trigger (The "Daily Quest"): Give users a "First Mission" badge (e.g., "Complete 1 call today for +50 Aura"). Small wins in the first hour are the strongest predictors of Day 7 retention.
+
+2. The "Vibe" Selection (Variable Reward)
+The Change: In the Mood Selection screen, add a "Daily Vibe Card"—a mystery prompt (e.g., "Today’s Topic: What’s your secret win this week?").
+
+User Benefit: Reduces the "What do I say?" anxiety.
+
+EmoCall Benefit: "Variable Rewards" (never knowing what the prompt will be) create the same dopamine hit as scrolling social media, making users curious to check the app daily.
+
+3. Active Call: The "Micro-Gratitude" System
+The Change: Add a "Nod" button (Haptic pulse). When one person is venting, the listener can tap a button to send a small haptic vibration to the venter's phone.
+
+User Benefit: Non-verbal "I'm listening" feedback increases the feeling of connection (Relatedness).
+
+EmoCall Benefit: Increases "Session Duration," which lowers your relative Agora cost per minute while increasing user satisfaction.
+
+4. Post-Call: The "Investment" Phase
+The Change: Replace the simple "Call Ended" screen with a "Moment of Zen" summary.
+
+Show: "You just saved someone's day" or "You cleared your mind for 5 minutes."
+
+Investment: Ask for a 1-word reflection (e.g., "I feel: [Relieved]").
+
+User Benefit: Visualizes their emotional progress.
+
+Addiction Trigger: This "Investment" makes the user's account feel more valuable over time. They aren't just calling; they are building an "Emotional Profile" (Aura Level) they won't want to lose.
+
+5. Balanced Monetization (The "Pro-Pack" Strategy)
+The Change: Implement a "Micro-Paywall" after the 3rd daily call.
+
+Profit Strategy: Instead of waiting for users to run out of 10 matches, offer a "48-Hour Aura Surge" for $0.99 (Double Aura points for 2 days).
+
+Why it works: Small, time-sensitive entry points convert 5-10% better than large subscription blocks for price-sensitive Gen Z users.
+
+6. Technical & Legal Updates (Replit Copy-Paste)
+2026 Compliance Note: To comply with Malaysia's Online Safety Act, you must use "layered age checks." I have added a behavioral signal check to the "Terms Gate".
+
+Updated Schema Refinement:
+
+TypeScript
+// Refined Sessions Table
+sessions {
+  ...
+  lastMoodCheck: string; // Habit Cue
+  dailyStreak: integer; // Habit Trigger
+  auraPoints: integer; 
+  auraLevel: string; // Social Recognition
+  ageAssuranceStatus: string; // 2026 Legal Compliance (Verified/Estimated)
+}
+
+// New Habit Loop Logic
+POST /api/sessions/:id/checkin // Daily routine to earn +5 Aura
+POST /api/calls/:id/nod // In-call micro-interaction for engagement
+Summary of Benefits
+For Users: Faster matching, lower social anxiety through prompts, and a sense of "Leveling Up" their mental health.
+
+For EmoCall: Higher "Day 1 to Day 7" retention through streaks, and more frequent "Micro-Transactions" ($0.99) that lead to a higher Lifetime Value (LTV).
