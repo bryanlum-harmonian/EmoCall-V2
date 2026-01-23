@@ -960,6 +960,13 @@ export default function ActiveCallScreen() {
         )}
       </View>
 
+      <View style={styles.disclaimerContainer}>
+        <Feather name="alert-triangle" size={12} color={theme.textSecondary} />
+        <ThemedText type="small" style={styles.disclaimerText}>
+          Stay safe: Never share personal info, money, or account details. EmoCall is not responsible for any scam, fraud, or risks during calls.
+        </ThemedText>
+      </View>
+
       <Animated.View
         entering={FadeInUp.delay(500).duration(400)}
         style={[
@@ -1201,6 +1208,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
+  },
+  disclaimerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  disclaimerText: {
+    fontSize: 10,
+    opacity: 0.7,
+    textAlign: "center",
+    flex: 1,
   },
   controls: {
     flexDirection: "row",
