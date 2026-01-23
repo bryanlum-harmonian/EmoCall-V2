@@ -2,11 +2,11 @@ import React, { useState } from "react";
 import { View, StyleSheet, Pressable, Switch, Alert, Linking, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import * as WebBrowser from "expo-web-browser";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
@@ -16,7 +16,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
 import { Spacing, BorderRadius, AppTheme, AppThemes } from "@/constants/theme";
-import { getApiUrl } from "@/lib/query-client";
+import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
 interface SettingsItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -109,6 +109,7 @@ function SettingsSection({ title, children, delay = 0 }: SettingsSectionProps) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const headerHeight = useHeaderHeight();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { theme, isDark, appTheme } = useTheme();
   const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
   const { credits, isPremium, preferredGender, setPremium, setPreferredGender } = useCredits();
@@ -133,14 +134,12 @@ export default function SettingsScreen() {
 
   const handleOpenTerms = async () => {
     await Haptics.selectionAsync();
-    const termsUrl = new URL("/terms", getApiUrl()).toString();
-    await WebBrowser.openBrowserAsync(termsUrl);
+    navigation.navigate("TermsOfService");
   };
 
   const handleOpenPrivacy = async () => {
     await Haptics.selectionAsync();
-    const privacyUrl = new URL("/privacy", getApiUrl()).toString();
-    await WebBrowser.openBrowserAsync(privacyUrl);
+    navigation.navigate("PrivacyPolicy");
   };
 
   const handleDeleteData = async () => {
