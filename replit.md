@@ -127,8 +127,10 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 6. Heart of Gold (1000+ aura)
 
 **Aura Rewards:**
+- Daily check-in: +5 aura (automatic on app open)
 - Each minute during call: +10 aura
 - Complete a call: +10 aura
+- First mission (first call): +50 aura
 - Extend a call: +50 aura
 - Get reported: -25 aura
 
@@ -173,6 +175,12 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 
 ### Time Bank API
 - `GET /api/sessions/:id/timebank` - Get time bank balance
+
+### Habit Loop APIs
+- `POST /api/sessions/:id/checkin` - Daily check-in (+5 aura, streak increment)
+- `GET /api/sessions/:id/habit-status` - Get streak, first mission status, check-in status
+- `GET /api/daily-vibe` - Get today's rotating motivational prompt
+- `POST /api/sessions/:id/first-mission/complete` - Complete first mission (+50 aura bonus)
 
 ### Legal Pages
 - `GET /privacy` - Privacy Policy page (HTML)
@@ -222,3 +230,10 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 - **Agora Join Loop Prevention**: Added hasJoinedRef and isLeavingRef tracking to useAgoraVoice hook
   - Prevents duplicate joins on fast navigation that caused "71 users in one room" bug
   - Critical cost-saving fix for Agora billing
+- **Habit Loop Features**: Psychology-based engagement system for user retention
+  - Daily check-in: Automatic +5 aura on app open (once per day)
+  - Daily streak tracking: Consecutive day counter with fire icon badge
+  - Daily Vibe Card: Rotating motivational prompts (14 prompts, changes daily)
+  - First Mission badge: +50 aura bonus for completing first call (new users)
+  - Database fields: dailyStreak, lastCheckIn, lastMoodCheck, firstCallCompleted
+  - MoodSelectionScreen updated with streak display and vibe card UI
