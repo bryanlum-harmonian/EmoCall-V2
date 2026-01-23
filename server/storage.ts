@@ -1,4 +1,5 @@
 import { eq, and, desc } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import { db } from "./db";
 import {
   sessions,
@@ -494,4 +495,83 @@ export async function checkPremiumStatus(sessionId: string): Promise<boolean> {
   }
 
   return true;
+}
+
+// Backup & Restore Functions
+export async function generateRestoreToken(sessionId: string): Promise<string> {
+  const restoreToken = randomBytes(32).toString("hex");
+  
+  await db
+    .update(sessions)
+    .set({
+      restoreToken,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+  
+  return restoreToken;
+}
+
+export async function validateAndRestoreSession(
+  oldSessionId: string,
+  restoreToken: string,
+  newSessionId: string
+): Promise<{ success: boolean; error?: string; session?: Session }> {
+  // Get the old session
+  const oldSession = await getSession(oldSessionId);
+  if (!oldSession) {
+    return { success: false, error: "Original session not found" };
+  }
+  
+  // Check if already transferred
+  if (oldSession.transferredAt) {
+    return { success: false, error: "This session has already been transferred to another device" };
+  }
+  
+  // Validate the restore token
+  if (!oldSession.restoreToken || oldSession.restoreToken !== restoreToken) {
+    return { success: false, error: "Invalid restore token" };
+  }
+  
+  // Get the new session (must exist - created when user opened the app)
+  const newSession = await getSession(newSessionId);
+  if (!newSession) {
+    return { success: false, error: "New session not found" };
+  }
+  
+  // Copy all data from old session to new session
+  const now = new Date();
+  const [updatedNewSession] = await db
+    .update(sessions)
+    .set({
+      credits: oldSession.credits,
+      auraPoints: oldSession.auraPoints,
+      timeBankMinutes: oldSession.timeBankMinutes,
+      dailyMatchesLeft: oldSession.dailyMatchesLeft,
+      dailyMatchesResetAt: oldSession.dailyMatchesResetAt,
+      isPremium: oldSession.isPremium,
+      premiumExpiresAt: oldSession.premiumExpiresAt,
+      genderPreference: oldSession.genderPreference,
+      termsAcceptedAt: oldSession.termsAcceptedAt,
+      dailyStreak: oldSession.dailyStreak,
+      lastCheckIn: oldSession.lastCheckIn,
+      lastMoodCheck: oldSession.lastMoodCheck,
+      firstCallCompleted: oldSession.firstCallCompleted,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, newSessionId))
+    .returning();
+  
+  // Mark old session as transferred
+  await db
+    .update(sessions)
+    .set({
+      transferredAt: now,
+      transferredToSessionId: newSessionId,
+      restoreToken: null, // Invalidate the token
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, oldSessionId));
+  
+  return { success: true, session: updatedNewSession };
 }

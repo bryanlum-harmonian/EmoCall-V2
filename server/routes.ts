@@ -3,6 +3,7 @@ import { createServer, type Server } from "node:http";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type { IncomingMessage } from "node:http";
 import { RtcTokenBuilder, RtcRole } from "agora-token";
+import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
 
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
@@ -36,6 +37,8 @@ import {
   createReport,
   activatePremium,
   checkPremiumStatus,
+  generateRestoreToken,
+  validateAndRestoreSession,
 } from "./storage";
 import {
   CREDIT_PACKAGES,
@@ -989,6 +992,136 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error getting time bank:", error);
       res.status(500).json({ error: "Failed to get time bank" });
+    }
+  });
+
+  // ===============================
+  // Backup & Restore APIs
+  // ===============================
+
+  // Generate a backup file with encrypted session UUID and restore token
+  app.post("/api/sessions/:id/generate-backup", async (req: SessionRequest, res: Response) => {
+    try {
+      const { pin } = req.body;
+      
+      if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+        return res.status(400).json({ error: "A 6-digit PIN is required" });
+      }
+      
+      const session = await getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      // Check if session was already transferred
+      if (session.transferredAt) {
+        return res.status(400).json({ error: "This session has already been transferred to another device" });
+      }
+      
+      // Generate a restore token and save it
+      const restoreToken = await generateRestoreToken(req.params.id);
+      
+      // Create the backup payload
+      const backupData = {
+        sessionId: req.params.id,
+        restoreToken,
+        createdAt: new Date().toISOString(),
+        version: 1,
+      };
+      
+      // Encrypt the backup data with the PIN
+      const salt = randomBytes(16);
+      const key = scryptSync(pin, salt, 32);
+      const iv = randomBytes(16);
+      const cipher = createCipheriv("aes-256-gcm", key, iv);
+      
+      const jsonData = JSON.stringify(backupData);
+      let encrypted = cipher.update(jsonData, "utf8", "base64");
+      encrypted += cipher.final("base64");
+      const authTag = cipher.getAuthTag();
+      
+      // Combine salt + iv + authTag + encrypted data
+      const encryptedPackage = {
+        s: salt.toString("base64"),
+        i: iv.toString("base64"),
+        t: authTag.toString("base64"),
+        d: encrypted,
+        v: 1, // Version for future compatibility
+      };
+      
+      res.json({
+        backupData: Buffer.from(JSON.stringify(encryptedPackage)).toString("base64"),
+        fileName: `emocall-backup-${new Date().toISOString().split("T")[0]}.enc`,
+      });
+    } catch (error) {
+      console.error("Error generating backup:", error);
+      res.status(500).json({ error: "Failed to generate backup" });
+    }
+  });
+
+  // Restore session from backup file
+  app.post("/api/sessions/restore", async (req: Request, res: Response) => {
+    try {
+      const { backupData, pin, newSessionId } = req.body;
+      
+      if (!backupData || !pin || !newSessionId) {
+        return res.status(400).json({ error: "Backup data, PIN, and new session ID are required" });
+      }
+      
+      if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+        return res.status(400).json({ error: "Invalid PIN format" });
+      }
+      
+      // Decode and decrypt the backup data
+      let encryptedPackage;
+      try {
+        encryptedPackage = JSON.parse(Buffer.from(backupData, "base64").toString("utf8"));
+      } catch {
+        return res.status(400).json({ error: "Invalid backup file format" });
+      }
+      
+      const salt = Buffer.from(encryptedPackage.s, "base64");
+      const iv = Buffer.from(encryptedPackage.i, "base64");
+      const authTag = Buffer.from(encryptedPackage.t, "base64");
+      const encrypted = encryptedPackage.d;
+      
+      // Decrypt with the PIN
+      const key = scryptSync(pin, salt, 32);
+      const decipher = createDecipheriv("aes-256-gcm", key, iv);
+      decipher.setAuthTag(authTag);
+      
+      let decrypted;
+      try {
+        decrypted = decipher.update(encrypted, "base64", "utf8");
+        decrypted += decipher.final("utf8");
+      } catch {
+        return res.status(400).json({ error: "Incorrect PIN or corrupted backup file" });
+      }
+      
+      let backupPayload;
+      try {
+        backupPayload = JSON.parse(decrypted);
+      } catch {
+        return res.status(400).json({ error: "Corrupted backup data" });
+      }
+      
+      const { sessionId: oldSessionId, restoreToken } = backupPayload;
+      
+      // Validate and restore the session
+      const result = await validateAndRestoreSession(oldSessionId, restoreToken, newSessionId);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json({
+        success: true,
+        message: "Session restored successfully",
+        session: result.session,
+      });
+    } catch (error) {
+      console.error("Error restoring session:", error);
+      res.status(500).json({ error: "Failed to restore session" });
     }
   });
 
