@@ -515,6 +515,7 @@ interface ControlButtonProps {
   onPress: () => void;
   isActive?: boolean;
   isDestructive?: boolean;
+  isHighlighted?: boolean;
 }
 
 function ControlButton({
@@ -523,6 +524,7 @@ function ControlButton({
   onPress,
   isActive = false,
   isDestructive = false,
+  isHighlighted = false,
 }: ControlButtonProps) {
   const { theme } = useTheme();
   const scale = useSharedValue(1);
@@ -541,11 +543,13 @@ function ControlButton({
 
   const backgroundColor = isDestructive
     ? theme.error
+    : isHighlighted
+    ? theme.success
     : isActive
     ? theme.primary
     : theme.backgroundSecondary;
 
-  const iconColor = isDestructive || isActive ? "#FFFFFF" : theme.text;
+  const iconColor = isDestructive || isActive || isHighlighted ? "#FFFFFF" : theme.text;
 
   return (
     <View style={styles.controlButtonContainer}>
@@ -1165,6 +1169,12 @@ export default function ActiveCallScreen() {
           label={isMuted ? "Unmute" : "Mute"}
           onPress={handleMuteToggle}
           isActive={isMuted}
+        />
+        <ControlButton
+          icon="plus-circle"
+          label="Extend"
+          onPress={() => setShowExtensionModal(true)}
+          isHighlighted
         />
         <Pressable
           onPress={handleReport}
