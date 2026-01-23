@@ -41,10 +41,10 @@ The app follows a strict linear flow designed for speed and anonymity:
 - **Storage:** PostgreSQL database with full persistence via `server/storage.ts`
 
 ### Database Tables
-- **sessions** - Anonymous user sessions with credits, karma, daily matches, premium status
+- **sessions** - Anonymous user sessions with credits, auraPoints, daily matches, premium status
 - **calls** - Call history between users
 - **credit_transactions** - Credit purchase and spend history
-- **karma_transactions** - Karma award history
+- **aura_transactions** - Aura award history (renamed from karma_transactions)
 - **reports** - User reports for moderation
 - **matchmaking_queue** - Real-time queue for Vent/Listen matching
 
@@ -116,7 +116,7 @@ The app follows a strict linear flow designed for speed and anonymity:
 Note: Payment processing uses mock purchases (UI complete, Stripe integration needed for production)
 
 ### Aura Points System
-- **AuraContext** (`client/contexts/AuraContext.tsx`) - Syncs with backend APIs for aura tracking (backend uses karmaPoints field for compatibility)
+- **AuraContext** (`client/contexts/AuraContext.tsx`) - Syncs with backend APIs for aura tracking (uses auraPoints field in database)
 
 **Aura Levels:**
 1. New Soul (0+ aura)
@@ -157,10 +157,11 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
 - `POST /api/sessions/:id/matches/use` - Use one daily match
 - `POST /api/sessions/:id/matches/refill` - Refill daily matches ($0.99)
 
-### Karma APIs
-- `GET /api/karma/levels` - List karma levels
-- `GET /api/sessions/:id/karma` - Get session karma with level info
-- `POST /api/sessions/:id/karma/award` - Award karma points
+### Aura APIs
+- `GET /api/aura/levels` - List aura levels
+- `GET /api/sessions/:id/aura` - Get session aura with level info
+- `POST /api/sessions/:id/aura/award` - Award aura points
+(Legacy karma endpoints still supported for backwards compatibility)
 
 ### Premium APIs
 - `POST /api/sessions/:id/premium/activate` - Activate premium (mock, needs Stripe)
@@ -200,7 +201,7 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - Rounded corners and playful typography throughout
   - Pastel gradient cards in Mood Selection and Blind Card Picker
   - New cute blob app icon
-- Integrated PostgreSQL database with full schema for sessions, calls, credits, karma
+- Integrated PostgreSQL database with full schema for sessions, calls, credits, aura
 - Added WebSocket server for real-time matchmaking
 - Connected frontend contexts to backend APIs with full persistence
 - Terms acceptance now persisted server-side
@@ -213,3 +214,11 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - Accessible via /privacy and /terms routes
   - Linked from Terms Gate screen and Settings
   - Opens in in-app browser via expo-web-browser
+- **Karma → Aura Migration**: Renamed "Karma" to "Aura" throughout for 2026 Gen Z appeal
+  - Database column: karmaPoints → auraPoints
+  - Database table: karma_transactions → aura_transactions
+  - API endpoints: /api/aura/* (legacy /api/karma/* still supported)
+  - Frontend context uses new auraPoints field with fallback
+- **Agora Join Loop Prevention**: Added hasJoinedRef and isLeavingRef tracking to useAgoraVoice hook
+  - Prevents duplicate joins on fast navigation that caused "71 users in one room" bug
+  - Critical cost-saving fix for Agora billing
