@@ -16,7 +16,12 @@ import SettingsScreen from "@/screens/SettingsScreen";
 export type RootStackParamList = {
   TermsGate: undefined;
   MoodSelection: undefined;
-  ActiveCall: { mood: "vent" | "listen"; matchId: string };
+  ActiveCall: { 
+    callId: string; 
+    partnerId: string; 
+    duration: number;
+    isPreview?: boolean;
+  };
   VibeCheck: { callDuration?: number };
   CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left" };
   Settings: undefined;

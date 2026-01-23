@@ -464,8 +464,10 @@ export default function ActiveCallScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
 
-  const matchId = route.params?.matchId || "default-channel";
-  const mood = route.params?.mood || "vent";
+  const callId = route.params?.callId || "default-channel";
+  const partnerId = route.params?.partnerId || "unknown";
+  const initialDuration = route.params?.duration || 300;
+  const isPreview = route.params?.isPreview || false;
   
   const {
     isConnected: isVoiceConnected,
@@ -478,7 +480,8 @@ export default function ActiveCallScreen() {
     leave: leaveVoice,
     toggleMute,
   } = useAgoraVoice({ 
-    channelName: matchId,
+    channelName: callId,
+    enabled: !isPreview, // Skip Agora in preview mode
   });
 
   const hasEndedRef = useRef(false);

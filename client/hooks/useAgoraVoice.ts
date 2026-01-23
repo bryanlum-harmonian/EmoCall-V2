@@ -6,6 +6,7 @@ interface AgoraConfig {
   channelName: string;
   uid?: number;
   onRemoteUserLeft?: () => void;
+  enabled?: boolean; // Set to false for preview mode (skips Agora connection)
 }
 
 interface UseAgoraVoiceReturn {
@@ -43,6 +44,8 @@ async function loadAgoraSDK() {
 }
 
 export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
+  const enabled = config.enabled !== false; // Default to true
+  
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -87,7 +90,15 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   }, [config.channelName, config.uid]);
 
   const join = useCallback(async () => {
-    console.log("[Agora] Join called, platform:", Platform.OS);
+    console.log("[Agora] Join called, platform:", Platform.OS, "enabled:", enabled);
+    
+    // In preview mode, simulate connected state without actual Agora connection
+    if (!enabled) {
+      console.log("[Agora] Preview mode - simulating connected state");
+      setIsConnected(true);
+      setRemoteUserJoined(true);
+      return;
+    }
     
     if (Platform.OS !== "web") {
       const msg = "Voice calls only available in web browser for testing";
@@ -165,7 +176,7 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       setError(errorMessage);
       setIsConnecting(false);
     }
-  }, [config.channelName, fetchToken, isConnected, isConnecting]);
+  }, [config.channelName, fetchToken, isConnected, isConnecting, enabled]);
 
   const leave = useCallback(async () => {
     try {

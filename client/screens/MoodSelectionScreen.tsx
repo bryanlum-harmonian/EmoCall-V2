@@ -214,11 +214,14 @@ export default function MoodSelectionScreen() {
     console.log("[MoodSelection] Match found:", match);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsSearching(false);
-    const currentMood = selectedMood || "vent";
     setSelectedMood(null);
     // Use replace to prevent going back to this screen with stale state
-    navigation.replace("ActiveCall", { mood: currentMood, matchId: match.callId });
-  }, [navigation, selectedMood]);
+    navigation.replace("ActiveCall", { 
+      callId: match.callId, 
+      partnerId: match.partnerId, 
+      duration: match.duration,
+    });
+  }, [navigation]);
 
   const { state: matchState, matchResult, clearMatchResult, joinQueue, leaveQueue } = useMatchmaking({
     sessionId: session?.id || null,
@@ -481,6 +484,35 @@ export default function MoodSelectionScreen() {
             Anonymous voice calls for emotional relief
           </ThemedText>
         </Animated.View>
+        
+        {/* TEMPORARY: Preview Call button for design testing - REMOVE BEFORE PRODUCTION */}
+        <Pressable
+          onPress={() => {
+            navigation.navigate("ActiveCall", {
+              callId: "preview-call-123",
+              partnerId: "preview-partner-456",
+              duration: 300,
+              isPreview: true,
+            });
+          }}
+          style={({ pressed }) => [
+            {
+              marginTop: Spacing.md,
+              paddingVertical: Spacing.sm,
+              paddingHorizontal: Spacing.lg,
+              backgroundColor: theme.backgroundSecondary,
+              borderRadius: BorderRadius.md,
+              borderWidth: 1,
+              borderColor: theme.border,
+              borderStyle: "dashed",
+              opacity: pressed ? 0.7 : 1,
+            },
+          ]}
+        >
+          <ThemedText type="caption" style={{ color: theme.textSecondary, textAlign: "center" }}>
+            Preview Call Screen (DEV)
+          </ThemedText>
+        </Pressable>
       </View>
 
       <CreditsStoreModal
