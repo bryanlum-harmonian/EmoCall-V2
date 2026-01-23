@@ -362,6 +362,66 @@ function SafetyCheckModal({
   );
 }
 
+interface EndCallConfirmModalProps {
+  visible: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmModalProps) {
+  const { theme } = useTheme();
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.reminderOverlay}>
+        <Animated.View
+          entering={FadeInUp.duration(300)}
+          style={[styles.reminderContent, { backgroundColor: theme.surface }]}
+        >
+          <View style={[styles.reminderIcon, { backgroundColor: `${theme.error}15` }]}>
+            <Feather name="phone-off" size={24} color={theme.error} />
+          </View>
+
+          <ThemedText type="h3" style={styles.reminderTitle}>
+            End Call?
+          </ThemedText>
+          <ThemedText
+            type="body"
+            style={[styles.reminderMessage, { color: theme.textSecondary }]}
+          >
+            Are you sure you want to end this call?
+          </ThemedText>
+
+          <View style={styles.reminderButtons}>
+            <Pressable
+              onPress={onConfirm}
+              style={({ pressed }) => [
+                styles.reminderButton,
+                styles.reminderButtonPrimary,
+                { backgroundColor: theme.error, opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <Feather name="phone-off" size={18} color="#FFFFFF" />
+              <ThemedText style={styles.reminderButtonText}>Yes, End Call</ThemedText>
+            </Pressable>
+            <Pressable
+              onPress={onCancel}
+              style={({ pressed }) => [
+                styles.reminderButton,
+                { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
+                Keep Talking
+              </ThemedText>
+            </Pressable>
+          </View>
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 interface ExtensionModalProps {
   visible: boolean;
   onSelectExtension: (extensionId: string) => void;
@@ -642,6 +702,7 @@ export default function ActiveCallScreen() {
   const [showSafetyFollowUp, setShowSafetyFollowUp] = useState(false);
   const [lastSafetyCheckTime, setLastSafetyCheckTime] = useState(INITIAL_TIME);
   const [lastKarmaAwardTime, setLastKarmaAwardTime] = useState(INITIAL_TIME);
+  const [showEndCallConfirm, setShowEndCallConfirm] = useState(false);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -1206,7 +1267,7 @@ export default function ActiveCallScreen() {
         <ControlButton
           icon="phone-off"
           label="End Call"
-          onPress={handleEndCall}
+          onPress={() => setShowEndCallConfirm(true)}
           isDestructive
         />
       </Animated.View>
@@ -1248,6 +1309,15 @@ export default function ActiveCallScreen() {
         onClose={() => setShowReportModal(false)}
         onSubmit={handleReportSubmit}
         isSubmitting={isReportSubmitting}
+      />
+
+      <EndCallConfirmModal
+        visible={showEndCallConfirm}
+        onConfirm={() => {
+          setShowEndCallConfirm(false);
+          handleEndCall();
+        }}
+        onCancel={() => setShowEndCallConfirm(false)}
       />
     </ThemedView>
   );
