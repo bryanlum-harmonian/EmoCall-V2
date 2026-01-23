@@ -12,6 +12,8 @@ import ActiveCallScreen from "@/screens/ActiveCallScreen";
 import CallEndedScreen from "@/screens/CallEndedScreen";
 import VibeCheckScreen from "@/screens/VibeCheckScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
+import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
+import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 
 export type RootStackParamList = {
   TermsGate: undefined;
@@ -25,6 +27,8 @@ export type RootStackParamList = {
   VibeCheck: { callDuration?: number };
   CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left" };
   Settings: undefined;
+  PrivacyPolicy: undefined;
+  TermsOfService: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -86,6 +90,22 @@ export default function RootStackNavigator() {
         options={{
           headerTitle: "Settings",
           headerBackTitle: "Back",
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="PrivacyPolicy"
+        component={PrivacyPolicyScreen}
+        options={{
+          headerShown: false,
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="TermsOfService"
+        component={TermsOfServiceScreen}
+        options={{
+          headerShown: false,
           presentation: "modal",
         }}
       />
