@@ -30,6 +30,7 @@ import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext
 import { useAura } from "@/contexts/AuraContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl, apiRequest } from "@/lib/query-client";
 
 type MoodType = "vent" | "listen";
 
@@ -207,10 +208,63 @@ export default function MoodSelectionScreen() {
   const [showAuraInfo, setShowAuraInfo] = useState(false);
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Habit Loop state
+  const [dailyVibe, setDailyVibe] = useState<string>("");
+  const [dailyStreak, setDailyStreak] = useState(0);
+  const [showFirstMission, setShowFirstMission] = useState(false);
+  const [checkedInToday, setCheckedInToday] = useState(false);
 
   const pulseScale = useSharedValue(1);
 
   const noMatchesLeft = dailyMatchesLeft <= 0;
+  
+  // Fetch habit loop data on mount
+  useEffect(() => {
+    const fetchHabitData = async () => {
+      try {
+        // Fetch daily vibe prompt
+        const vibeUrl = new URL("/api/daily-vibe", getApiUrl());
+        const vibeRes = await fetch(vibeUrl.toString());
+        if (vibeRes.ok) {
+          const vibeData = await vibeRes.json();
+          setDailyVibe(vibeData.prompt);
+        }
+        
+        // Fetch habit status if session exists
+        if (session?.id) {
+          const statusUrl = new URL(`/api/sessions/${session.id}/habit-status`, getApiUrl());
+          const statusRes = await fetch(statusUrl.toString());
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            setDailyStreak(statusData.dailyStreak || 0);
+            setShowFirstMission(statusData.showFirstMission || false);
+            setCheckedInToday(statusData.checkedInToday || false);
+          }
+          
+          // Auto check-in if not already checked in today
+          if (!checkedInToday) {
+            try {
+              const checkInRes = await apiRequest("POST", `/api/sessions/${session.id}/checkin`, {});
+              if (checkInRes.ok) {
+                const checkInData = await checkInRes.json();
+                if (checkInData.success) {
+                  setDailyStreak(checkInData.dailyStreak);
+                  setCheckedInToday(true);
+                }
+              }
+            } catch (err) {
+              console.log("[Habit] Check-in failed:", err);
+            }
+          }
+        }
+      } catch (err) {
+        console.log("[Habit] Failed to fetch habit data:", err);
+      }
+    };
+    
+    fetchHabitData();
+  }, [session?.id]);
 
   const handleMatchFound = useCallback((match: { callId: string; partnerId: string; duration: number }) => {
     console.log("[MoodSelection] Match found:", match);
@@ -392,11 +446,21 @@ export default function MoodSelectionScreen() {
         entering={FadeIn.delay(350).duration(400)} 
         style={styles.karmaLevelContainer}
       >
-        <View style={[styles.karmaLevelBadge, { backgroundColor: theme.backgroundSecondary }]}>
-          <Feather name="award" size={14} color={theme.primary} />
-          <ThemedText type="small" style={{ color: theme.text, fontWeight: "500" }}>
-            Level {currentLevel.level}: {currentLevel.name}
-          </ThemedText>
+        <View style={styles.levelStreakRow}>
+          <View style={[styles.karmaLevelBadge, { backgroundColor: theme.backgroundSecondary }]}>
+            <Feather name="award" size={14} color={theme.primary} />
+            <ThemedText type="small" style={{ color: theme.text, fontWeight: "500" }}>
+              Level {currentLevel.level}: {currentLevel.name}
+            </ThemedText>
+          </View>
+          {dailyStreak > 0 ? (
+            <View style={[styles.streakBadge, { backgroundColor: `${theme.warning}20` }]}>
+              <Feather name="zap" size={14} color={theme.warning} />
+              <ThemedText type="small" style={{ color: theme.warning, fontWeight: "600" }}>
+                {dailyStreak} day streak
+              </ThemedText>
+            </View>
+          ) : null}
         </View>
       </Animated.View>
 
@@ -406,6 +470,44 @@ export default function MoodSelectionScreen() {
             How are you feeling?
           </ThemedText>
         </Animated.View>
+
+        {/* Daily Vibe Card */}
+        {dailyVibe ? (
+          <Animated.View 
+            entering={FadeInUp.delay(450).duration(400)}
+            style={[styles.vibeCard, { backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}30` }]}
+          >
+            <View style={styles.vibeHeader}>
+              <Feather name="message-square" size={16} color={theme.primary} />
+              <ThemedText type="small" style={{ color: theme.primary, fontWeight: "600" }}>
+                Today's Vibe
+              </ThemedText>
+            </View>
+            <ThemedText type="body" style={[styles.vibePrompt, { color: theme.text }]}>
+              "{dailyVibe}"
+            </ThemedText>
+          </Animated.View>
+        ) : null}
+
+        {/* First Mission Badge */}
+        {showFirstMission ? (
+          <Animated.View 
+            entering={FadeInUp.delay(480).duration(400)}
+            style={[styles.missionCard, { backgroundColor: `${theme.success}15`, borderColor: `${theme.success}40` }]}
+          >
+            <View style={styles.missionIcon}>
+              <Feather name="target" size={20} color={theme.success} />
+            </View>
+            <View style={styles.missionContent}>
+              <ThemedText type="small" style={{ color: theme.success, fontWeight: "700" }}>
+                First Mission
+              </ThemedText>
+              <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+                Complete 1 call today for +50 Aura
+              </ThemedText>
+            </View>
+          </Animated.View>
+        ) : null}
 
         <View style={styles.matchesCounter}>
           <Animated.View 
@@ -657,6 +759,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
+  },
+  levelStreakRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  streakBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  vibeCard: {
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.md,
+  },
+  vibeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  vibePrompt: {
+    fontStyle: "italic",
+    textAlign: "center",
+  },
+  missionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: Spacing.md,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+    gap: Spacing.md,
+  },
+  missionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  missionContent: {
+    flex: 1,
   },
   content: {
     flex: 1,
