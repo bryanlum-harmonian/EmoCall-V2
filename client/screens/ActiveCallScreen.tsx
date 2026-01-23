@@ -978,6 +978,34 @@ export default function ActiveCallScreen() {
             </ThemedText>
           </Pressable>
         </Animated.View>
+
+        <Animated.View entering={FadeIn.duration(400).delay(100)}>
+          <View
+            style={[
+              styles.karmaHeaderDisplay,
+              { 
+                backgroundColor: isUrgent && !hasExtended 
+                  ? "rgba(255,255,255,0.2)" 
+                  : theme.backgroundSecondary,
+              },
+            ]}
+          >
+            <Feather 
+              name="heart" 
+              size={16} 
+              color={isUrgent && !hasExtended ? "#FFFFFF" : "#FF6B6B"} 
+            />
+            <ThemedText 
+              type="small" 
+              style={{ 
+                color: isUrgent && !hasExtended ? "#FFFFFF" : "#FF6B6B",
+                fontWeight: "600",
+              }}
+            >
+              {karma}
+            </ThemedText>
+          </View>
+        </Animated.View>
       </View>
 
       <View style={styles.content}>
@@ -1222,6 +1250,14 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   creditsHeaderButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+  },
+  karmaHeaderDisplay: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
