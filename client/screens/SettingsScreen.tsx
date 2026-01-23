@@ -144,6 +144,11 @@ export default function SettingsScreen() {
     navigation.navigate("PrivacyPolicy");
   };
 
+  const handleOpenDataCollection = async () => {
+    await Haptics.selectionAsync();
+    navigation.navigate("DataCollection");
+  };
+
   const handleDeleteData = async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
@@ -409,6 +414,14 @@ export default function SettingsScreen() {
             title="Privacy Policy"
             onPress={handleOpenPrivacy}
             delay={650}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <SettingsItem
+            icon="database"
+            title="Data Collection"
+            subtitle="What data we collect and why"
+            onPress={handleOpenDataCollection}
+            delay={700}
           />
         </SettingsSection>
 

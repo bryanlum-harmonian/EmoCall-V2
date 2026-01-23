@@ -14,6 +14,7 @@ import VibeCheckScreen from "@/screens/VibeCheckScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
+import DataCollectionScreen from "@/screens/DataCollectionScreen";
 
 export type RootStackParamList = {
   TermsGate: undefined;
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   Settings: undefined;
   PrivacyPolicy: undefined;
   TermsOfService: undefined;
+  DataCollection: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -106,6 +108,15 @@ export default function RootStackNavigator() {
         component={TermsOfServiceScreen}
         options={{
           headerShown: false,
+          presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="DataCollection"
+        component={DataCollectionScreen}
+        options={{
+          headerTitle: "Data Collection",
+          headerBackTitle: "Back",
           presentation: "modal",
         }}
       />
