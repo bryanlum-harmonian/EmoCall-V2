@@ -10,7 +10,7 @@ export const sessions = pgTable("sessions", {
     .default(sql`gen_random_uuid()`),
   deviceId: text("device_id").notNull().unique(),
   credits: integer("credits").notNull().default(0),
-  karmaPoints: integer("karma_points").notNull().default(0),
+  auraPoints: integer("aura_points").notNull().default(0),
   timeBankMinutes: real("time_bank_minutes").notNull().default(0),
   dailyMatchesLeft: integer("daily_matches_left").notNull().default(10),
   dailyMatchesResetAt: timestamp("daily_matches_reset_at").notNull().default(sql`NOW()`),
@@ -68,8 +68,8 @@ export const insertCreditTransactionSchema = createInsertSchema(creditTransactio
 export type InsertCreditTransaction = z.infer<typeof insertCreditTransactionSchema>;
 export type CreditTransaction = typeof creditTransactions.$inferSelect;
 
-// Karma transactions for tracking
-export const karmaTransactions = pgTable("karma_transactions", {
+// Aura transactions for tracking (renamed from karma for Gen Z appeal)
+export const auraTransactions = pgTable("aura_transactions", {
   id: varchar("id")
     .primaryKey()
     .default(sql`gen_random_uuid()`),
@@ -80,9 +80,9 @@ export const karmaTransactions = pgTable("karma_transactions", {
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
 });
 
-export const insertKarmaTransactionSchema = createInsertSchema(karmaTransactions);
-export type InsertKarmaTransaction = z.infer<typeof insertKarmaTransactionSchema>;
-export type KarmaTransaction = typeof karmaTransactions.$inferSelect;
+export const insertAuraTransactionSchema = createInsertSchema(auraTransactions);
+export type InsertAuraTransaction = z.infer<typeof insertAuraTransactionSchema>;
+export type AuraTransaction = typeof auraTransactions.$inferSelect;
 
 // Reports for safety
 export const reports = pgTable("reports", {
@@ -135,18 +135,19 @@ export const EXTENSION_OPTIONS = [
   { minutes: 60, credits: 450 },
 ] as const;
 
-// Karma levels configuration
-export const KARMA_LEVELS = [
-  { name: "New Soul", minKarma: 0 },
-  { name: "Kind Listener", minKarma: 50 },
-  { name: "Empathetic Soul", minKarma: 150 },
-  { name: "Trusted Companion", minKarma: 300 },
-  { name: "Guardian Angel", minKarma: 500 },
-  { name: "Heart of Gold", minKarma: 1000 },
+// Aura levels configuration (renamed from Karma for 2026 Gen Z appeal)
+export const AURA_LEVELS = [
+  { name: "New Soul", minAura: 0 },
+  { name: "Kind Listener", minAura: 50 },
+  { name: "Empathetic Soul", minAura: 150 },
+  { name: "Trusted Companion", minAura: 300 },
+  { name: "Guardian Angel", minAura: 500 },
+  { name: "Heart of Gold", minAura: 1000 },
 ] as const;
 
-// Karma rewards/penalties
-export const KARMA_REWARDS = {
+// Aura rewards/penalties
+export const AURA_REWARDS = {
+  CALL_MINUTE: 10, // +10 per minute during call
   CALL_COMPLETE: 10,
   CALL_EXTEND: 50,
   REPORTED: -25,

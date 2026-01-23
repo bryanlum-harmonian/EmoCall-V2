@@ -68,7 +68,8 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (session) {
-      setAura(session.karmaPoints);
+      // Use auraPoints (new) with fallback to karmaPoints (legacy) for compatibility
+      setAura((session as any).auraPoints ?? (session as any).karmaPoints ?? 0);
     }
   }, [session]);
 
@@ -92,12 +93,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (!session?.id) return;
 
     try {
-      const response = await apiRequest("POST", `/api/sessions/${session.id}/karma/award`, {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/aura/award`, {
         amount: AURA_REWARDS.COMPLETE_CALL,
         type: "call_complete"
       });
       const data = await response.json();
-      setAura(data.karmaPoints);
+      setAura(data.auraPoints ?? data.karmaPoints);
     } catch (err) {
       console.error("Failed to award aura:", err);
       setAura((prev) => prev + AURA_REWARDS.COMPLETE_CALL);
@@ -108,12 +109,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (!session?.id) return;
 
     try {
-      const response = await apiRequest("POST", `/api/sessions/${session.id}/karma/award`, {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/aura/award`, {
         amount: AURA_REWARDS.EXTEND_CALL,
         type: "call_extension"
       });
       const data = await response.json();
-      setAura(data.karmaPoints);
+      setAura(data.auraPoints ?? data.karmaPoints);
     } catch (err) {
       console.error("Failed to award aura:", err);
       setAura((prev) => prev + AURA_REWARDS.EXTEND_CALL);
@@ -124,12 +125,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     if (!session?.id) return;
 
     try {
-      const response = await apiRequest("POST", `/api/sessions/${session.id}/karma/award`, {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/aura/award`, {
         amount: AURA_REWARDS.CALL_MINUTE,
         type: "call_minute"
       });
       const data = await response.json();
-      setAura(data.karmaPoints);
+      setAura(data.auraPoints ?? data.karmaPoints);
     } catch (err) {
       console.error("Failed to award aura:", err);
       setAura((prev) => prev + AURA_REWARDS.CALL_MINUTE);

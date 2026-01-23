@@ -18,7 +18,7 @@ import {
   addCredits,
   spendCredits,
   addToTimeBank,
-  addKarma,
+  addAura,
   useDailyMatch,
   refillDailyMatches,
   createCall,
@@ -38,8 +38,8 @@ import {
 import {
   CREDIT_PACKAGES,
   EXTENSION_OPTIONS,
-  KARMA_LEVELS,
-  KARMA_REWARDS,
+  AURA_LEVELS,
+  AURA_REWARDS,
   COSTS,
   MAX_DAILY_MATCHES,
   DEFAULT_CALL_DURATION_SECONDS,
@@ -343,8 +343,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   endReason: message.reason || "normal",
                 });
                 
-                // Award karma for completing call
-                await addKarma(sessionId, KARMA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
+                // Award aura for completing call
+                await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
                 
                 // Calculate unused time for time bank refund
                 if (message.remainingSeconds && message.remainingSeconds > 60) {
@@ -380,7 +380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const session = await getSession(sessionId);
                   if (session && session.credits >= extension.credits) {
                     await spendCredits(sessionId, extension.credits, "extension", `${extension.minutes} minute extension`, activeCall.callId);
-                    await addKarma(sessionId, KARMA_REWARDS.CALL_EXTEND, "call_extend", activeCall.callId);
+                    await addAura(sessionId, AURA_REWARDS.CALL_EXTEND, "call_extend", activeCall.callId);
                     
                     // Update call end time
                     const newEndTime = activeCall.endTime + extension.minutes * 60 * 1000;
@@ -672,16 +672,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===============================
-  // Karma APIs
+  // Aura APIs (renamed from Karma for 2026 Gen Z appeal)
   // ===============================
   
-  // Get karma levels info
-  app.get("/api/karma/levels", async (_req: Request, res: Response) => {
-    res.json(KARMA_LEVELS);
+  // Get aura levels info
+  app.get("/api/aura/levels", async (_req: Request, res: Response) => {
+    res.json(AURA_LEVELS);
   });
   
-  // Get session karma with level
-  app.get("/api/sessions/:id/karma", async (req: SessionRequest, res: Response) => {
+  // Legacy karma endpoint for backwards compatibility
+  app.get("/api/karma/levels", async (_req: Request, res: Response) => {
+    res.json(AURA_LEVELS);
+  });
+  
+  // Get session aura with level
+  app.get("/api/sessions/:id/aura", async (req: SessionRequest, res: Response) => {
     try {
       const session = await getSession(req.params.id);
       if (!session) {
@@ -689,35 +694,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Find current level
-      const level = [...KARMA_LEVELS].reverse().find(l => session.karmaPoints >= l.minKarma) || KARMA_LEVELS[0];
-      const levelIndex = KARMA_LEVELS.findIndex(l => l.name === level.name);
-      const nextLevel = KARMA_LEVELS[levelIndex + 1];
+      const level = [...AURA_LEVELS].reverse().find(l => session.auraPoints >= l.minAura) || AURA_LEVELS[0];
+      const levelIndex = AURA_LEVELS.findIndex(l => l.name === level.name);
+      const nextLevel = AURA_LEVELS[levelIndex + 1];
       
       res.json({
-        karmaPoints: session.karmaPoints,
+        auraPoints: session.auraPoints,
         level: level.name,
         levelIndex: levelIndex + 1,
         nextLevel: nextLevel?.name || null,
-        pointsToNextLevel: nextLevel ? nextLevel.minKarma - session.karmaPoints : 0,
+        pointsToNextLevel: nextLevel ? nextLevel.minAura - session.auraPoints : 0,
       });
     } catch (error) {
-      console.error("Error getting karma:", error);
-      res.status(500).json({ error: "Failed to get karma" });
+      console.error("Error getting aura:", error);
+      res.status(500).json({ error: "Failed to get aura" });
     }
   });
-
-  // Award karma
-  app.post("/api/sessions/:id/karma/award", async (req: SessionRequest, res: Response) => {
+  
+  // Legacy karma endpoint for backwards compatibility
+  app.get("/api/sessions/:id/karma", async (req: SessionRequest, res: Response) => {
     try {
-      const { amount, type, callId } = req.body;
-      const session = await addKarma(req.params.id, amount, type, callId);
+      const session = await getSession(req.params.id);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
-      res.json({ karmaPoints: session.karmaPoints });
+      
+      const level = [...AURA_LEVELS].reverse().find(l => session.auraPoints >= l.minAura) || AURA_LEVELS[0];
+      const levelIndex = AURA_LEVELS.findIndex(l => l.name === level.name);
+      const nextLevel = AURA_LEVELS[levelIndex + 1];
+      
+      res.json({
+        auraPoints: session.auraPoints,
+        karmaPoints: session.auraPoints, // Legacy field
+        level: level.name,
+        levelIndex: levelIndex + 1,
+        nextLevel: nextLevel?.name || null,
+        pointsToNextLevel: nextLevel ? nextLevel.minAura - session.auraPoints : 0,
+      });
     } catch (error) {
-      console.error("Error awarding karma:", error);
-      res.status(500).json({ error: "Failed to award karma" });
+      console.error("Error getting aura:", error);
+      res.status(500).json({ error: "Failed to get aura" });
+    }
+  });
+
+  // Award aura
+  app.post("/api/sessions/:id/aura/award", async (req: SessionRequest, res: Response) => {
+    try {
+      const { amount, type, callId } = req.body;
+      const session = await addAura(req.params.id, amount, type, callId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json({ auraPoints: session.auraPoints });
+    } catch (error) {
+      console.error("Error awarding aura:", error);
+      res.status(500).json({ error: "Failed to award aura" });
+    }
+  });
+  
+  // Legacy karma award endpoint for backwards compatibility
+  app.post("/api/sessions/:id/karma/award", async (req: SessionRequest, res: Response) => {
+    try {
+      const { amount, type, callId } = req.body;
+      const session = await addAura(req.params.id, amount, type, callId);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      res.json({ auraPoints: session.auraPoints, karmaPoints: session.auraPoints });
+    } catch (error) {
+      console.error("Error awarding aura:", error);
+      res.status(500).json({ error: "Failed to award aura" });
     }
   });
 
@@ -805,9 +851,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         reason, // Legacy field for backwards compatibility
       });
       
-      // Penalize reported user
+      // Penalize reported user (deduct aura)
       if (reportedSessionId) {
-        await addKarma(reportedSessionId, KARMA_REWARDS.REPORTED, "reported", callId);
+        await addAura(reportedSessionId, AURA_REWARDS.REPORTED, "reported", callId);
       }
       
       res.json({ success: true });

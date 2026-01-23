@@ -4,7 +4,7 @@ import {
   sessions,
   calls,
   creditTransactions,
-  karmaTransactions,
+  auraTransactions,
   reports,
   matchmakingQueue,
   type Session,
@@ -12,7 +12,7 @@ import {
   type Call,
   type InsertCall,
   type InsertCreditTransaction,
-  type InsertKarmaTransaction,
+  type InsertAuraTransaction,
   type InsertReport,
   type InsertMatchmakingQueue,
   MAX_DAILY_MATCHES,
@@ -155,8 +155,8 @@ export async function addToTimeBank(
   return updated;
 }
 
-// Karma Management
-export async function addKarma(
+// Aura Management (renamed from Karma for 2026 Gen Z appeal)
+export async function addAura(
   sessionId: string,
   amount: number,
   type: string,
@@ -166,19 +166,19 @@ export async function addKarma(
   if (!session) return undefined;
 
   // Record transaction
-  await db.insert(karmaTransactions).values({
+  await db.insert(auraTransactions).values({
     sessionId,
     amount,
     type,
     callId,
   });
 
-  // Update karma (don't go below 0)
-  const newKarma = Math.max(0, session.karmaPoints + amount);
+  // Update aura (don't go below 0)
+  const newAura = Math.max(0, session.auraPoints + amount);
   const [updated] = await db
     .update(sessions)
     .set({
-      karmaPoints: newKarma,
+      auraPoints: newAura,
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId))
