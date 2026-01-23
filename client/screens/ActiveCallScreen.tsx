@@ -346,10 +346,10 @@ function SafetyCheckModal({
                   onPress={onNotSafe}
                   style={({ pressed }) => [
                     styles.reminderButton,
-                    { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+                    { backgroundColor: theme.warning, opacity: pressed ? 0.9 : 1 },
                   ]}
                 >
-                  <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
+                  <ThemedText style={[styles.reminderButtonText, { color: "#FFFFFF" }]}>
                     No, Not Really
                   </ThemedText>
                 </Pressable>
