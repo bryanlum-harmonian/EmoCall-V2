@@ -4,10 +4,6 @@ import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type { IncomingMessage } from "node:http";
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
 
-// Use require for CommonJS module compatibility in production builds
-const agoraToken = require("agora-token");
-const { RtcTokenBuilder, RtcRole } = agoraToken;
-
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
   params: {
@@ -1312,6 +1308,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Agora credentials not configured");
         return res.status(500).json({ error: "Voice calling not configured" });
       }
+
+      // Dynamic import for ESM compatibility in production builds
+      const agoraToken = await import("agora-token");
+      const { RtcTokenBuilder, RtcRole } = agoraToken;
 
       const userUid = uid || 0;
       const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
