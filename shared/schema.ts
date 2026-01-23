@@ -18,6 +18,11 @@ export const sessions = pgTable("sessions", {
   premiumExpiresAt: timestamp("premium_expires_at"),
   genderPreference: text("gender_preference"),
   termsAcceptedAt: timestamp("terms_accepted_at"),
+  // Habit Loop fields
+  dailyStreak: integer("daily_streak").notNull().default(0),
+  lastCheckIn: timestamp("last_check_in"),
+  lastMoodCheck: text("last_mood_check"), // 'vent' or 'listen'
+  firstCallCompleted: boolean("first_call_completed").notNull().default(false),
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`NOW()`),
 });
@@ -151,7 +156,27 @@ export const AURA_REWARDS = {
   CALL_COMPLETE: 10,
   CALL_EXTEND: 50,
   REPORTED: -25,
+  DAILY_CHECKIN: 5, // +5 for daily check-in
+  FIRST_MISSION: 50, // +50 for completing first call ever
 } as const;
+
+// Daily Vibe prompts for variable rewards (different prompt each day)
+export const DAILY_VIBE_PROMPTS = [
+  "What's your secret win this week?",
+  "What made you smile today?",
+  "What's been on your mind lately?",
+  "If you could change one thing right now...",
+  "What's something you're grateful for?",
+  "What would make today perfect?",
+  "What's a small victory you've had recently?",
+  "What's keeping you up at night?",
+  "If you could talk to anyone, who would it be?",
+  "What's something you've been putting off?",
+  "What's your current vibe in one word?",
+  "What would your younger self think of you now?",
+  "What's the best advice you've ever received?",
+  "What's something you wish people understood about you?",
+] as const;
 
 // Cost constants
 export const COSTS = {

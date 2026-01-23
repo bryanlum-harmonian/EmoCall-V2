@@ -187,6 +187,99 @@ export async function addAura(
   return updated;
 }
 
+// Daily Check-In for Habit Loop
+export async function performDailyCheckIn(
+  sessionId: string,
+  auraReward: number
+): Promise<{ session?: Session; alreadyCheckedIn: boolean; streakIncreased: boolean }> {
+  const session = await getSession(sessionId);
+  if (!session) return { alreadyCheckedIn: false, streakIncreased: false };
+
+  const now = new Date();
+  const today = now.toDateString();
+  const lastCheckIn = session.lastCheckIn ? new Date(session.lastCheckIn) : null;
+  const lastCheckInDay = lastCheckIn ? lastCheckIn.toDateString() : null;
+
+  // Already checked in today
+  if (lastCheckInDay === today) {
+    return { session, alreadyCheckedIn: true, streakIncreased: false };
+  }
+
+  // Calculate new streak
+  let newStreak = 1;
+  let streakIncreased = true;
+  
+  if (lastCheckIn) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
+    
+    if (lastCheckInDay === yesterdayStr) {
+      // Consecutive day - increment streak
+      newStreak = session.dailyStreak + 1;
+    } else {
+      // Streak broken - reset to 1
+      newStreak = 1;
+      streakIncreased = false;
+    }
+  }
+
+  // Record aura transaction for check-in
+  await db.insert(auraTransactions).values({
+    sessionId,
+    amount: auraReward,
+    type: "daily_checkin",
+  });
+
+  // Update session
+  const [updated] = await db
+    .update(sessions)
+    .set({
+      dailyStreak: newStreak,
+      lastCheckIn: now,
+      auraPoints: session.auraPoints + auraReward,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .returning();
+
+  return { session: updated, alreadyCheckedIn: false, streakIncreased };
+}
+
+// First Mission completion (+50 Aura for first call ever)
+export async function completeFirstMission(
+  sessionId: string,
+  auraReward: number
+): Promise<{ session?: Session; wasFirstCall: boolean }> {
+  const session = await getSession(sessionId);
+  if (!session) return { wasFirstCall: false };
+
+  // Already completed first mission
+  if (session.firstCallCompleted) {
+    return { session, wasFirstCall: false };
+  }
+
+  // Record aura transaction
+  await db.insert(auraTransactions).values({
+    sessionId,
+    amount: auraReward,
+    type: "first_mission",
+  });
+
+  // Mark first call completed and add aura
+  const [updated] = await db
+    .update(sessions)
+    .set({
+      firstCallCompleted: true,
+      auraPoints: session.auraPoints + auraReward,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId))
+    .returning();
+
+  return { session: updated, wasFirstCall: true };
+}
+
 // Daily Matches Management
 export async function useDailyMatch(sessionId: string): Promise<Session | undefined> {
   const session = await getSession(sessionId);

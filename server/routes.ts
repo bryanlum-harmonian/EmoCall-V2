@@ -21,6 +21,8 @@ import {
   addAura,
   useDailyMatch,
   refillDailyMatches,
+  performDailyCheckIn,
+  completeFirstMission,
   createCall,
   getCall,
   updateCall,
@@ -43,6 +45,7 @@ import {
   COSTS,
   MAX_DAILY_MATCHES,
   DEFAULT_CALL_DURATION_SECONDS,
+  DAILY_VIBE_PROMPTS,
 } from "@shared/schema";
 
 // Active WebSocket connections for matchmaking
@@ -764,6 +767,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error awarding aura:", error);
       res.status(500).json({ error: "Failed to award aura" });
+    }
+  });
+
+  // ===============================
+  // Habit Loop APIs
+  // ===============================
+  
+  // Daily check-in (+5 Aura, streak tracking)
+  app.post("/api/sessions/:id/checkin", async (req: SessionRequest, res: Response) => {
+    try {
+      const result = await performDailyCheckIn(
+        req.params.id,
+        AURA_REWARDS.DAILY_CHECKIN
+      );
+      
+      if (!result.session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      res.json({
+        success: !result.alreadyCheckedIn,
+        alreadyCheckedIn: result.alreadyCheckedIn,
+        streakIncreased: result.streakIncreased,
+        auraAwarded: result.alreadyCheckedIn ? 0 : AURA_REWARDS.DAILY_CHECKIN,
+        dailyStreak: result.session.dailyStreak,
+        auraPoints: result.session.auraPoints,
+      });
+    } catch (error) {
+      console.error("Error performing check-in:", error);
+      res.status(500).json({ error: "Failed to check in" });
+    }
+  });
+  
+  // Complete first mission (+50 Aura for first call)
+  app.post("/api/sessions/:id/first-mission", async (req: SessionRequest, res: Response) => {
+    try {
+      const result = await completeFirstMission(
+        req.params.id,
+        AURA_REWARDS.FIRST_MISSION
+      );
+      
+      if (!result.session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      res.json({
+        success: result.wasFirstCall,
+        wasFirstCall: result.wasFirstCall,
+        auraAwarded: result.wasFirstCall ? AURA_REWARDS.FIRST_MISSION : 0,
+        auraPoints: result.session.auraPoints,
+      });
+    } catch (error) {
+      console.error("Error completing first mission:", error);
+      res.status(500).json({ error: "Failed to complete first mission" });
+    }
+  });
+  
+  // Get today's daily vibe prompt (variable reward - different each day)
+  app.get("/api/daily-vibe", async (_req: Request, res: Response) => {
+    try {
+      // Use day of year to select prompt (changes daily, repeats yearly)
+      const now = new Date();
+      const startOfYear = new Date(now.getFullYear(), 0, 0);
+      const diff = now.getTime() - startOfYear.getTime();
+      const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const promptIndex = dayOfYear % DAILY_VIBE_PROMPTS.length;
+      
+      res.json({
+        prompt: DAILY_VIBE_PROMPTS[promptIndex],
+        dayOfYear,
+        totalPrompts: DAILY_VIBE_PROMPTS.length,
+      });
+    } catch (error) {
+      console.error("Error getting daily vibe:", error);
+      res.status(500).json({ error: "Failed to get daily vibe" });
+    }
+  });
+  
+  // Get habit loop status for a session
+  app.get("/api/sessions/:id/habit-status", async (req: SessionRequest, res: Response) => {
+    try {
+      const session = await getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+      
+      const now = new Date();
+      const today = now.toDateString();
+      const lastCheckIn = session.lastCheckIn ? new Date(session.lastCheckIn) : null;
+      const checkedInToday = lastCheckIn ? lastCheckIn.toDateString() === today : false;
+      
+      res.json({
+        dailyStreak: session.dailyStreak,
+        checkedInToday,
+        firstCallCompleted: session.firstCallCompleted,
+        showFirstMission: !session.firstCallCompleted,
+        auraPoints: session.auraPoints,
+      });
+    } catch (error) {
+      console.error("Error getting habit status:", error);
+      res.status(500).json({ error: "Failed to get habit status" });
     }
   });
 
