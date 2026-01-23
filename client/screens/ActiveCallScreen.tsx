@@ -1132,6 +1132,22 @@ export default function ActiveCallScreen() {
               </ThemedText>
             </Animated.View>
 
+            <Pressable
+              onPress={() => setShowExtensionModal(true)}
+              style={({ pressed }) => [
+                styles.extendButton,
+                { 
+                  backgroundColor: theme.success,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Feather name="plus-circle" size={18} color="#FFFFFF" />
+              <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
+                Extend Call
+              </ThemedText>
+            </Pressable>
+
             {hasExtended ? (
               <View style={[styles.extendedBadge, { backgroundColor: `${theme.success}20` }]}>
                 <Feather name="check-circle" size={14} color={theme.success} />
@@ -1169,12 +1185,6 @@ export default function ActiveCallScreen() {
           label={isMuted ? "Unmute" : "Mute"}
           onPress={handleMuteToggle}
           isActive={isMuted}
-        />
-        <ControlButton
-          icon="plus-circle"
-          label="Extend"
-          onPress={() => setShowExtensionModal(true)}
-          isHighlighted
         />
         <Pressable
           onPress={handleReport}
@@ -1407,6 +1417,15 @@ const styles = StyleSheet.create({
     lineHeight: 56,
     letterSpacing: 2,
     fontWeight: "700",
+  },
+  extendButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.full,
+    marginTop: Spacing.lg,
   },
   extendedBadge: {
     flexDirection: "row",
