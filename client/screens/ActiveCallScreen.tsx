@@ -408,10 +408,10 @@ function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmMod
               onPress={onCancel}
               style={({ pressed }) => [
                 styles.reminderButton,
-                { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+                { backgroundColor: theme.success, opacity: pressed ? 0.9 : 1 },
               ]}
             >
-              <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
+              <ThemedText style={[styles.reminderButtonText, { color: "#FFFFFF" }]}>
                 Keep Talking
               </ThemedText>
             </Pressable>
