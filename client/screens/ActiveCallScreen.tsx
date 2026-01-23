@@ -41,6 +41,7 @@ const WARNING_TIME = 10;
 const MINUTE_REMINDER_INTERVAL = 60;
 const TOPUP_REMINDER_THRESHOLD = 600; // Start showing reminders when 10 minutes or less remaining
 const SAFETY_CHECK_INTERVAL = 120; // Show safety check every 2 minutes
+const KARMA_AWARD_INTERVAL = 60; // Award karma every 1 minute
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -574,7 +575,7 @@ export default function ActiveCallScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
-  const { awardCallCompletion, awardCallExtension } = useKarma();
+  const { awardCallCompletion, awardCallExtension, awardCallMinute, karma } = useKarma();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
@@ -636,6 +637,7 @@ export default function ActiveCallScreen() {
   const [showSafetyCheck, setShowSafetyCheck] = useState(false);
   const [showSafetyFollowUp, setShowSafetyFollowUp] = useState(false);
   const [lastSafetyCheckTime, setLastSafetyCheckTime] = useState(INITIAL_TIME);
+  const [lastKarmaAwardTime, setLastKarmaAwardTime] = useState(INITIAL_TIME);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -749,6 +751,12 @@ export default function ActiveCallScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
         
+        // Award 10 karma every minute
+        if ((lastKarmaAwardTime - prev) >= KARMA_AWARD_INTERVAL) {
+          awardCallMinute();
+          setLastKarmaAwardTime(prev);
+        }
+        
         return prev - 1;
       });
     }, 1000);
@@ -758,7 +766,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, lastKarmaAwardTime, awardCallMinute]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {

@@ -21,6 +21,7 @@ export const KARMA_REWARDS = {
   COMPLETE_CALL: 10,
   EXTEND_CALL: 50,
   REPORTED: -25,
+  CALL_MINUTE: 10,
 };
 
 interface KarmaContextType {
@@ -32,6 +33,7 @@ interface KarmaContextType {
   removeKarma: (amount: number) => void;
   awardCallCompletion: () => Promise<void>;
   awardCallExtension: () => Promise<void>;
+  awardCallMinute: () => Promise<void>;
   penalizeReport: () => void;
   syncWithBackend: () => Promise<void>;
 }
@@ -118,6 +120,22 @@ export function KarmaProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.id]);
 
+  const awardCallMinute = useCallback(async () => {
+    if (!session?.id) return;
+
+    try {
+      const response = await apiRequest("POST", `/api/sessions/${session.id}/karma/award`, {
+        amount: KARMA_REWARDS.CALL_MINUTE,
+        type: "call_minute"
+      });
+      const data = await response.json();
+      setKarma(data.karmaPoints);
+    } catch (err) {
+      console.error("Failed to award karma:", err);
+      setKarma((prev) => prev + KARMA_REWARDS.CALL_MINUTE);
+    }
+  }, [session?.id]);
+
   const penalizeReport = useCallback(() => {
     setKarma((prev) => Math.max(0, prev + KARMA_REWARDS.REPORTED));
   }, []);
@@ -133,6 +151,7 @@ export function KarmaProvider({ children }: { children: ReactNode }) {
         removeKarma,
         awardCallCompletion,
         awardCallExtension,
+        awardCallMinute,
         penalizeReport,
         syncWithBackend,
       }}
