@@ -1,5 +1,5 @@
-import React from "react";
-import { View, StyleSheet, ScrollView } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -10,9 +10,13 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
+import { StarRating } from "@/components/StarRating";
 import { useTheme } from "@/hooks/useTheme";
+import { useSession } from "@/contexts/SessionContext";
+import { useAura } from "@/contexts/AuraContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
+import { getApiUrl } from "@/lib/query-client";
 
 type EndReason = "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left";
 
@@ -28,7 +32,7 @@ const getEndReasonContent = (reason: EndReason) => {
       return {
         icon: "phone-off" as const,
         title: "Call Ended",
-        message: "Thanks for connecting. Every conversation matters.",
+        message: "How was the vibe?",
       };
     case "reported":
       return {
@@ -53,7 +57,7 @@ const getEndReasonContent = (reason: EndReason) => {
       return {
         icon: "phone" as const,
         title: "Call Ended",
-        message: "Thanks for using EmoCall.",
+        message: "How was the vibe?",
       };
   }
 };
@@ -63,12 +67,67 @@ export default function CallEndedScreen() {
   const { theme } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "CallEnded">>();
-  
+  const { session } = useSession();
+  const { syncWithBackend } = useAura();
+
   const reason = route.params?.reason || "ended";
+  const callId = route.params?.callId;
   const content = getEndReasonContent(reason);
+
+  const [voiceQuality, setVoiceQuality] = useState(0);
+  const [strangerQuality, setStrangerQuality] = useState(0);
+  const [overallExperience, setOverallExperience] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [auraEarned, setAuraEarned] = useState(0);
+
+  const canSubmit = voiceQuality > 0 && strangerQuality > 0 && overallExperience > 0;
+  const showRatingUI = !hasSubmitted && reason !== "reported";
+
+  const handleSubmitRating = async () => {
+    if (!canSubmit || !session?.id || !callId) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        new URL(`/api/calls/${callId}/ratings`, getApiUrl()).toString(),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: session.id,
+            voiceQuality,
+            strangerQuality,
+            overallExperience,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setAuraEarned(data.auraAwarded || 100);
+        setHasSubmitted(true);
+        syncWithBackend();
+      } else {
+        Alert.alert("Oops", data.error || "Failed to submit rating");
+      }
+    } catch (error) {
+      console.error("Rating submission error:", error);
+      Alert.alert("Oops", "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleTryAgain = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.replace("MoodSelection");
+  };
+
+  const handleSkipRating = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     navigation.replace("MoodSelection");
   };
 
@@ -118,28 +177,67 @@ export default function CallEndedScreen() {
           </ThemedText>
         </Animated.View>
 
-        <Animated.View
-          entering={FadeInUp.delay(800).duration(500)}
-          style={styles.statsContainer}
-        >
-          <View
-            style={[
-              styles.statCard,
-              { backgroundColor: theme.backgroundSecondary },
-            ]}
+        {showRatingUI && callId ? (
+          <Animated.View
+            entering={FadeInUp.delay(800).duration(500)}
+            style={[styles.ratingsCard, { backgroundColor: theme.backgroundSecondary }]}
           >
-            <Feather name="users" size={20} color={theme.primary} />
-            <ThemedText type="h4" style={styles.statValue}>
-              127
+            <ThemedText type="caption" style={[styles.ratingsHeader, { color: theme.textSecondary }]}>
+              Rate your experience to continue
             </ThemedText>
-            <ThemedText
-              type="caption"
-              style={{ color: theme.textSecondary }}
-            >
-              People connected today
+
+            <StarRating
+              label="Voice Quality"
+              rating={voiceQuality}
+              onRatingChange={setVoiceQuality}
+            />
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <StarRating
+              label="Stranger Quality"
+              rating={strangerQuality}
+              onRatingChange={setStrangerQuality}
+            />
+
+            <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+            <StarRating
+              label="Overall Experience"
+              rating={overallExperience}
+              onRatingChange={setOverallExperience}
+            />
+
+            {canSubmit ? (
+              <View style={styles.auraRewardBadge}>
+                <Feather name="zap" size={16} color="#FFD700" />
+                <ThemedText type="caption" style={styles.auraRewardText}>
+                  +100 Aura for your feedback
+                </ThemedText>
+              </View>
+            ) : null}
+          </Animated.View>
+        ) : null}
+
+        {hasSubmitted ? (
+          <Animated.View
+            entering={ZoomIn.duration(500)}
+            style={[styles.successCard, { backgroundColor: `${theme.primary}15` }]}
+          >
+            <View style={[styles.successIconContainer, { backgroundColor: theme.primary }]}>
+              <Feather name="check" size={24} color="#FFFFFF" />
+            </View>
+            <ThemedText type="h4" style={styles.successTitle}>
+              Thanks for your feedback!
             </ThemedText>
-          </View>
-        </Animated.View>
+            <View style={styles.auraEarnedRow}>
+              <Feather name="zap" size={20} color="#FFD700" />
+              <ThemedText type="body" style={styles.auraEarnedText}>
+                +{auraEarned} Aura earned
+              </ThemedText>
+            </View>
+          </Animated.View>
+        ) : null}
 
         <View style={styles.spacer} />
 
@@ -147,12 +245,34 @@ export default function CallEndedScreen() {
           entering={FadeInUp.delay(1000).duration(500)}
           style={styles.actions}
         >
-          <Button
-            onPress={handleTryAgain}
-            style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-          >
-            Start Another Call
-          </Button>
+          {showRatingUI && callId ? (
+            <>
+              <Button
+                onPress={handleSubmitRating}
+                disabled={!canSubmit || isSubmitting}
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: canSubmit ? theme.primary : theme.backgroundSecondary },
+                ]}
+              >
+                {isSubmitting ? "Submitting..." : "Submit Feedback"}
+              </Button>
+              <Button
+                onPress={handleSkipRating}
+                variant="secondary"
+                style={styles.secondaryButton}
+              >
+                Skip
+              </Button>
+            </>
+          ) : (
+            <Button
+              onPress={handleTryAgain}
+              style={[styles.primaryButton, { backgroundColor: theme.primary }]}
+            >
+              Start Another Call
+            </Button>
+          )}
         </Animated.View>
       </ScrollView>
     </ThemedView>
@@ -188,7 +308,7 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: "center",
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   message: {
     textAlign: "center",
@@ -196,17 +316,55 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
     lineHeight: 22,
   },
-  statsContainer: {
+  ratingsCard: {
     width: "100%",
-  },
-  statCard: {
     padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
+    borderRadius: BorderRadius.lg,
+  },
+  ratingsHeader: {
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    fontWeight: "500",
+  },
+  divider: {
+    height: 1,
+    marginVertical: Spacing.xs,
+  },
+  auraRewardBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.md,
+    gap: Spacing.xs,
+  },
+  auraRewardText: {
+    color: "#FFD700",
+    fontWeight: "600",
+  },
+  successCard: {
+    width: "100%",
+    padding: Spacing.xl,
+    borderRadius: BorderRadius.lg,
+    alignItems: "center",
+    gap: Spacing.md,
+  },
+  successIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  successTitle: {
+    textAlign: "center",
+  },
+  auraEarnedRow: {
+    flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
   },
-  statValue: {
-    marginTop: 2,
+  auraEarnedText: {
+    fontWeight: "600",
   },
   spacer: {
     flex: 1,
@@ -218,6 +376,9 @@ const styles = StyleSheet.create({
     marginTop: "auto",
   },
   primaryButton: {
+    width: "100%",
+  },
+  secondaryButton: {
     width: "100%",
   },
 });

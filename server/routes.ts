@@ -35,6 +35,8 @@ import {
   findWaitingListener,
   getQueuePosition,
   createReport,
+  createCallRating,
+  hasSubmittedRating,
   activatePremium,
   checkPremiumStatus,
   generateRestoreToken,
@@ -967,6 +969,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating report:", error);
       res.status(500).json({ error: "Failed to create report" });
+    }
+  });
+
+  // ===============================
+  // Call Ratings API
+  // ===============================
+
+  app.post("/api/calls/:callId/ratings", async (req: Request, res: Response) => {
+    try {
+      const callId = req.params.callId as string;
+      const { sessionId, voiceQuality, strangerQuality, overallExperience, wouldCallAgain, feedback } = req.body;
+
+      if (!sessionId || !voiceQuality || !strangerQuality || !overallExperience) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Validate ratings are 1-5
+      if ([voiceQuality, strangerQuality, overallExperience].some(r => r < 1 || r > 5)) {
+        return res.status(400).json({ error: "Ratings must be between 1 and 5" });
+      }
+
+      // Check if user already rated this call
+      const alreadyRated = await hasSubmittedRating(sessionId, callId);
+      if (alreadyRated) {
+        return res.status(400).json({ error: "You have already rated this call" });
+      }
+
+      // Create the rating
+      const rating = await createCallRating({
+        callId,
+        sessionId,
+        voiceQuality,
+        strangerQuality,
+        overallExperience,
+        wouldCallAgain,
+        feedback,
+        auraAwarded: 100,
+      });
+
+      // Award 100 aura for submitting feedback
+      await addAura(sessionId, 100, "feedback", callId);
+
+      const session = await getSession(sessionId);
+
+      res.json({
+        success: true,
+        rating,
+        auraAwarded: 100,
+        newAuraTotal: session?.auraPoints || 0,
+      });
+    } catch (error) {
+      console.error("Error creating call rating:", error);
+      res.status(500).json({ error: "Failed to submit rating" });
     }
   });
 

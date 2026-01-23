@@ -8,6 +8,7 @@ import {
   auraTransactions,
   reports,
   matchmakingQueue,
+  callRatings,
   type Session,
   type InsertSession,
   type Call,
@@ -16,6 +17,8 @@ import {
   type InsertAuraTransaction,
   type InsertReport,
   type InsertMatchmakingQueue,
+  type InsertCallRating,
+  type CallRating,
   MAX_DAILY_MATCHES,
 } from "@shared/schema";
 
@@ -449,6 +452,32 @@ export async function getQueuePosition(sessionId: string): Promise<number> {
 // Reports
 export async function createReport(data: InsertReport): Promise<void> {
   await db.insert(reports).values(data);
+}
+
+// Call Ratings
+export async function createCallRating(data: InsertCallRating): Promise<CallRating> {
+  const [rating] = await db.insert(callRatings).values(data).returning();
+  return rating;
+}
+
+export async function getCallRatingBySessionAndCall(
+  sessionId: string,
+  callId: string
+): Promise<CallRating | undefined> {
+  return await db.query.callRatings.findFirst({
+    where: and(
+      eq(callRatings.sessionId, sessionId),
+      eq(callRatings.callId, callId)
+    ),
+  });
+}
+
+export async function hasSubmittedRating(
+  sessionId: string,
+  callId: string
+): Promise<boolean> {
+  const existing = await getCallRatingBySessionAndCall(sessionId, callId);
+  return !!existing;
 }
 
 // Premium Management
