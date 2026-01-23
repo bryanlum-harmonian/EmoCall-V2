@@ -112,6 +112,26 @@ export const insertReportSchema = createInsertSchema(reports);
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type Report = typeof reports.$inferSelect;
 
+// Call ratings for feedback analytics
+export const callRatings = pgTable("call_ratings", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  callId: varchar("call_id").notNull(),
+  sessionId: varchar("session_id").notNull(),
+  voiceQuality: integer("voice_quality").notNull(), // 1-5 stars
+  strangerQuality: integer("stranger_quality").notNull(), // 1-5 stars
+  overallExperience: integer("overall_experience").notNull(), // 1-5 stars
+  wouldCallAgain: boolean("would_call_again"), // Optional: would you call again?
+  feedback: text("feedback"), // Optional: written feedback
+  auraAwarded: integer("aura_awarded").notNull().default(100),
+  createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
+});
+
+export const insertCallRatingSchema = createInsertSchema(callRatings);
+export type InsertCallRating = z.infer<typeof insertCallRatingSchema>;
+export type CallRating = typeof callRatings.$inferSelect;
+
 // Matchmaking queue
 export const matchmakingQueue = pgTable("matchmaking_queue", {
   id: varchar("id")
