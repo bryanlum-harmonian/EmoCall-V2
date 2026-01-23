@@ -1,9 +1,12 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { View, StyleSheet, Pressable, Modal, FlatList, Share, Platform } from "react-native";
+import React, { useEffect, useState, useCallback, useRef } from "react";
+import { View, StyleSheet, Pressable, Modal, FlatList, Platform, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system";
+import { captureRef } from "react-native-view-shot";
 import { useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -70,6 +73,74 @@ function formatNumber(num: number): string {
   }
   return num.toString();
 }
+
+interface ShareableRankingCardProps {
+  ranking: CountryRanking;
+  theme: ReturnType<typeof useTheme>["theme"];
+}
+
+const ShareableRankingCard = React.forwardRef<View, ShareableRankingCardProps>(
+  ({ ranking, theme }, ref) => {
+    const isTop3 = ranking.rank <= 3;
+    const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
+    const medalColor = isTop3 ? medalColors[ranking.rank - 1] : theme.primary;
+
+    return (
+      <View
+        ref={ref}
+        style={shareCardStyles.container}
+        collapsable={false}
+      >
+        {/* Gradient background */}
+        <View style={[shareCardStyles.background, { backgroundColor: theme.primary }]} />
+        <View style={shareCardStyles.backgroundPattern} />
+
+        {/* Brand header */}
+        <View style={shareCardStyles.brandHeader}>
+          <View style={shareCardStyles.logoContainer}>
+            <View style={shareCardStyles.logoCircle}>
+              <Feather name="phone-call" size={18} color={theme.primary} />
+            </View>
+            <ThemedText style={shareCardStyles.brandName}>EmoCall</ThemedText>
+          </View>
+        </View>
+
+        {/* Main content */}
+        <View style={shareCardStyles.content}>
+          {/* Country flag */}
+          <View style={shareCardStyles.flagContainer}>
+            <ThemedText style={shareCardStyles.flagEmoji}>{getFlag(ranking.countryCode)}</ThemedText>
+          </View>
+
+          {/* Country name */}
+          <ThemedText style={shareCardStyles.countryName}>{ranking.countryName}</ThemedText>
+
+          {/* Rank badge */}
+          <View style={[shareCardStyles.rankBadge, { backgroundColor: medalColor }]}>
+            <Feather name="award" size={20} color="#FFFFFF" />
+            <ThemedText style={shareCardStyles.rankText}>#{ranking.rank} Worldwide</ThemedText>
+          </View>
+
+          {/* Aura points */}
+          <View style={shareCardStyles.auraContainer}>
+            <Feather name="star" size={24} color="#FFD700" />
+            <ThemedText style={shareCardStyles.auraText}>{formatNumber(ranking.totalAura)}</ThemedText>
+            <ThemedText style={shareCardStyles.auraLabel}>Total Aura</ThemedText>
+          </View>
+        </View>
+
+        {/* Footer */}
+        <View style={shareCardStyles.footer}>
+          <ThemedText style={shareCardStyles.tagline}>Join us on EmoCall!</ThemedText>
+          <View style={shareCardStyles.userCount}>
+            <Feather name="users" size={14} color="#FFFFFF99" />
+            <ThemedText style={shareCardStyles.userCountText}>{ranking.userCount} souls connected</ThemedText>
+          </View>
+        </View>
+      </View>
+    );
+  }
+);
 
 interface RankingItemProps {
   item: CountryRanking;
@@ -138,6 +209,8 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { session } = useSession();
+  const shareCardRef = useRef<View>(null);
+  const [isSharing, setIsSharing] = useState(false);
   
   const { data: rankingsData, isLoading, refetch } = useQuery<RankingsResponse>({
     queryKey: ["/api/rankings/countries"],
@@ -149,29 +222,45 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
     onClose();
   }, [onClose]);
 
-  const handleShare = useCallback(async () => {
-    const sessionCountryCode = (session as any)?.countryCode as string | undefined;
-    if (!rankingsData?.rankings || !sessionCountryCode) return;
-    
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    const userRanking = rankingsData.rankings.find(r => r.countryCode === sessionCountryCode);
-    if (!userRanking) return;
-
-    const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} globally on EmoCall with ${formatNumber(userRanking.totalAura)} total Aura! Join us and help boost our ranking!`;
-    
-    try {
-      await Share.share({
-        message,
-        title: "EmoCall Global Rankings",
-      });
-    } catch (error) {
-      console.error("Error sharing:", error);
-    }
-  }, [rankingsData, session]);
-
   const userCountryCode = (session as any)?.countryCode as string | undefined;
   const userRanking = rankingsData?.rankings?.find(r => r.countryCode === userCountryCode);
+
+  const handleShare = useCallback(async () => {
+    if (!userRanking || isSharing) return;
+    
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsSharing(true);
+    
+    try {
+      // Check if sharing is available
+      const isAvailable = await Sharing.isAvailableAsync();
+      
+      if (!isAvailable) {
+        console.log("Sharing not available on this platform");
+        setIsSharing(false);
+        return;
+      }
+
+      // Capture the shareable card as an image
+      if (shareCardRef.current) {
+        const uri = await captureRef(shareCardRef, {
+          format: "png",
+          quality: 1,
+          result: "tmpfile",
+        });
+
+        // Share the image
+        await Sharing.shareAsync(uri, {
+          mimeType: "image/png",
+          dialogTitle: "Share your country ranking",
+        });
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+    } finally {
+      setIsSharing(false);
+    }
+  }, [userRanking, isSharing]);
 
   return (
     <Modal
@@ -223,9 +312,21 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
               <Pressable 
                 onPress={handleShare}
                 style={[styles.shareButton, { backgroundColor: theme.primary }]}
+                disabled={isSharing}
               >
-                <Feather name="share-2" size={18} color="#FFFFFF" />
+                {isSharing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Feather name="share-2" size={18} color="#FFFFFF" />
+                )}
               </Pressable>
+            </View>
+          ) : null}
+
+          {/* Hidden shareable card for image capture */}
+          {userRanking ? (
+            <View style={styles.hiddenCardContainer}>
+              <ShareableRankingCard ref={shareCardRef} ranking={userRanking} theme={theme} />
             </View>
           ) : null}
 
@@ -379,5 +480,120 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.sm,
     borderTopWidth: 1,
+  },
+  hiddenCardContainer: {
+    position: "absolute",
+    left: -9999,
+    top: -9999,
+  },
+});
+
+// Styles for the shareable ranking card
+const shareCardStyles = StyleSheet.create({
+  container: {
+    width: 360,
+    height: 480,
+    borderRadius: 24,
+    overflow: "hidden",
+    position: "relative",
+  },
+  background: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backgroundPattern: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0, 0, 0, 0.1)",
+  },
+  brandHeader: {
+    paddingTop: 32,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  logoContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  logoCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  brandName: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    letterSpacing: 1,
+  },
+  content: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  flagContainer: {
+    marginBottom: 16,
+  },
+  flagEmoji: {
+    fontSize: 72,
+  },
+  countryName: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#FFFFFF",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  rankBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 24,
+    gap: 8,
+    marginBottom: 20,
+  },
+  rankText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  auraContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  auraText: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  auraLabel: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.8)",
+    marginLeft: 4,
+  },
+  footer: {
+    paddingBottom: 32,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
+  tagline: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#FFFFFF",
+    marginBottom: 8,
+  },
+  userCount: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  userCountText: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
   },
 });
