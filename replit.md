@@ -245,3 +245,9 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - Database table: call_ratings with sessionId, callId, and ratings (1-5 scale)
   - Skip option for users who don't want to rate
   - Success animation with aura earned display
+- **Data Collection Summary Page**: App store compliance and transparency
+  - DataCollectionScreen accessible from Settings > LEGAL section
+  - Clear breakdown of collected data: Device ID, Voice Audio, App Activity, Purchases
+  - Shows data NOT collected: Name, Email, Location, Contacts, Photos
+  - Security practices section with encryption and anonymity details
+  - Useful reference for Google Play Data Safety and iOS Privacy Labels
