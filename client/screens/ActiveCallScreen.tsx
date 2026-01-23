@@ -1000,22 +1000,6 @@ export default function ActiveCallScreen() {
       ]}
     >
       <View style={[styles.header, { paddingTop: insets.top + Spacing.md }]}>
-        <Animated.View entering={FadeIn.duration(400)} style={styles.reportButton}>
-          <Pressable
-            onPress={handleReport}
-            style={({ pressed }) => [
-              styles.headerButton,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Feather
-              name="flag"
-              size={20}
-              color={isUrgent && !hasExtended ? "#FFFFFF" : theme.textSecondary}
-            />
-          </Pressable>
-        </Animated.View>
-
         <Animated.View entering={FadeIn.duration(400)}>
           <Pressable
             onPress={handleOpenCreditsStore}
@@ -1344,12 +1328,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: Spacing.lg,
-  },
-  reportButton: {
-    padding: Spacing.xs,
-  },
-  headerButton: {
-    padding: Spacing.sm,
   },
   creditsHeaderButton: {
     flexDirection: "row",
