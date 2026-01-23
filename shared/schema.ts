@@ -23,6 +23,10 @@ export const sessions = pgTable("sessions", {
   lastCheckIn: timestamp("last_check_in"),
   lastMoodCheck: text("last_mood_check"), // 'vent' or 'listen'
   firstCallCompleted: boolean("first_call_completed").notNull().default(false),
+  // Backup & Restore fields
+  restoreToken: text("restore_token"), // Server-generated token for validating restores
+  transferredAt: timestamp("transferred_at"), // When this session was transferred to another device
+  transferredToSessionId: text("transferred_to_session_id"), // Session ID it was transferred to
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`NOW()`),
 });
