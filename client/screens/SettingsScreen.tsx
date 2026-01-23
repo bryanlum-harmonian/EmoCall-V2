@@ -297,6 +297,39 @@ export default function SettingsScreen() {
                     </View>
                   ) : null}
                 </Pressable>
+
+                <Pressable
+                  onPress={() => handleAppThemeChange("rainbow")}
+                  style={({ pressed }) => [
+                    styles.themeOption,
+                    {
+                      borderColor: appTheme === "rainbow" ? "#FF3366" : theme.border,
+                      borderWidth: appTheme === "rainbow" ? 3 : 1,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <View style={styles.themePreview}>
+                    <View style={styles.themePreviewRainbow}>
+                      <View style={[styles.rainbowStripe, { backgroundColor: "#FF3366" }]} />
+                      <View style={[styles.rainbowStripe, { backgroundColor: "#FFCC00" }]} />
+                      <View style={[styles.rainbowStripe, { backgroundColor: "#33CC99" }]} />
+                      <View style={[styles.rainbowStripe, { backgroundColor: "#3366FF" }]} />
+                    </View>
+                    <View style={styles.themePreviewBottom}>
+                      <View style={[styles.themePreviewCard, { backgroundColor: "#FF3366" }]} />
+                      <View style={[styles.themePreviewCard, { backgroundColor: "#33CC99" }]} />
+                    </View>
+                  </View>
+                  <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "rainbow" ? "700" : "400" }}>
+                    Rainbow
+                  </ThemedText>
+                  {appTheme === "rainbow" ? (
+                    <View style={[styles.checkBadge, { backgroundColor: "#FF3366" }]}>
+                      <Feather name="check" size={12} color="#FFFFFF" />
+                    </View>
+                  ) : null}
+                </Pressable>
               </View>
             </View>
           </Animated.View>
@@ -509,6 +542,13 @@ const styles = StyleSheet.create({
   },
   themePreviewTop: {
     height: 30,
+  },
+  themePreviewRainbow: {
+    height: 30,
+    flexDirection: "row",
+  },
+  rainbowStripe: {
+    flex: 1,
   },
   themePreviewBottom: {
     flex: 1,
