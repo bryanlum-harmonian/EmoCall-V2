@@ -517,6 +517,7 @@ export default function ActiveCallScreen() {
   const [lastReminderTime, setLastReminderTime] = useState(INITIAL_TIME);
   const [youSpeaking, setYouSpeaking] = useState(false);
   const [themSpeaking, setThemSpeaking] = useState(true);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true); // Default: loud speaker mode
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -676,6 +677,11 @@ export default function ActiveCallScreen() {
   const handleMuteToggle = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     toggleMute();
+  };
+
+  const handleSpeakerToggle = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsSpeakerOn(!isSpeakerOn);
   };
 
   const handleEndCall = useCallback(async () => {
@@ -961,6 +967,12 @@ export default function ActiveCallScreen() {
           { paddingBottom: insets.bottom + Spacing["2xl"] },
         ]}
       >
+        <ControlButton
+          icon={isSpeakerOn ? "volume-2" : "phone-call"}
+          label={isSpeakerOn ? "Speaker" : "Earpiece"}
+          onPress={handleSpeakerToggle}
+          isActive={isSpeakerOn}
+        />
         <ControlButton
           icon={isMuted ? "mic-off" : "mic"}
           label={isMuted ? "Unmute" : "Mute"}
