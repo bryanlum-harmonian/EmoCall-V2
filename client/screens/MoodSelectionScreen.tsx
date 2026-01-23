@@ -604,6 +604,29 @@ export default function MoodSelectionScreen() {
             Anonymous voice calls for emotional relief
           </ThemedText>
         </Animated.View>
+
+        {/* Developer Preview Button - for web testing */}
+        <Animated.View entering={FadeIn.delay(800).duration(400)} style={styles.devButtonContainer}>
+          <Pressable
+            onPress={() => {
+              navigation.navigate("ActiveCall", {
+                callId: "dev-preview-call",
+                partnerId: "dev-partner-123",
+                duration: 300,
+                isPreview: true,
+              });
+            }}
+            style={({ pressed }) => [
+              styles.devButton,
+              { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            <Feather name="code" size={14} color={theme.textSecondary} />
+            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
+              Dev: Test Call Screen
+            </ThemedText>
+          </Pressable>
+        </Animated.View>
       </ScrollView>
 
       <CreditsStoreModal
@@ -937,5 +960,17 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.lg,
     alignItems: "center",
     marginTop: Spacing.xl,
+  },
+  devButtonContainer: {
+    marginTop: Spacing.xl,
+    alignItems: "center",
+  },
+  devButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
   },
 });
