@@ -251,3 +251,12 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - Shows data NOT collected: Name, Email, Location, Contacts, Photos
   - Security practices section with encryption and anonymity details
   - Useful reference for Google Play Data Safety and iOS Privacy Labels
+- **Global Country Rankings**: Community engagement feature showing worldwide leaderboards
+  - IP-based country detection on session creation using ip-api.com (free, no API key)
+  - Database field: sessions.countryCode (ISO 3166-1 alpha-2 codes like "MY", "US")
+  - country_rankings cache table with 12-hour refresh cycle for performance
+  - API endpoints: GET /api/rankings/countries, POST /api/rankings/refresh, GET /api/sessions/:id/country
+  - GlobalRankingsModal component with country flags, names, and total aura
+  - Top 3 countries displayed with gold/silver/bronze medal badges
+  - User's country highlighted with share button for social media
+  - Globe button added to MoodSelectionScreen header for quick access
