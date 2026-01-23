@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, StyleSheet, Pressable } from "react-native";
+import { View, StyleSheet, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -110,14 +110,17 @@ export default function VibeCheckScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View
-        style={[
-          styles.content,
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
           {
-            paddingTop: insets.top + Spacing["4xl"],
-            paddingBottom: insets.bottom + Spacing["2xl"],
+            paddingTop: insets.top + Spacing.xl,
+            paddingBottom: insets.bottom + Spacing.lg,
           },
         ]}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
       >
         <Animated.View
           entering={ZoomIn.delay(200).duration(500)}
@@ -132,12 +135,12 @@ export default function VibeCheckScreen() {
               { backgroundColor: theme.primary },
             ]}
           >
-            <Feather name="phone-off" size={36} color="#FFFFFF" />
+            <Feather name="phone-off" size={24} color="#FFFFFF" />
           </View>
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(400).duration(500)}>
-          <ThemedText type="h2" style={styles.title}>
+          <ThemedText type="h3" style={styles.title}>
             Call Ended
           </ThemedText>
           <ThemedText
@@ -167,15 +170,15 @@ export default function VibeCheckScreen() {
           >
             <Feather
               name="thumbs-up"
-              size={40}
+              size={28}
               color={voteType === "up" ? "#FFFFFF" : theme.success}
             />
             <ThemedText
-              type="body"
+              type="small"
               style={{
                 color: voteType === "up" ? "#FFFFFF" : theme.success,
                 fontWeight: "600",
-                marginTop: Spacing.sm,
+                marginTop: Spacing.xs,
               }}
             >
               Good Vibes
@@ -197,15 +200,15 @@ export default function VibeCheckScreen() {
           >
             <Feather
               name="thumbs-down"
-              size={40}
+              size={28}
               color={voteType === "down" ? "#FFFFFF" : theme.error}
             />
             <ThemedText
-              type="body"
+              type="small"
               style={{
                 color: voteType === "down" ? "#FFFFFF" : theme.error,
                 fontWeight: "600",
-                marginTop: Spacing.sm,
+                marginTop: Spacing.xs,
               }}
             >
               Bad Vibes
@@ -217,14 +220,14 @@ export default function VibeCheckScreen() {
           <Animated.View style={[styles.rewardContainer, rewardStyle]}>
             <View style={[styles.rewardBadge, { backgroundColor: `${theme.primary}20` }]}>
               <Animated.View style={heartStyle}>
-                <Feather name="heart" size={24} color={theme.secondary} />
+                <Feather name="heart" size={20} color={theme.secondary} />
               </Animated.View>
-              <ThemedText type="h3" style={[styles.rewardText, { color: theme.primary }]}>
-                +{earnedKarma} Karma
+              <ThemedText type="body" style={[styles.rewardText, { color: theme.primary }]}>
+                +{earnedKarma} Aura
               </ThemedText>
             </View>
             <ThemedText
-              type="small"
+              type="caption"
               style={[styles.rewardSubtext, { color: theme.textSecondary }]}
             >
               Thanks for connecting!
@@ -241,7 +244,7 @@ export default function VibeCheckScreen() {
             </Animated.View>
           ) : (
             <ThemedText
-              type="small"
+              type="caption"
               style={[styles.skipText, { color: theme.textSecondary }]}
             >
               Rate your experience to continue
@@ -261,9 +264,9 @@ export default function VibeCheckScreen() {
                 },
               ]}
             >
-              <Feather name="flag" size={16} color={theme.error} />
+              <Feather name="flag" size={14} color={theme.error} />
               <ThemedText
-                type="small"
+                type="caption"
                 style={{ color: theme.error, marginLeft: Spacing.xs }}
               >
                 Report this user
@@ -271,7 +274,7 @@ export default function VibeCheckScreen() {
             </Pressable>
           </Animated.View>
         ) : null}
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -280,67 +283,70 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: "center",
-    paddingHorizontal: Spacing["2xl"],
+    paddingHorizontal: Spacing.lg,
   },
   iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.lg,
   },
   iconInner: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
     textAlign: "center",
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
   },
   subtitle: {
     textAlign: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.lg,
   },
   votingContainer: {
     flexDirection: "row",
-    gap: Spacing.xl,
-    marginBottom: Spacing["2xl"],
+    gap: Spacing.md,
+    marginBottom: Spacing.lg,
   },
   voteButton: {
-    width: 130,
-    height: 130,
-    borderRadius: BorderRadius.xl,
+    width: 110,
+    height: 100,
+    borderRadius: BorderRadius.lg,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   rewardContainer: {
     alignItems: "center",
-    marginBottom: Spacing["2xl"],
+    marginBottom: Spacing.lg,
   },
   rewardBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.xl,
-    gap: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.lg,
+    gap: Spacing.xs,
   },
   rewardText: {
     fontWeight: "700",
   },
   rewardSubtext: {
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
   },
   rewardPlaceholder: {
-    height: 80,
+    height: 60,
   },
   actionsContainer: {
     width: "100%",
@@ -353,13 +359,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   reportSection: {
-    marginTop: Spacing.xl,
+    marginTop: Spacing.md,
   },
   reportButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-    borderRadius: BorderRadius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.md,
   },
 });

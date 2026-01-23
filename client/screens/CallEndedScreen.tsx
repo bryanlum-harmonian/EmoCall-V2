@@ -1,5 +1,5 @@
 import React from "react";
-import { View, StyleSheet, Image } from "react-native";
+import { View, StyleSheet, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -72,21 +72,19 @@ export default function CallEndedScreen() {
     navigation.replace("MoodSelection");
   };
 
-  const handleGoHome = async () => {
-    await Haptics.selectionAsync();
-    navigation.replace("MoodSelection");
-  };
-
   return (
     <ThemedView style={styles.container}>
-      <View
-        style={[
-          styles.content,
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[
+          styles.scrollContent,
           {
-            paddingTop: insets.top + Spacing["6xl"],
-            paddingBottom: insets.bottom + Spacing["3xl"],
+            paddingTop: insets.top + Spacing["2xl"],
+            paddingBottom: insets.bottom + Spacing.xl,
           },
         ]}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
       >
         <Animated.View
           entering={ZoomIn.delay(200).duration(500)}
@@ -101,12 +99,12 @@ export default function CallEndedScreen() {
               { backgroundColor: theme.primary },
             ]}
           >
-            <Feather name={content.icon} size={40} color="#FFFFFF" />
+            <Feather name={content.icon} size={28} color="#FFFFFF" />
           </View>
         </Animated.View>
 
         <Animated.View entering={FadeInUp.delay(400).duration(500)}>
-          <ThemedText type="h2" style={styles.title}>
+          <ThemedText type="h3" style={styles.title}>
             {content.title}
           </ThemedText>
         </Animated.View>
@@ -130,7 +128,7 @@ export default function CallEndedScreen() {
               { backgroundColor: theme.backgroundSecondary },
             ]}
           >
-            <Feather name="users" size={24} color={theme.primary} />
+            <Feather name="users" size={20} color={theme.primary} />
             <ThemedText type="h4" style={styles.statValue}>
               127
             </ThemedText>
@@ -156,7 +154,7 @@ export default function CallEndedScreen() {
             Start Another Call
           </Button>
         </Animated.View>
-      </View>
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -165,53 +163,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: "center",
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
   },
   iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing.xl,
   },
   iconInner: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
     textAlign: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   message: {
     textAlign: "center",
     maxWidth: 280,
-    marginBottom: Spacing["3xl"],
+    marginBottom: Spacing.xl,
+    lineHeight: 22,
   },
   statsContainer: {
     width: "100%",
   },
   statCard: {
-    padding: Spacing.xl,
-    borderRadius: BorderRadius.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.md,
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   statValue: {
-    marginTop: Spacing.xs,
+    marginTop: 2,
   },
   spacer: {
     flex: 1,
+    minHeight: Spacing.xl,
   },
   actions: {
     width: "100%",
     gap: Spacing.md,
+    marginTop: "auto",
   },
   primaryButton: {
     width: "100%",
