@@ -2,8 +2,11 @@ import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "node:http";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type { IncomingMessage } from "node:http";
-import { RtcTokenBuilder, RtcRole } from "agora-token";
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
+
+// Use require for CommonJS module compatibility in production builds
+const agoraToken = require("agora-token");
+const { RtcTokenBuilder, RtcRole } = agoraToken;
 
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
