@@ -57,6 +57,10 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
 
   const clientRef = useRef<any>(null);
   const localAudioTrackRef = useRef<any>(null);
+  
+  // CRITICAL: Prevent duplicate joins - tracks if we've already joined this channel
+  const hasJoinedRef = useRef(false);
+  const isLeavingRef = useRef(false);
 
   const fetchToken = useCallback(async () => {
     const url = new URL("/api/agora/token", getApiUrl()).toString();
@@ -92,9 +96,16 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const join = useCallback(async () => {
     console.log("[Agora] Join called, platform:", Platform.OS, "enabled:", enabled);
     
+    // CRITICAL: Prevent duplicate joins - check ref first
+    if (hasJoinedRef.current) {
+      console.log("[Agora] Already joined (hasJoinedRef=true), preventing duplicate join");
+      return;
+    }
+    
     // In preview mode, simulate connected state without actual Agora connection
     if (!enabled) {
       console.log("[Agora] Preview mode - simulating connected state");
+      hasJoinedRef.current = true;
       setIsConnected(true);
       setRemoteUserJoined(true);
       return;
@@ -112,6 +123,8 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       return;
     }
 
+    // Mark as joined immediately to prevent race conditions
+    hasJoinedRef.current = true;
     setIsConnecting(true);
     setError(null);
 
@@ -175,17 +188,30 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       const errorMessage = err.message || "Failed to connect voice";
       setError(errorMessage);
       setIsConnecting(false);
+      // Reset hasJoinedRef on error so retry is possible
+      hasJoinedRef.current = false;
     }
   }, [config.channelName, fetchToken, isConnected, isConnecting, enabled]);
 
   const leave = useCallback(async () => {
+    // Prevent multiple simultaneous leave calls
+    if (isLeavingRef.current) {
+      console.log("[Agora] Already leaving, skipping duplicate leave call");
+      return;
+    }
+    
+    isLeavingRef.current = true;
+    console.log("[Agora] Leave called - cleaning up Agora resources");
+    
     try {
       if (localAudioTrackRef.current) {
+        console.log("[Agora] Closing local audio track");
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
       }
 
       if (clientRef.current) {
+        console.log("[Agora] Leaving channel");
         await clientRef.current.leave();
         clientRef.current = null;
       }
@@ -193,8 +219,14 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       setIsConnected(false);
       setRemoteUserJoined(false);
       setIsMuted(false);
+      
+      // Reset join tracking
+      hasJoinedRef.current = false;
+      console.log("[Agora] Leave completed, hasJoinedRef reset to false");
     } catch (err) {
-      console.error("Agora leave error:", err);
+      console.error("[Agora] Leave error:", err);
+    } finally {
+      isLeavingRef.current = false;
     }
   }, []);
 
@@ -206,14 +238,26 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
     }
   }, [isMuted]);
 
+  // CRITICAL: Cleanup on unmount - prevents "71 users in one room" bug
   useEffect(() => {
     return () => {
+      console.log("[Agora] Component unmounting - forcing cleanup");
+      // Synchronous cleanup on unmount
       if (localAudioTrackRef.current) {
+        console.log("[Agora] Unmount: Closing local audio track");
         localAudioTrackRef.current.close();
+        localAudioTrackRef.current = null;
       }
       if (clientRef.current) {
-        clientRef.current.leave();
+        console.log("[Agora] Unmount: Leaving channel");
+        clientRef.current.leave().catch((err: any) => {
+          console.error("[Agora] Unmount leave error:", err);
+        });
+        clientRef.current = null;
       }
+      // Reset refs
+      hasJoinedRef.current = false;
+      isLeavingRef.current = false;
     };
   }, []);
 
