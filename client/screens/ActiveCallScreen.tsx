@@ -40,6 +40,7 @@ const INITIAL_TIME = 300;
 const WARNING_TIME = 10;
 const MINUTE_REMINDER_INTERVAL = 60;
 const TOPUP_REMINDER_THRESHOLD = 600; // Start showing reminders when 10 minutes or less remaining
+const SAFETY_CHECK_INTERVAL = 120; // Show safety check every 2 minutes
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -632,6 +633,9 @@ export default function ActiveCallScreen() {
   const [youSpeaking, setYouSpeaking] = useState(false);
   const [themSpeaking, setThemSpeaking] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true); // Default: loud speaker mode
+  const [showSafetyCheck, setShowSafetyCheck] = useState(false);
+  const [showSafetyFollowUp, setShowSafetyFollowUp] = useState(false);
+  const [lastSafetyCheckTime, setLastSafetyCheckTime] = useState(INITIAL_TIME);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -737,6 +741,14 @@ export default function ActiveCallScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
         
+        // Safety check every 2 minutes
+        if ((lastSafetyCheckTime - prev) >= SAFETY_CHECK_INTERVAL && prev > WARNING_TIME) {
+          setShowSafetyCheck(true);
+          setShowSafetyFollowUp(false);
+          setLastSafetyCheckTime(prev);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
+        
         return prev - 1;
       });
     }, 1000);
@@ -746,7 +758,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {
@@ -797,6 +809,23 @@ export default function ActiveCallScreen() {
   const handleSpeakerToggle = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsSpeakerOn(!isSpeakerOn);
+  };
+
+  const handleSafetyFeelSafe = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowSafetyCheck(false);
+    setShowSafetyFollowUp(false);
+  };
+
+  const handleSafetyNotSafe = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowSafetyFollowUp(true);
+  };
+
+  const handleSafetyContinueAnyway = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowSafetyCheck(false);
+    setShowSafetyFollowUp(false);
   };
 
   const handleEndCall = useCallback(async () => {
@@ -1147,6 +1176,15 @@ export default function ActiveCallScreen() {
       <CreditsStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
+      />
+
+      <SafetyCheckModal
+        visible={showSafetyCheck}
+        onFeelSafe={handleSafetyFeelSafe}
+        onNotSafe={handleSafetyNotSafe}
+        onContinueAnyway={handleSafetyContinueAnyway}
+        onEndCall={handleEndCall}
+        showFollowUp={showSafetyFollowUp}
       />
 
       <ReportModal
