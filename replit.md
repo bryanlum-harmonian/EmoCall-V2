@@ -260,3 +260,7 @@ Note: Payment processing uses mock purchases (UI complete, Stripe integration ne
   - Top 3 countries displayed with gold/silver/bronze medal badges
   - User's country highlighted with share button for social media
   - Globe button added to MoodSelectionScreen header for quick access
+  - **Image-based sharing on native**: ShareableRankingCard component with EmoCall branding
+    - Uses react-native-view-shot to capture branded card as image
+    - Uses expo-sharing to share the image on iOS/Android
+    - Falls back to text sharing on web platform

@@ -1,12 +1,9 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { View, StyleSheet, Pressable, Modal, FlatList, Platform, ActivityIndicator } from "react-native";
+import { View, StyleSheet, Pressable, Modal, FlatList, Platform, ActivityIndicator, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import Animated, { FadeIn, FadeOut, ZoomIn } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
-import * as Sharing from "expo-sharing";
-import * as FileSystem from "expo-file-system";
-import { captureRef } from "react-native-view-shot";
 import { useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
@@ -232,11 +229,32 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
     setIsSharing(true);
     
     try {
+      // On web, use simple text sharing since image capture isn't available
+      if (Platform.OS === "web") {
+        const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} worldwide on EmoCall with ${formatNumber(userRanking.totalAura)} Aura! Join us!`;
+        await Share.share({
+          message,
+          title: "EmoCall Global Rankings",
+        });
+        setIsSharing(false);
+        return;
+      }
+
+      // On native platforms, capture and share image
+      // Dynamic imports for native-only modules
+      const Sharing = await import("expo-sharing");
+      const { captureRef } = await import("react-native-view-shot");
+      
       // Check if sharing is available
       const isAvailable = await Sharing.isAvailableAsync();
       
       if (!isAvailable) {
-        console.log("Sharing not available on this platform");
+        // Fallback to text sharing
+        const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} worldwide on EmoCall with ${formatNumber(userRanking.totalAura)} Aura! Join us!`;
+        await Share.share({
+          message,
+          title: "EmoCall Global Rankings",
+        });
         setIsSharing(false);
         return;
       }
@@ -257,6 +275,16 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
       }
     } catch (error) {
       console.error("Error sharing:", error);
+      // Fallback to text sharing on any error
+      try {
+        const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} worldwide on EmoCall with ${formatNumber(userRanking.totalAura)} Aura! Join us!`;
+        await Share.share({
+          message,
+          title: "EmoCall Global Rankings",
+        });
+      } catch (e) {
+        console.error("Fallback sharing failed:", e);
+      }
     } finally {
       setIsSharing(false);
     }
