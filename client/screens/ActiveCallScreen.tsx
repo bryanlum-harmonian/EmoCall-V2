@@ -165,7 +165,7 @@ function UserAvatar({ label, isYou = false, isSpeaking, isMuted }: UserAvatarPro
           ]}
         />
         <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-          <Feather name="user" size={32} color="#FFFFFF" />
+          <Feather name="user" size={24} color="#FFFFFF" />
           {isMuted ? (
             <View style={[styles.mutedBadge, { backgroundColor: theme.error }]}>
               <Feather name="mic-off" size={10} color="#FFFFFF" />
@@ -1080,7 +1080,7 @@ export default function ActiveCallScreen() {
                   { backgroundColor: theme.primary },
                 ]}
               >
-                <Feather name="phone-call" size={40} color="#FFFFFF" />
+                <Feather name="phone-call" size={32} color="#FFFFFF" />
               </View>
             </Animated.View>
             <ThemedText type="h3" style={styles.connectingText}>
@@ -1135,7 +1135,7 @@ export default function ActiveCallScreen() {
               <View style={styles.connectionLine}>
                 <View style={[styles.connectionDot, { backgroundColor: theme.success }]} />
                 <View style={[styles.connectionDash, { backgroundColor: `${theme.success}50` }]} />
-                <Feather name="heart" size={20} color={theme.primary} />
+                <Feather name="heart" size={16} color={theme.primary} />
                 <View style={[styles.connectionDash, { backgroundColor: `${theme.success}50` }]} />
                 <View style={[styles.connectionDot, { backgroundColor: theme.success }]} />
               </View>
@@ -1352,19 +1352,19 @@ const styles = StyleSheet.create({
   },
   connectingContainer: {
     alignItems: "center",
-    gap: Spacing.xl,
+    gap: Spacing.md,
   },
   connectingCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     alignItems: "center",
     justifyContent: "center",
   },
   connectingInner: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1376,8 +1376,8 @@ const styles = StyleSheet.create({
   },
   callContainer: {
     alignItems: "center",
-    gap: Spacing.xl,
-    paddingHorizontal: Spacing.lg,
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
   },
   statusText: {
     fontWeight: "600",
@@ -1400,11 +1400,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: Spacing.lg,
+    gap: Spacing.md,
   },
   userAvatarContainer: {
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   avatarWrapper: {
     position: "relative",
@@ -1413,24 +1413,24 @@ const styles = StyleSheet.create({
   },
   avatarGlow: {
     position: "absolute",
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
   },
   mutedBadge: {
     position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1441,58 +1441,58 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    height: 40,
-    gap: 3,
+    height: 32,
+    gap: 2,
   },
   soundWaveBar: {
-    width: 4,
-    borderRadius: 2,
-    minHeight: 8,
+    width: 3,
+    borderRadius: 1.5,
+    minHeight: 6,
   },
   connectionLine: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 3,
   },
   connectionDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   connectionDash: {
-    width: 20,
+    width: 14,
     height: 2,
     borderRadius: 1,
   },
   timerDisplay: {
-    paddingHorizontal: Spacing["3xl"],
-    paddingVertical: Spacing.xl,
-    borderRadius: BorderRadius["2xl"],
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.md,
+    borderRadius: BorderRadius.xl,
     borderWidth: 2,
     alignItems: "center",
-    gap: Spacing.xs,
+    gap: 2,
   },
   timerText: {
-    fontSize: 48,
-    lineHeight: 56,
-    letterSpacing: 2,
+    fontSize: 36,
+    lineHeight: 42,
+    letterSpacing: 1,
     fontWeight: "700",
   },
   extendButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.md,
+    gap: Spacing.xs,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
     borderRadius: BorderRadius.full,
-    marginTop: Spacing.lg,
+    marginTop: Spacing.md,
   },
   extendedBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.xs,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
     borderRadius: BorderRadius.full,
   },
   disclaimerContainer: {
@@ -1513,17 +1513,17 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: Spacing["5xl"],
-    paddingHorizontal: Spacing.xl,
+    gap: Spacing["2xl"],
+    paddingHorizontal: Spacing.md,
   },
   controlButtonContainer: {
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   controlButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1532,12 +1532,12 @@ const styles = StyleSheet.create({
   },
   panicButton: {
     alignItems: "center",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   panicButtonInner: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#DC3545",
@@ -1552,22 +1552,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
-    padding: Spacing.xl,
+    padding: Spacing.md,
   },
   reminderContent: {
     width: "100%",
-    maxWidth: 320,
-    borderRadius: BorderRadius["2xl"],
-    padding: Spacing["2xl"],
+    maxWidth: 300,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
     alignItems: "center",
   },
   reminderIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
   reminderTitle: {
     textAlign: "center",
@@ -1605,15 +1605,15 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "center",
     alignItems: "center",
-    padding: Spacing.xl,
+    padding: Spacing.md,
   },
   modalContent: {
     width: "100%",
-    maxWidth: 360,
-    borderRadius: BorderRadius["2xl"],
-    padding: Spacing["2xl"],
+    maxWidth: 320,
+    borderRadius: BorderRadius.xl,
+    padding: Spacing.lg,
     alignItems: "center",
-    maxHeight: "80%",
+    maxHeight: "85%",
   },
   modalBadge: {
     flexDirection: "row",
