@@ -150,8 +150,12 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
               }));
             }
           }, 100);
-        } else {
+        } else if (stateRef.current !== "matched" && stateRef.current !== "waiting_for_partner" && stateRef.current !== "call_started") {
+          // Only set idle if we weren't already in a matched/call state
+          // During matched states, the connection should stay active without resetting state
           setState("idle");
+        } else {
+          console.log("[Matchmaking] Reconnected while in matched/call state:", stateRef.current, "- keeping state");
         }
       };
 

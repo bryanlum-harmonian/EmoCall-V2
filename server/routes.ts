@@ -274,8 +274,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
             
           case "join_queue":
+            console.log("[WS] join_queue received - sessionId:", sessionId, "mood:", message.mood, "cardId:", message.cardId);
             if (sessionId && message.mood && message.cardId) {
-              console.log("[WS] join_queue received from:", sessionId, "mood:", message.mood);
+              console.log("[WS] join_queue processing from:", sessionId, "mood:", message.mood);
               
               // Check if session is already in an active call (prevent re-join after match)
               const existingCall = activeCalls.get(sessionId);
