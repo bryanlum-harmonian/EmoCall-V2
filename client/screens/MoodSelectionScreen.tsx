@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, StyleSheet, Pressable, Image, Modal, ScrollView, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -285,6 +285,22 @@ export default function MoodSelectionScreen() {
     sessionId: session?.id || null,
     onMatchFound: handleMatchFound,
   });
+
+  // Track isSearching in ref for cleanup
+  const isSearchingRef = useRef(isSearching);
+  useEffect(() => {
+    isSearchingRef.current = isSearching;
+  }, [isSearching]);
+
+  // Leave queue when navigating away from screen while searching
+  useEffect(() => {
+    return () => {
+      if (isSearchingRef.current) {
+        console.log("[MoodSelection] Component unmounting while searching, leaving queue");
+        leaveQueue();
+      }
+    };
+  }, [leaveQueue]);
 
   // Handle match result
   useEffect(() => {
