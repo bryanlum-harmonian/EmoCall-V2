@@ -59,6 +59,8 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
   // Debounce: track last connection attempt time to prevent rapid reconnections
   const lastConnectAttemptRef = useRef<number>(0);
   const minConnectIntervalMs = 500;
+  // Store pending call_ready message to send when WebSocket reconnects
+  const pendingCallReadyRef = useRef<string | null>(null);
   
   // Keep refs in sync with latest values
   stateRef.current = state;
@@ -121,6 +123,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
         ws.send(JSON.stringify({ type: "register", sessionId }));
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
+        
+        // If there's a pending call_ready message, send it immediately
+        if (pendingCallReadyRef.current) {
+          const callId = pendingCallReadyRef.current;
+          console.log("[Matchmaking] Sending pending call_ready for call:", callId);
+          ws.send(JSON.stringify({
+            type: "call_ready",
+            callId,
+          }));
+          pendingCallReadyRef.current = null;
+        }
         
         // If we were in queue before disconnect, re-join the queue
         if (currentQueueRef.current && stateRef.current === "in_queue") {
@@ -237,15 +250,25 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
           return;
         }
         
-        // Auto-reconnect if we were in queue or matched (call in progress)
-        if (stateRef.current === "in_queue" || stateRef.current === "matched") {
+        // Auto-reconnect if we were in queue, matched, or in active call states
+        const shouldReconnect = 
+          stateRef.current === "in_queue" || 
+          stateRef.current === "matched" ||
+          stateRef.current === "waiting_for_partner" ||
+          stateRef.current === "call_started";
+        if (shouldReconnect) {
           if (reconnectAttemptsRef.current < maxReconnectAttempts) {
             reconnectAttemptsRef.current++;
             const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000);
             console.log("[Matchmaking] Auto-reconnecting in", delay, "ms (attempt", reconnectAttemptsRef.current, ")");
             
             reconnectTimeoutRef.current = setTimeout(() => {
-              if (stateRef.current === "in_queue" || stateRef.current === "matched") {
+              const shouldReconnectNow = 
+                stateRef.current === "in_queue" || 
+                stateRef.current === "matched" ||
+                stateRef.current === "waiting_for_partner" ||
+                stateRef.current === "call_started";
+              if (shouldReconnectNow) {
                 connect();
               }
             }, delay);
@@ -353,16 +376,47 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
   const signalReady = useCallback((callId: string) => {
     console.log("[Matchmaking] Signaling ready for call:", callId);
     
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: "call_ready",
-        callId,
-      }));
-      console.log("[Matchmaking] Sent call_ready message");
-    } else {
-      console.log("[Matchmaking] WARNING: WebSocket not open, cannot signal ready");
+    const sendCallReady = () => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: "call_ready",
+          callId,
+        }));
+        console.log("[Matchmaking] Sent call_ready message");
+        pendingCallReadyRef.current = null;
+        return true;
+      }
+      return false;
+    };
+    
+    if (sendCallReady()) {
+      return; // Success - message sent
     }
-  }, []);
+    
+    // WebSocket not open yet - store pending and poll for connection
+    console.log("[Matchmaking] WebSocket not open, storing pending call_ready and polling...");
+    pendingCallReadyRef.current = callId;
+    
+    // Also try to connect if not already connecting
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      connect();
+    }
+    
+    // Poll for connection with increasing delays (up to 5 seconds total)
+    let attempts = 0;
+    const maxAttempts = 10;
+    const pollInterval = setInterval(() => {
+      attempts++;
+      console.log("[Matchmaking] Checking connection for call_ready, attempt:", attempts);
+      
+      if (sendCallReady()) {
+        clearInterval(pollInterval);
+      } else if (attempts >= maxAttempts) {
+        console.log("[Matchmaking] Failed to send call_ready after max attempts");
+        clearInterval(pollInterval);
+      }
+    }, 500);
+  }, [connect]);
 
   // Connect when sessionId is available
   useEffect(() => {
