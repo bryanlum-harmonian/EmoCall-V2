@@ -66,6 +66,100 @@ const pendingMatches = new Map<string, { callId: string; partnerId: string; dura
 // Grace period before ending call on disconnect (in milliseconds) - allows time for reconnect
 const CALL_DISCONNECT_GRACE_PERIOD = 15000; // 15 seconds
 
+// Helper function to clean up all state for a session (used after calls end or user leaves queue)
+async function cleanupSessionState(sessionId: string, reason: string = "cleanup") {
+  console.log(`[Cleanup] Cleaning session state for ${sessionId}, reason: ${reason}`);
+  
+  // Remove from queue
+  await leaveQueue(sessionId);
+  
+  // Clear any pending matches (but not active calls - those are handled separately)
+  pendingMatches.delete(sessionId);
+  
+  console.log(`[Cleanup] Session ${sessionId} cleaned up`);
+}
+
+// Helper function to create a match between two sessions
+async function createMatch(
+  venterSessionId: string,
+  listenerSessionId: string,
+  venterWs: WebSocket | undefined,
+  listenerWs: WebSocket | undefined
+): Promise<{ callId: string; success: boolean }> {
+  console.log("[Match] Creating match between venter:", venterSessionId, "and listener:", listenerSessionId);
+  
+  // Clean up any stale state for both users before creating match
+  await leaveQueue(venterSessionId);
+  await leaveQueue(listenerSessionId);
+  pendingMatches.delete(venterSessionId);
+  pendingMatches.delete(listenerSessionId);
+  
+  // Create the call in database
+  const call = await createCall({
+    callerSessionId: venterSessionId,
+    listenerSessionId: listenerSessionId,
+    callerMood: "vent",
+    status: "connected",
+    startedAt: new Date(),
+  });
+  
+  // Track active call for both users
+  const startTime = Date.now();
+  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
+  activeCalls.set(venterSessionId, { callId: call.id, partnerId: listenerSessionId, endTime, startTime });
+  activeCalls.set(listenerSessionId, { callId: call.id, partnerId: venterSessionId, endTime, startTime });
+  
+  // Store pending match for BOTH users as backup for HTTP polling
+  const matchDataForVenter = {
+    callId: call.id,
+    partnerId: listenerSessionId,
+    duration: DEFAULT_CALL_DURATION_SECONDS,
+  };
+  const matchDataForListener = {
+    callId: call.id,
+    partnerId: venterSessionId,
+    duration: DEFAULT_CALL_DURATION_SECONDS,
+  };
+  pendingMatches.set(venterSessionId, matchDataForVenter);
+  pendingMatches.set(listenerSessionId, matchDataForListener);
+  
+  console.log("[Match] Match created! callId:", call.id);
+  
+  // Notify both users via WebSocket
+  const matchFoundMessage = (partnerId: string) => JSON.stringify({
+    type: "match_found",
+    callId: call.id,
+    partnerId,
+    duration: DEFAULT_CALL_DURATION_SECONDS,
+  });
+  
+  // Try to notify venter
+  if (venterWs && venterWs.readyState === WebSocket.OPEN) {
+    try {
+      venterWs.send(matchFoundMessage(listenerSessionId));
+      console.log("[Match] Sent match_found to venter:", venterSessionId);
+    } catch (err) {
+      console.log("[Match] Failed to send to venter, will use HTTP polling");
+    }
+  } else {
+    console.log("[Match] Venter WebSocket not open, will use HTTP polling");
+  }
+  
+  // Try to notify listener
+  if (listenerWs && listenerWs.readyState === WebSocket.OPEN) {
+    try {
+      listenerWs.send(matchFoundMessage(venterSessionId));
+      console.log("[Match] Sent match_found to listener:", listenerSessionId);
+    } catch (err) {
+      console.log("[Match] Failed to send to listener, will use HTTP polling");
+    }
+  } else {
+    console.log("[Match] Listener WebSocket not open, will use HTTP polling");
+  }
+  
+  return { callId: call.id, success: true };
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
@@ -121,6 +215,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
           case "join_queue":
             if (sessionId && message.mood && message.cardId) {
+              console.log("[WS] join_queue received from:", sessionId, "mood:", message.mood);
+              
               // Check if session is already in an active call (prevent re-join after match)
               const existingCall = activeCalls.get(sessionId);
               if (existingCall) {
@@ -148,170 +244,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 break;
               }
               
-              // SIMPLIFIED MATCHMAKING:
-              // - Both users check for opposite mood first
-              // - If no match found, wait in pool
+              // ROBUST BIDIRECTIONAL MATCHMAKING:
+              // Both venters and listeners look for opposite mood in queue
+              // This ensures matching works regardless of join order
               
-              if (message.mood === "vent") {
-                // Check if any listeners are waiting first
-                console.log("[WS] Venter joining, checking for waiting listeners. Active connections:", activeConnections.size);
-                const listener = await findWaitingListener(activeConnections);
-                console.log("[WS] findWaitingListener result:", listener ? listener.sessionId : "none");
+              const isVenter = message.mood === "vent";
+              const oppositeMood = isVenter ? "listen" : "vent";
+              
+              console.log(`[WS] ${isVenter ? "Venter" : "Listener"} joining, checking for waiting ${oppositeMood}ers. Active connections:`, activeConnections.size);
+              
+              // Look for someone with opposite mood
+              const oppositeUser = isVenter 
+                ? await findWaitingListener(activeConnections)
+                : await findWaitingVenter(activeConnections);
+              
+              console.log(`[WS] find${isVenter ? "Listener" : "Venter"} result:`, oppositeUser ? oppositeUser.sessionId : "none");
+              
+              if (oppositeUser) {
+                // Found a match! Create the call
+                const venterSessionId = isVenter ? sessionId : oppositeUser.sessionId;
+                const listenerSessionId = isVenter ? oppositeUser.sessionId : sessionId;
+                const venterWs = isVenter ? ws : activeConnections.get(oppositeUser.sessionId);
+                const listenerWs = isVenter ? activeConnections.get(oppositeUser.sessionId) : ws;
                 
-                if (listener) {
-                  // Create the call - venter matched with waiting listener
-                  const call = await createCall({
-                    callerSessionId: sessionId,
-                    listenerSessionId: listener.sessionId,
-                    callerMood: "vent",
-                    status: "connected",
-                    startedAt: new Date(),
-                  });
-                  
-                  // Track active call
-                  const startTime = Date.now();
-                  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
-                  activeCalls.set(sessionId, { callId: call.id, partnerId: listener.sessionId, endTime, startTime });
-                  activeCalls.set(listener.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
-                  
-                  // ALWAYS store pending match for BOTH users as backup for HTTP polling
-                  // This ensures match delivery even if WebSocket messages are missed
-                  pendingMatches.set(sessionId, {
-                    callId: call.id,
-                    partnerId: listener.sessionId,
-                    duration: DEFAULT_CALL_DURATION_SECONDS,
-                  });
-                  pendingMatches.set(listener.sessionId, {
-                    callId: call.id,
-                    partnerId: sessionId,
-                    duration: DEFAULT_CALL_DURATION_SECONDS,
-                  });
-                  console.log("[WS] Match found! Venter:", sessionId, "connected to Listener:", listener.sessionId);
-                  console.log("[WS] Stored pending matches for both users");
-                  
-                  // Try to notify venter via WebSocket
-                  try {
-                    ws.send(JSON.stringify({
-                      type: "match_found",
-                      callId: call.id,
-                      partnerId: listener.sessionId,
-                      duration: DEFAULT_CALL_DURATION_SECONDS,
-                    }));
-                    console.log("[WS] Sent match_found to venter:", sessionId);
-                  } catch (err) {
-                    console.log("[WS] Failed to send to venter, will use HTTP polling");
-                  }
-                  
-                  // Try to notify listener via WebSocket
-                  const listenerWs = activeConnections.get(listener.sessionId);
-                  if (listenerWs && listenerWs.readyState === WebSocket.OPEN) {
-                    try {
-                      listenerWs.send(JSON.stringify({
-                        type: "match_found",
-                        callId: call.id,
-                        partnerId: sessionId,
-                        duration: DEFAULT_CALL_DURATION_SECONDS,
-                      }));
-                      console.log("[WS] Sent match_found to listener:", listener.sessionId);
-                    } catch (err) {
-                      console.log("[WS] Failed to send to listener, will use HTTP polling");
-                    }
-                  } else {
-                    console.log("[WS] Listener WebSocket not open, will use HTTP polling");
-                  }
-                } else {
-                  // No listeners waiting - venter waits
-                  await joinQueue({
-                    sessionId,
-                    mood: message.mood,
-                    cardId: message.cardId,
-                    isPriority: message.isPriority || false,
-                  });
-                  console.log("[WS] Venter joined waiting pool:", sessionId);
-                  ws.send(JSON.stringify({ type: "waiting", mood: "vent" }));
-                }
+                await createMatch(venterSessionId, listenerSessionId, venterWs, listenerWs);
               } else {
-                // Listen users instantly connect to any waiting Vent user
-                const ventUser = await findWaitingVenter(activeConnections);
+                // No opposite mood user waiting - join the queue and wait
+                // First, clean up any stale queue entries for this session
+                await leaveQueue(sessionId);
                 
-                if (ventUser) {
-                  // Create the call
-                  const call = await createCall({
-                    callerSessionId: ventUser.sessionId,
-                    listenerSessionId: sessionId,
-                    callerMood: "vent",
-                    status: "connected",
-                    startedAt: new Date(),
-                  });
-                  
-                  // Track active call
-                  const startTime = Date.now();
-                  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
-                  activeCalls.set(sessionId, { callId: call.id, partnerId: ventUser.sessionId, endTime, startTime });
-                  activeCalls.set(ventUser.sessionId, { callId: call.id, partnerId: sessionId, endTime, startTime });
-                  
-                  // ALWAYS store pending match for BOTH users as backup for HTTP polling
-                  pendingMatches.set(sessionId, {
-                    callId: call.id,
-                    partnerId: ventUser.sessionId,
-                    duration: DEFAULT_CALL_DURATION_SECONDS,
-                  });
-                  pendingMatches.set(ventUser.sessionId, {
-                    callId: call.id,
-                    partnerId: sessionId,
-                    duration: DEFAULT_CALL_DURATION_SECONDS,
-                  });
-                  console.log("[WS] Match found! Listener:", sessionId, "connected to Venter:", ventUser.sessionId);
-                  console.log("[WS] Stored pending matches for both users");
-                  
-                  // Try to notify listener (current user) via WebSocket
-                  try {
-                    ws.send(JSON.stringify({
-                      type: "match_found",
-                      callId: call.id,
-                      partnerId: ventUser.sessionId,
-                      duration: DEFAULT_CALL_DURATION_SECONDS,
-                    }));
-                    console.log("[WS] Sent match_found to listener:", sessionId);
-                  } catch (err) {
-                    console.log("[WS] Failed to send to listener, will use HTTP polling");
-                  }
-                  
-                  // Try to notify venter via WebSocket
-                  const venterWs = activeConnections.get(ventUser.sessionId);
-                  if (venterWs && venterWs.readyState === WebSocket.OPEN) {
-                    try {
-                      venterWs.send(JSON.stringify({
-                        type: "match_found",
-                        callId: call.id,
-                        partnerId: sessionId,
-                        duration: DEFAULT_CALL_DURATION_SECONDS,
-                      }));
-                      console.log("[WS] Sent match_found to venter:", ventUser.sessionId);
-                    } catch (err) {
-                      console.log("[WS] Failed to send to venter, will use HTTP polling");
-                    }
-                  } else {
-                    console.log("[WS] Venter WebSocket not open, will use HTTP polling");
-                  }
-                } else {
-                  // No venters waiting - listener waits (rare case)
-                  await joinQueue({
-                    sessionId,
-                    mood: message.mood,
-                    cardId: message.cardId,
-                    isPriority: message.isPriority || false,
-                  });
-                  console.log("[WS] No venters available, listener added to queue:", sessionId);
-                  ws.send(JSON.stringify({ type: "waiting", mood: "listen" }));
-                }
+                await joinQueue({
+                  sessionId,
+                  mood: message.mood,
+                  cardId: message.cardId,
+                  isPriority: message.isPriority || false,
+                });
+                console.log(`[WS] ${isVenter ? "Venter" : "Listener"} joined waiting pool:`, sessionId);
+                ws.send(JSON.stringify({ type: "waiting", mood: message.mood }));
               }
             }
             break;
             
           case "leave_queue":
             if (sessionId) {
-              await leaveQueue(sessionId);
+              console.log("[WS] leave_queue received from:", sessionId);
+              // Clean up all matchmaking state
+              await cleanupSessionState(sessionId, "user_left_queue");
             }
             break;
           
@@ -349,6 +327,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const activeCall = activeCalls.get(sessionId);
               console.log("[WS] Active call found:", !!activeCall, activeCall ? `partnerId: ${activeCall.partnerId}` : "no active call");
               if (activeCall) {
+                const partnerId = activeCall.partnerId;
+                
                 await updateCall(activeCall.callId, {
                   status: "ended",
                   endedAt: new Date(),
@@ -365,20 +345,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 
                 // Notify partner
-                const partnerWs = activeConnections.get(activeCall.partnerId);
+                const partnerWs = activeConnections.get(partnerId);
                 console.log("[WS] Partner WebSocket found:", !!partnerWs, "state:", partnerWs?.readyState, "OPEN =", WebSocket.OPEN);
                 if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-                  console.log("[WS] Sending call_ended to partner:", activeCall.partnerId);
+                  console.log("[WS] Sending call_ended to partner:", partnerId);
                   partnerWs.send(JSON.stringify({ type: "call_ended", reason: message.reason }));
                 } else {
                   console.log("[WS] WARNING: Partner WebSocket not available");
                 }
                 
-                // Clean up
+                // Clean up ALL state for BOTH users to ensure fresh start for next match
                 activeCalls.delete(sessionId);
-                activeCalls.delete(activeCall.partnerId);
+                activeCalls.delete(partnerId);
+                pendingMatches.delete(sessionId);
+                pendingMatches.delete(partnerId);
+                await leaveQueue(sessionId);
+                await leaveQueue(partnerId);
+                
+                console.log("[WS] Cleaned up all state for both sessions after call end");
               } else {
                 console.log("[WS] WARNING: No active call found for session:", sessionId);
+                // Still clean up any stale state
+                await cleanupSessionState(sessionId, "end_call_no_active_call");
               }
             }
             break;
@@ -448,8 +436,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const currentWs = activeConnections.get(sessionId);
         if (currentWs === ws) {
           activeConnections.delete(sessionId);
-          // Don't leave queue on disconnect - they may reconnect
-          // await leaveQueue(sessionId);
           
           // Handle disconnection during call with grace period
           const activeCall = activeCalls.get(sessionId);
@@ -470,19 +456,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log("[WS] Grace period expired, ending call for session:", disconnectedSessionId);
                   const stillActiveCall = activeCalls.get(disconnectedSessionId);
                   if (stillActiveCall) {
+                    const partnerId = stillActiveCall.partnerId;
+                    
                     await updateCall(stillActiveCall.callId, {
                       status: "ended",
                       endedAt: new Date(),
                       endReason: "disconnected",
                     });
                     
-                    const partnerWs = activeConnections.get(stillActiveCall.partnerId);
+                    const partnerWs = activeConnections.get(partnerId);
                     if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
                       partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
                     }
                     
+                    // Clean up ALL state for BOTH users
                     activeCalls.delete(disconnectedSessionId);
-                    activeCalls.delete(stillActiveCall.partnerId);
+                    activeCalls.delete(partnerId);
+                    pendingMatches.delete(disconnectedSessionId);
+                    pendingMatches.delete(partnerId);
+                    await leaveQueue(disconnectedSessionId);
+                    await leaveQueue(partnerId);
                   }
                 } else {
                   console.log("[WS] Session reconnected within grace period:", disconnectedSessionId);
@@ -491,20 +484,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } else {
               // Call has been active long enough, end immediately
               console.log("[WS] Call active for", callDuration, "ms, ending due to disconnect");
+              const partnerId = activeCall.partnerId;
+              
               await updateCall(activeCall.callId, {
                 status: "ended",
                 endedAt: new Date(),
                 endReason: "disconnected",
               });
               
-              const partnerWs = activeConnections.get(activeCall.partnerId);
+              const partnerWs = activeConnections.get(partnerId);
               if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
                 partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
               }
               
+              // Clean up ALL state for BOTH users
               activeCalls.delete(sessionId);
-              activeCalls.delete(activeCall.partnerId);
+              activeCalls.delete(partnerId);
+              pendingMatches.delete(sessionId);
+              pendingMatches.delete(partnerId);
+              await leaveQueue(sessionId);
+              await leaveQueue(partnerId);
             }
+          } else {
+            // NOT in a call - user disconnected while in queue or idle
+            // Clean up queue and pending match state
+            console.log("[WS] Session disconnected while not in call, cleaning up queue");
+            await cleanupSessionState(sessionId, "ws_disconnect_not_in_call");
           }
         }
         // If currentWs !== ws, a new connection has already replaced this one, so don't cleanup

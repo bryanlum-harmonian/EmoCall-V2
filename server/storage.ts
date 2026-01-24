@@ -398,6 +398,7 @@ export async function findMatch(
 
 // Find any waiting Venter in the queue
 // IMPORTANT: Only return venters with active WebSocket connections to prevent ghost matches
+// Note: We no longer aggressively clean up "stale" entries to avoid race conditions
 export async function findWaitingVenter(
   activeConnections: Map<string, { readyState: number }>
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
@@ -407,18 +408,27 @@ export async function findWaitingVenter(
     orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
   });
 
+  console.log("[Storage] Looking for venter, found", venters.length, "in queue");
+
   // Find the first venter with an active WebSocket connection
   for (const venter of venters) {
     const connection = activeConnections.get(venter.sessionId);
     // WebSocket.OPEN = 1
     if (connection && connection.readyState === 1) {
-      // Remove from queue and return
+      console.log("[Storage] Found venter with active connection:", venter.sessionId);
+      // Remove from queue and return - the caller (createMatch) will handle cleanup
       await leaveQueue(venter.sessionId);
       return { sessionId: venter.sessionId, cardId: venter.cardId };
     } else {
-      // Clean up stale queue entry (no active connection)
-      console.log("[Storage] Removing stale venter from queue:", venter.sessionId);
-      await leaveQueue(venter.sessionId);
+      // Skip users without active connection - they might reconnect or be cleaned up later
+      // Only clean up if the entry is very old (more than 2 minutes)
+      const entryAge = Date.now() - new Date(venter.joinedAt).getTime();
+      if (entryAge > 120000) { // 2 minutes
+        console.log("[Storage] Removing very stale venter from queue:", venter.sessionId, "age:", Math.floor(entryAge/1000), "s");
+        await leaveQueue(venter.sessionId);
+      } else {
+        console.log("[Storage] Skipping venter without active connection:", venter.sessionId, "age:", Math.floor(entryAge/1000), "s");
+      }
     }
   }
 
@@ -427,6 +437,7 @@ export async function findWaitingVenter(
 
 // Find any waiting Listener in the queue
 // IMPORTANT: Only return listeners with active WebSocket connections to prevent ghost matches
+// Note: We no longer aggressively clean up "stale" entries to avoid race conditions
 export async function findWaitingListener(
   activeConnections: Map<string, { readyState: number }>
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
@@ -436,18 +447,27 @@ export async function findWaitingListener(
     orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
   });
 
+  console.log("[Storage] Looking for listener, found", listeners.length, "in queue");
+
   // Find the first listener with an active WebSocket connection
   for (const listener of listeners) {
     const connection = activeConnections.get(listener.sessionId);
     // WebSocket.OPEN = 1
     if (connection && connection.readyState === 1) {
-      // Remove from queue and return
+      console.log("[Storage] Found listener with active connection:", listener.sessionId);
+      // Remove from queue and return - the caller (createMatch) will handle cleanup
       await leaveQueue(listener.sessionId);
       return { sessionId: listener.sessionId, cardId: listener.cardId };
     } else {
-      // Clean up stale queue entry (no active connection)
-      console.log("[Storage] Removing stale listener from queue:", listener.sessionId);
-      await leaveQueue(listener.sessionId);
+      // Skip users without active connection - they might reconnect or be cleaned up later
+      // Only clean up if the entry is very old (more than 2 minutes)
+      const entryAge = Date.now() - new Date(listener.joinedAt).getTime();
+      if (entryAge > 120000) { // 2 minutes
+        console.log("[Storage] Removing very stale listener from queue:", listener.sessionId, "age:", Math.floor(entryAge/1000), "s");
+        await leaveQueue(listener.sessionId);
+      } else {
+        console.log("[Storage] Skipping listener without active connection:", listener.sessionId, "age:", Math.floor(entryAge/1000), "s");
+      }
     }
   }
 
