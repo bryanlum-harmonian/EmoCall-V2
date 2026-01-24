@@ -158,6 +158,8 @@ export const matchmakingQueue = pgTable("matchmaking_queue", {
   cardId: text("card_id"),
   isPriority: boolean("is_priority").notNull().default(false),
   genderPreference: text("gender_preference"),
+  status: text("status").notNull().default("waiting"), // 'waiting' or 'matched'
+  lastHeartbeat: timestamp("last_heartbeat").notNull().default(sql`NOW()`),
   joinedAt: timestamp("joined_at").notNull().default(sql`NOW()`),
 });
 

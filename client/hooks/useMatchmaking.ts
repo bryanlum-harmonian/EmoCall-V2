@@ -46,6 +46,8 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   const currentQueueRef = useRef<{ mood: string; cardId: string } | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 10;
+  // Heartbeat interval ref for cleanup
+  const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Keep refs in sync with latest values
   stateRef.current = state;
@@ -304,12 +306,43 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
   }, [sessionId, connect]);
+
+  // Send heartbeats while in queue (every 5 seconds)
+  // This keeps our queue entry fresh and prevents being cleaned up as "stale"
+  useEffect(() => {
+    if (state !== "in_queue") {
+      // Clear heartbeat when not in queue
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+      return;
+    }
+    
+    // Start heartbeat interval
+    heartbeatIntervalRef.current = setInterval(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN && stateRef.current === "in_queue") {
+        wsRef.current.send(JSON.stringify({ type: "heartbeat" }));
+      }
+    }, 5000); // Every 5 seconds
+    
+    return () => {
+      if (heartbeatIntervalRef.current) {
+        clearInterval(heartbeatIntervalRef.current);
+        heartbeatIntervalRef.current = null;
+      }
+    };
+  }, [state]);
 
   // Poll for match while in queue (HTTP fallback for unreliable WebSocket on mobile)
   useEffect(() => {

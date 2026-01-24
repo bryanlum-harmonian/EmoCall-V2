@@ -361,11 +361,56 @@ export async function getCallHistory(sessionId: string, limit = 20): Promise<Cal
 }
 
 // Matchmaking Queue
+
+// Heartbeat timeout - users without heartbeat for this long are considered stale
+const HEARTBEAT_TIMEOUT_MS = 15000; // 15 seconds
+
+// Clean up stale queue entries (no heartbeat for 15+ seconds)
+export async function cleanupStaleQueueEntries(): Promise<number> {
+  const staleThreshold = new Date(Date.now() - HEARTBEAT_TIMEOUT_MS);
+  const result = await db.delete(matchmakingQueue)
+    .where(sql`${matchmakingQueue.lastHeartbeat} < ${staleThreshold}`)
+    .returning();
+  
+  if (result.length > 0) {
+    console.log("[Storage] Cleaned up", result.length, "stale queue entries");
+  }
+  return result.length;
+}
+
+// Update heartbeat for a session in the queue
+export async function updateQueueHeartbeat(sessionId: string): Promise<boolean> {
+  const result = await db.update(matchmakingQueue)
+    .set({ lastHeartbeat: new Date() })
+    .where(eq(matchmakingQueue.sessionId, sessionId))
+    .returning();
+  return result.length > 0;
+}
+
+// Mark a queue entry as matched (prevents double-booking)
+export async function markQueueEntryMatched(sessionId: string): Promise<boolean> {
+  const result = await db.update(matchmakingQueue)
+    .set({ status: "matched" })
+    .where(and(
+      eq(matchmakingQueue.sessionId, sessionId),
+      eq(matchmakingQueue.status, "waiting")
+    ))
+    .returning();
+  return result.length > 0;
+}
+
 export async function joinQueue(data: InsertMatchmakingQueue): Promise<void> {
+  // Clean up stale entries first (garbage collection)
+  await cleanupStaleQueueEntries();
+  
   // Remove any existing entry for this session
   await db.delete(matchmakingQueue).where(eq(matchmakingQueue.sessionId, data.sessionId));
-  // Add to queue
-  await db.insert(matchmakingQueue).values(data);
+  // Add to queue with default status='waiting' and current lastHeartbeat
+  await db.insert(matchmakingQueue).values({
+    ...data,
+    status: "waiting",
+    lastHeartbeat: new Date(),
+  });
 }
 
 export async function leaveQueue(sessionId: string): Promise<void> {
@@ -396,82 +441,79 @@ export async function findMatch(
   return null;
 }
 
-// Find any waiting Venter in the queue
-// IMPORTANT: Only return venters with active WebSocket connections to prevent ghost matches
-// Note: We no longer aggressively clean up "stale" entries to avoid race conditions
-export async function findWaitingVenter(
-  activeConnections: Map<string, { readyState: number }>
+// ATOMIC MATCH FINDING
+// This uses a proper transaction pattern to prevent race conditions:
+// 1. Clean up stale entries first (garbage collection)
+// 2. Find waiting user with status='waiting' AND active heartbeat
+// 3. Atomically mark as 'matched' to prevent double-booking
+// 4. Only return if atomic update succeeded
+
+async function findAndLockWaitingUser(
+  mood: "vent" | "listen",
+  activeConnections: Map<string, { readyState: number }>,
+  excludeSessionId?: string
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  // Get all venters waiting in queue, prioritized by priority then join time
-  const venters = await db.query.matchmakingQueue.findMany({
-    where: eq(matchmakingQueue.mood, "vent"),
+  // Step 1: Clean up stale entries (garbage collection)
+  await cleanupStaleQueueEntries();
+  
+  // Step 2: Get all users of this mood with status='waiting'
+  const users = await db.query.matchmakingQueue.findMany({
+    where: and(
+      eq(matchmakingQueue.mood, mood),
+      eq(matchmakingQueue.status, "waiting")
+    ),
     orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
   });
 
-  console.log("[Storage] Looking for venter, found", venters.length, "in queue");
+  console.log(`[Storage] Looking for ${mood}er, found`, users.length, "waiting in queue");
 
-  // Find the first venter with an active WebSocket connection
-  for (const venter of venters) {
-    const connection = activeConnections.get(venter.sessionId);
-    // WebSocket.OPEN = 1
-    if (connection && connection.readyState === 1) {
-      console.log("[Storage] Found venter with active connection:", venter.sessionId);
-      // Remove from queue and return - the caller (createMatch) will handle cleanup
-      await leaveQueue(venter.sessionId);
-      return { sessionId: venter.sessionId, cardId: venter.cardId };
+  // Step 3: Try to atomically claim each candidate
+  for (const user of users) {
+    // Skip self
+    if (excludeSessionId && user.sessionId === excludeSessionId) {
+      continue;
+    }
+    
+    // Check for active WebSocket connection
+    const connection = activeConnections.get(user.sessionId);
+    if (!connection || connection.readyState !== 1) {
+      console.log(`[Storage] Skipping ${mood}er without active connection:`, user.sessionId);
+      continue;
+    }
+    
+    // Step 4: ATOMIC UPDATE - Try to claim this user
+    // This will only succeed if status is still 'waiting' (prevents double-booking)
+    const claimed = await markQueueEntryMatched(user.sessionId);
+    
+    if (claimed) {
+      console.log(`[Storage] Atomically claimed ${mood}er:`, user.sessionId);
+      return { sessionId: user.sessionId, cardId: user.cardId };
     } else {
-      // Skip users without active connection - they might reconnect or be cleaned up later
-      // Only clean up if the entry is very old (more than 2 minutes)
-      const entryAge = Date.now() - new Date(venter.joinedAt).getTime();
-      if (entryAge > 120000) { // 2 minutes
-        console.log("[Storage] Removing very stale venter from queue:", venter.sessionId, "age:", Math.floor(entryAge/1000), "s");
-        await leaveQueue(venter.sessionId);
-      } else {
-        console.log("[Storage] Skipping venter without active connection:", venter.sessionId, "age:", Math.floor(entryAge/1000), "s");
-      }
+      // Someone else claimed this user first - try next candidate
+      console.log(`[Storage] Race condition: ${mood}er already claimed:`, user.sessionId);
+      continue;
     }
   }
 
   return null;
 }
 
-// Find any waiting Listener in the queue
-// IMPORTANT: Only return listeners with active WebSocket connections to prevent ghost matches
-// Note: We no longer aggressively clean up "stale" entries to avoid race conditions
-export async function findWaitingListener(
-  activeConnections: Map<string, { readyState: number }>
+// Find any waiting Venter in the queue
+// Uses atomic locking to prevent double-booking in concurrent scenarios
+export async function findWaitingVenter(
+  activeConnections: Map<string, { readyState: number }>,
+  excludeSessionId?: string
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  // Get all listeners waiting in queue, prioritized by priority then join time
-  const listeners = await db.query.matchmakingQueue.findMany({
-    where: eq(matchmakingQueue.mood, "listen"),
-    orderBy: [desc(matchmakingQueue.isPriority), matchmakingQueue.joinedAt],
-  });
+  return findAndLockWaitingUser("vent", activeConnections, excludeSessionId);
+}
 
-  console.log("[Storage] Looking for listener, found", listeners.length, "in queue");
-
-  // Find the first listener with an active WebSocket connection
-  for (const listener of listeners) {
-    const connection = activeConnections.get(listener.sessionId);
-    // WebSocket.OPEN = 1
-    if (connection && connection.readyState === 1) {
-      console.log("[Storage] Found listener with active connection:", listener.sessionId);
-      // Remove from queue and return - the caller (createMatch) will handle cleanup
-      await leaveQueue(listener.sessionId);
-      return { sessionId: listener.sessionId, cardId: listener.cardId };
-    } else {
-      // Skip users without active connection - they might reconnect or be cleaned up later
-      // Only clean up if the entry is very old (more than 2 minutes)
-      const entryAge = Date.now() - new Date(listener.joinedAt).getTime();
-      if (entryAge > 120000) { // 2 minutes
-        console.log("[Storage] Removing very stale listener from queue:", listener.sessionId, "age:", Math.floor(entryAge/1000), "s");
-        await leaveQueue(listener.sessionId);
-      } else {
-        console.log("[Storage] Skipping listener without active connection:", listener.sessionId, "age:", Math.floor(entryAge/1000), "s");
-      }
-    }
-  }
-
-  return null;
+// Find any waiting Listener in the queue  
+// Uses atomic locking to prevent double-booking in concurrent scenarios
+export async function findWaitingListener(
+  activeConnections: Map<string, { readyState: number }>,
+  excludeSessionId?: string
+): Promise<{ sessionId: string; cardId: string | null } | null> {
+  return findAndLockWaitingUser("listen", activeConnections, excludeSessionId);
 }
 
 export async function getQueuePosition(sessionId: string): Promise<number> {

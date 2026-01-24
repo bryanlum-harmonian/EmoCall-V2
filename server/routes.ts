@@ -45,6 +45,9 @@ import {
   shouldRefreshRankings,
   refreshCountryRankings,
   getCountryName,
+  updateQueueHeartbeat,
+  cleanupStaleQueueEntries,
+  markQueueEntryMatched,
 } from "./storage";
 import {
   CREDIT_PACKAGES,
@@ -290,6 +293,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log("[WS] leave_queue received from:", sessionId);
               // Clean up all matchmaking state
               await cleanupSessionState(sessionId, "user_left_queue");
+            }
+            break;
+            
+          case "heartbeat":
+            // Client sends heartbeat every 5 seconds while in queue
+            // This keeps their queue entry fresh and prevents ghost matches
+            if (sessionId) {
+              const updated = await updateQueueHeartbeat(sessionId);
+              if (updated) {
+                ws.send(JSON.stringify({ type: "heartbeat_ack" }));
+              }
             }
             break;
           
