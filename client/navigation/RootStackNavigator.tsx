@@ -23,6 +23,7 @@ export type RootStackParamList = {
     callId: string; 
     partnerId: string; 
     duration: number;
+    startedAt?: string;
     isPreview?: boolean;
   };
   VibeCheck: { callDuration?: number; callId?: string };

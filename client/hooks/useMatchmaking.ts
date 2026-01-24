@@ -7,6 +7,7 @@ interface MatchResult {
   callId: string;
   partnerId: string;
   duration: number;
+  startedAt?: string;
 }
 
 interface UseMatchmakingOptions {
@@ -152,13 +153,14 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
               break;
 
             case "match_found":
-              console.log("[Matchmaking] Match found! callId:", message.callId);
+              console.log("[Matchmaking] Match found! callId:", message.callId, "startedAt:", message.startedAt);
               // Clear queue info since we're matched
               currentQueueRef.current = null;
               const match = {
                 callId: message.callId,
                 partnerId: message.partnerId,
                 duration: message.duration,
+                startedAt: message.startedAt,
               };
               setState("matched");
               setQueuePosition(null);

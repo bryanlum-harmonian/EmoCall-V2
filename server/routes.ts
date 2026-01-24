@@ -65,7 +65,7 @@ const activeConnections = new Map<string, WebSocket>();
 // Active calls tracking (includes startTime to handle grace period on disconnect)
 const activeCalls = new Map<string, { callId: string; partnerId: string; endTime: number; startTime: number }>();
 // Pending matches for users who weren't connected when match was found
-const pendingMatches = new Map<string, { callId: string; partnerId: string; duration: number }>();
+const pendingMatches = new Map<string, { callId: string; partnerId: string; duration: number; startedAt: string }>();
 // Grace period before ending call on disconnect (in milliseconds) - allows time for reconnect
 const CALL_DISCONNECT_GRACE_PERIOD = 15000; // 15 seconds
 
@@ -108,6 +108,7 @@ async function createMatch(
   
   // Track active call for both users
   const startTime = Date.now();
+  const startedAtISO = new Date(startTime).toISOString();
   const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
   activeCalls.set(venterSessionId, { callId: call.id, partnerId: listenerSessionId, endTime, startTime });
   activeCalls.set(listenerSessionId, { callId: call.id, partnerId: venterSessionId, endTime, startTime });
@@ -117,16 +118,18 @@ async function createMatch(
     callId: call.id,
     partnerId: listenerSessionId,
     duration: DEFAULT_CALL_DURATION_SECONDS,
+    startedAt: startedAtISO,
   };
   const matchDataForListener = {
     callId: call.id,
     partnerId: venterSessionId,
     duration: DEFAULT_CALL_DURATION_SECONDS,
+    startedAt: startedAtISO,
   };
   pendingMatches.set(venterSessionId, matchDataForVenter);
   pendingMatches.set(listenerSessionId, matchDataForListener);
   
-  console.log("[Match] Match created! callId:", call.id);
+  console.log("[Match] Match created! callId:", call.id, "startedAt:", startedAtISO);
   
   // Notify both users via WebSocket
   const matchFoundMessage = (partnerId: string) => JSON.stringify({
@@ -134,6 +137,7 @@ async function createMatch(
     callId: call.id,
     partnerId,
     duration: DEFAULT_CALL_DURATION_SECONDS,
+    startedAt: startedAtISO,
   });
   
   // Try to notify venter
@@ -221,6 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   callId: pendingMatch.callId,
                   partnerId: pendingMatch.partnerId,
                   duration: pendingMatch.duration,
+                  startedAt: pendingMatch.startedAt,
                 }));
                 pendingMatches.delete(sessionId);
               }
@@ -240,6 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   callId: existingCall.callId,
                   partnerId: existingCall.partnerId,
                   duration: Math.floor((existingCall.endTime - Date.now()) / 1000),
+                  startedAt: new Date(existingCall.startTime).toISOString(),
                 }));
                 break;
               }
@@ -253,6 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   callId: existingPendingMatch.callId,
                   partnerId: existingPendingMatch.partnerId,
                   duration: existingPendingMatch.duration,
+                  startedAt: existingPendingMatch.startedAt,
                 }));
                 pendingMatches.delete(sessionId);
                 break;
@@ -329,6 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   callId: pendingMatch.callId,
                   partnerId: pendingMatch.partnerId,
                   duration: pendingMatch.duration,
+                  startedAt: pendingMatch.startedAt,
                 }));
                 pendingMatches.delete(sessionId);
               } else {
@@ -340,6 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     callId: activeCall.callId,
                     partnerId: activeCall.partnerId,
                     duration: DEFAULT_CALL_DURATION_SECONDS,
+                    startedAt: new Date(activeCall.startTime).toISOString(),
                   }));
                 }
               }

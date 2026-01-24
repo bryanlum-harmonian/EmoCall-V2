@@ -650,7 +650,22 @@ export default function ActiveCallScreen() {
   const callId = route.params?.callId || "default-channel";
   const partnerId = route.params?.partnerId || "unknown";
   const initialDuration = route.params?.duration || 300;
+  const startedAtParam = route.params?.startedAt;
   const isPreview = route.params?.isPreview || false;
+  
+  // Calculate initial time remaining based on server-provided startedAt
+  // This ensures both users have synchronized timers
+  const getInitialTimeRemaining = () => {
+    if (startedAtParam) {
+      const startedAtMs = new Date(startedAtParam).getTime();
+      const elapsedMs = Date.now() - startedAtMs;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const remaining = Math.max(0, initialDuration - elapsedSeconds);
+      console.log("[ActiveCall] Synced timer - startedAt:", startedAtParam, "elapsed:", elapsedSeconds, "remaining:", remaining);
+      return remaining;
+    }
+    return initialDuration;
+  };
   
   const {
     isConnected: isVoiceConnected,
@@ -686,8 +701,16 @@ export default function ActiveCallScreen() {
     }
   }, [remoteUserLeft, leaveVoice, navigation]);
 
-  const [timeRemaining, setTimeRemaining] = useState(INITIAL_TIME);
-  const [totalCallTime, setTotalCallTime] = useState(0); // Track total elapsed time
+  const [timeRemaining, setTimeRemaining] = useState(() => getInitialTimeRemaining());
+  const [totalCallTime, setTotalCallTime] = useState(() => {
+    // Initialize total call time based on how much time has already elapsed
+    if (startedAtParam) {
+      const startedAtMs = new Date(startedAtParam).getTime();
+      const elapsedSeconds = Math.floor((Date.now() - startedAtMs) / 1000);
+      return Math.max(0, elapsedSeconds);
+    }
+    return 0;
+  });
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);

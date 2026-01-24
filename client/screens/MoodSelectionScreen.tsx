@@ -268,7 +268,7 @@ export default function MoodSelectionScreen() {
     fetchHabitData();
   }, [session?.id]);
 
-  const handleMatchFound = useCallback((match: { callId: string; partnerId: string; duration: number }) => {
+  const handleMatchFound = useCallback((match: { callId: string; partnerId: string; duration: number; startedAt?: string }) => {
     console.log("[MoodSelection] Match found:", match);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setIsSearching(false);
@@ -278,6 +278,7 @@ export default function MoodSelectionScreen() {
       callId: match.callId, 
       partnerId: match.partnerId, 
       duration: match.duration,
+      startedAt: match.startedAt,
     });
   }, [navigation]);
 
