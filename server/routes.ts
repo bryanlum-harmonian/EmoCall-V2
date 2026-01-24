@@ -389,6 +389,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (activeCall) {
                 const extension = EXTENSION_OPTIONS.find(e => e.minutes === message.minutes);
                 if (extension) {
+                  const MAX_CALL_DURATION_MS = 60 * 60 * 1000; // 60 minutes in milliseconds
+                  const currentTotalDuration = activeCall.endTime - activeCall.startTime;
+                  const newTotalDuration = currentTotalDuration + extension.minutes * 60 * 1000;
+                  
+                  // Reject extension if it would exceed 60-minute maximum
+                  if (newTotalDuration > MAX_CALL_DURATION_MS) {
+                    console.log("[WS] Extension rejected: would exceed 60-minute maximum");
+                    ws.send(JSON.stringify({ 
+                      type: "extension_rejected", 
+                      reason: "max_duration",
+                      message: "Beautiful moments don't need to last forever. This call has reached the 60-minute maximum."
+                    }));
+                    break;
+                  }
+                  
                   const session = await getSession(sessionId);
                   if (session && session.credits >= extension.credits) {
                     await spendCredits(sessionId, extension.credits, "extension", `${extension.minutes} minute extension`, activeCall.callId);
