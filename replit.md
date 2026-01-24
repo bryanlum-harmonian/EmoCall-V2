@@ -117,3 +117,17 @@ The matchmaking system uses a robust architecture to prevent race conditions and
 - `join_queue`: Client -> Server, joins matchmaking with mood/cardId
 - `leave_queue`: Client -> Server, exits matchmaking
 - `match_found`: Server -> Client, match created with callId/partnerId
+- `call_ready`: Client -> Server, signals user has joined Agora voice channel
+- `call_started`: Server -> Client, both users ready, call timer begins
+
+#### Reconnection Handling
+- **Graceful Disconnects**: Queue entries are NOT deleted immediately on WebSocket disconnect
+- **Reconnection Window**: Users have ~15 seconds (heartbeat timeout) to reconnect
+- **Skip vs Delete**: During matching, entries without active connections are skipped, not deleted
+- **Connection Registration**: New connections auto-register with sessionId, restoring state
+
+#### Client Architecture
+- **MatchmakingContext**: Singleton React context wrapping entire app (in App.tsx)
+- **Persistent WebSocket**: Single connection persists across screen navigations
+- **State Machine**: idle → in_queue → matched → call_started flow
+- **Automatic Reconnection**: Reconnects on close/error with exponential backoff
