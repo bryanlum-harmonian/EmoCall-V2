@@ -76,3 +76,44 @@ Preferred communication style: Simple, everyday language.
 
 ### External APIs
 - **ip-api.com:** For IP-based country detection.
+
+## Matchmaking System Architecture
+
+### Robust Matchmaking with Heartbeat & Atomic Transactions
+
+The matchmaking system uses a robust architecture to prevent race conditions and ghost matches:
+
+#### Queue Entry Lifecycle
+1. **Join Queue**: User joins with status='waiting' and current `lastHeartbeat`
+2. **Heartbeat**: Client sends heartbeat every 5 seconds, server updates `lastHeartbeat`
+3. **Match Found**: Entry atomically marked status='matched', then deleted after call created
+4. **Leave Queue**: Entry deleted immediately
+
+#### Preventing Ghost Matches
+- **Heartbeat Timeout**: Entries with `lastHeartbeat` > 15 seconds old are automatically cleaned up
+- **Active Connection Check**: Only users with open WebSocket connections can be matched
+- **Garbage Collection**: Stale entries cleaned on every `joinQueue` and `findWaitingVenter/Listener` call
+
+#### Preventing Double-Booking
+- **Status Field**: `matchmaking_queue.status` = 'waiting' | 'matched'
+- **Atomic Claim**: `markQueueEntryMatched()` uses WHERE clause to only update if status='waiting'
+- **Race Safety**: If two searches find same user, only first to claim succeeds
+
+#### Bidirectional Matching
+- Both Venters and Listeners actively search for opposite mood on join
+- Whoever joins second triggers the match (symmetric logic)
+
+#### Key Functions
+- `joinQueue()`: Cleans stale entries, inserts with status='waiting'
+- `updateQueueHeartbeat()`: Updates `lastHeartbeat` timestamp
+- `cleanupStaleQueueEntries()`: Deletes entries with expired heartbeat
+- `findWaitingVenter/Listener()`: Atomically finds and claims a waiting user
+- `markQueueEntryMatched()`: Atomic status update (WHERE status='waiting')
+- `leaveQueue()`: Deletes entry entirely
+
+#### WebSocket Messages
+- `heartbeat`: Client -> Server, updates queue entry heartbeat
+- `heartbeat_ack`: Server -> Client, confirms heartbeat received
+- `join_queue`: Client -> Server, joins matchmaking with mood/cardId
+- `leave_queue`: Client -> Server, exits matchmaking
+- `match_found`: Server -> Client, match created with callId/partnerId
