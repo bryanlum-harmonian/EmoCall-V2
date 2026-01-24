@@ -1324,15 +1324,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Voice calling not configured" });
       }
 
-      // Dynamic import for ESM compatibility in production builds
-      const agoraToken = await import("agora-token");
-      const { RtcTokenBuilder, RtcRole } = agoraToken;
+      // Use require for CommonJS compatibility
+      const { RtcTokenBuilder, RtcRole } = require("agora-token");
 
       const userUid = uid || 0;
       const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-      const expirationTimeInSeconds = 3600;
-      const currentTimestamp = Math.floor(Date.now() / 1000);
-      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+      const tokenExpireSeconds = 3600;
 
       const token = RtcTokenBuilder.buildTokenWithUid(
         appId,
@@ -1340,8 +1337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         channelName,
         userUid,
         userRole,
-        privilegeExpiredTs,
-        privilegeExpiredTs
+        tokenExpireSeconds
       );
 
       res.json({
