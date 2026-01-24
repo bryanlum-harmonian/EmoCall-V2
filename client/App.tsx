@@ -22,6 +22,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { SessionProvider } from "@/contexts/SessionContext";
 import { CreditsProvider } from "@/contexts/CreditsContext";
 import { AuraProvider } from "@/contexts/AuraContext";
+import { MatchmakingProvider } from "@/contexts/MatchmakingContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 SplashScreen.preventAutoHideAsync();
@@ -85,7 +86,9 @@ export default function App() {
             <SessionProvider>
               <CreditsProvider>
                 <AuraProvider>
-                  <AppContent />
+                  <MatchmakingProvider>
+                    <AppContent />
+                  </MatchmakingProvider>
                 </AuraProvider>
               </CreditsProvider>
             </SessionProvider>

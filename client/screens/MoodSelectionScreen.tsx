@@ -300,23 +300,12 @@ export default function MoodSelectionScreen() {
     isSearchingRef.current = isSearching;
   }, [isSearching]);
 
-  // Track leaveQueue in ref to avoid effect re-runs when callback changes
-  const leaveQueueRef = useRef(leaveQueue);
-  useEffect(() => {
-    leaveQueueRef.current = leaveQueue;
-  }, [leaveQueue]);
-
-  // Leave queue ONLY on actual component unmount (empty deps), NOT on re-renders
-  useEffect(() => {
-    return () => {
-      if (isSearchingRef.current && !matchedSuccessfullyRef.current) {
-        console.log("[MoodSelection] Component unmounting while searching (no match), leaving queue");
-        leaveQueueRef.current();
-      } else if (matchedSuccessfullyRef.current) {
-        console.log("[MoodSelection] Component unmounting after successful match, NOT leaving queue");
-      }
-    };
-  }, []); // Empty deps - only runs on mount/unmount
+  // NOTE: We intentionally do NOT leave queue on component unmount.
+  // The server handles stale queue entries via:
+  // 1. Heartbeat timeout (entries without heartbeat for 15s are cleaned up)
+  // 2. WebSocket close handler (cleans up when connection is lost)
+  // 3. Active connection check during matching (removes entries without live WebSocket)
+  // Client-side cleanup on unmount causes race conditions during tests and hot reloads.
 
   // Handle match result
   useEffect(() => {
