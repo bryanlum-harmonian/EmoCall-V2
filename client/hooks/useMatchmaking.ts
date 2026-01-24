@@ -48,24 +48,19 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
   const onMatchFoundRef = useRef(onMatchFound);
   const onCallEndedRef = useRef(onCallEnded);
   const onCallStartedRef = useRef(onCallStarted);
-  // Store current queue info for auto-rejoin after reconnect
+  const sessionIdRef = useRef(sessionId);
   const currentQueueRef = useRef<{ mood: string; cardId: string } | null>(null);
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 10;
-  // Heartbeat interval ref for cleanup
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  // Track intentional connection replacement to prevent auto-reconnect
   const connectionReplacedRef = useRef(false);
-  // Debounce: track last connection attempt time to prevent rapid reconnections
-  const lastConnectAttemptRef = useRef<number>(0);
-  const minConnectIntervalMs = 500;
-  // Store pending call_ready message to send when WebSocket reconnects
   const pendingCallReadyRef = useRef<string | null>(null);
-  // Track current active call ID to prevent stale signals
   const currentCallIdRef = useRef<string | null>(null);
+  const isConnectingRef = useRef(false);
   
-  // Keep refs in sync with latest values
+  // Keep refs in sync
   stateRef.current = state;
+  sessionIdRef.current = sessionId;
   onMatchFoundRef.current = onMatchFound;
   onCallEndedRef.current = onCallEnded;
   onCallStartedRef.current = onCallStarted;
@@ -84,13 +79,22 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.protocol = wsProtocol;
     url.pathname = "/ws";
-    console.log("[Matchmaking] WebSocket URL:", url.toString());
     return url.toString();
   }, []);
 
-  const connect = useCallback(() => {
-    if (!sessionId) {
+  // Core connect function - stored in ref to avoid effect dependency issues
+  const connectRef = useRef<(() => void) | undefined>(undefined);
+  
+  connectRef.current = () => {
+    const currentSessionId = sessionIdRef.current;
+    if (!currentSessionId) {
       console.log("[Matchmaking] No sessionId, skipping connection");
+      return;
+    }
+
+    // Prevent multiple simultaneous connection attempts
+    if (isConnectingRef.current) {
+      console.log("[Matchmaking] Already connecting, skipping");
       return;
     }
 
@@ -99,18 +103,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
       return;
     }
     
-    // Debounce: prevent rapid reconnection attempts
-    const now = Date.now();
-    if (now - lastConnectAttemptRef.current < minConnectIntervalMs) {
-      console.log("[Matchmaking] Debouncing rapid connect attempt");
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+      console.log("[Matchmaking] Connection in progress, skipping");
       return;
     }
-    lastConnectAttemptRef.current = now;
     
-    // Reset connection_replaced flag for new connection
+    isConnectingRef.current = true;
     connectionReplacedRef.current = false;
 
-    setState("connecting");
+    if (stateRef.current === "idle") {
+      setState("connecting");
+    }
     setError(null);
 
     const wsUrl = getWsUrl();
@@ -121,41 +124,31 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("[Matchmaking] Connected, registering session:", sessionId);
-        ws.send(JSON.stringify({ type: "register", sessionId }));
+        console.log("[Matchmaking] Connected, registering session:", currentSessionId);
+        isConnectingRef.current = false;
+        ws.send(JSON.stringify({ type: "register", sessionId: currentSessionId }));
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         
-        // If there's a pending call_ready message, send it immediately
+        // If there's a pending call_ready, send it
         if (pendingCallReadyRef.current) {
           const callId = pendingCallReadyRef.current;
           console.log("[Matchmaking] Sending pending call_ready for call:", callId);
-          ws.send(JSON.stringify({
-            type: "call_ready",
-            callId,
-          }));
+          ws.send(JSON.stringify({ type: "call_ready", callId }));
           pendingCallReadyRef.current = null;
         }
         
-        // If we were in queue before disconnect, re-join the queue
-        if (currentQueueRef.current && stateRef.current === "in_queue") {
+        // If we were in queue, re-join automatically
+        if (currentQueueRef.current && (stateRef.current === "in_queue" || stateRef.current === "connecting")) {
           console.log("[Matchmaking] Re-joining queue after reconnect:", currentQueueRef.current);
-          setTimeout(() => {
-            if (wsRef.current?.readyState === WebSocket.OPEN && currentQueueRef.current) {
-              wsRef.current.send(JSON.stringify({
-                type: "join_queue",
-                mood: currentQueueRef.current.mood,
-                cardId: currentQueueRef.current.cardId,
-                isPriority: false,
-              }));
-            }
-          }, 100);
-        } else if (stateRef.current !== "matched" && stateRef.current !== "waiting_for_partner" && stateRef.current !== "call_started") {
-          // Only set idle if we weren't already in a matched/call state
-          // During matched states, the connection should stay active without resetting state
+          ws.send(JSON.stringify({
+            type: "join_queue",
+            mood: currentQueueRef.current.mood,
+            cardId: currentQueueRef.current.cardId,
+            isPriority: false,
+          }));
+        } else if (stateRef.current === "connecting") {
           setState("idle");
-        } else {
-          console.log("[Matchmaking] Reconnected while in matched/call state:", stateRef.current, "- keeping state");
         }
       };
 
@@ -171,22 +164,18 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
               break;
 
             case "waiting":
-              // Simplified matchmaking - just waiting for a match
               console.log("[Matchmaking] Waiting for", message.mood === "vent" ? "listener" : "venter");
               setState("in_queue");
-              setQueuePosition(null); // No position tracking
+              setQueuePosition(null);
               break;
 
             case "match_found":
-              console.log("[Matchmaking] Match found! callId:", message.callId, "startedAt:", message.startedAt);
-              // Clear queue info since we're matched
+              console.log("[Matchmaking] Match found! callId:", message.callId);
               currentQueueRef.current = null;
-              // IMPORTANT: Clear any pending call_ready for a previous call to prevent stale signals
               if (pendingCallReadyRef.current && pendingCallReadyRef.current !== message.callId) {
-                console.log("[Matchmaking] Clearing stale pending call_ready for:", pendingCallReadyRef.current);
+                console.log("[Matchmaking] Clearing stale pending call_ready");
                 pendingCallReadyRef.current = null;
               }
-              // Track the current call ID for this match
               currentCallIdRef.current = message.callId;
               const match = {
                 callId: message.callId,
@@ -204,14 +193,12 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
 
             case "call_ended":
               console.log("[Matchmaking] Call ended by partner:", message.reason);
-              const endReason = message.reason || "partner_ended";
-              // Clear call tracking
               currentCallIdRef.current = null;
               pendingCallReadyRef.current = null;
               setState("idle");
-              setCallEndedByPartner(endReason);
+              setCallEndedByPartner(message.reason || "partner_ended");
               if (onCallEndedRef.current) {
-                onCallEndedRef.current(endReason);
+                onCallEndedRef.current(message.reason || "partner_ended");
               }
               break;
 
@@ -222,25 +209,25 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
               break;
               
             case "connection_replaced":
-              // Another tab/device connected with this session - don't auto-reconnect
               console.log("[Matchmaking] Connection replaced by another connection");
               connectionReplacedRef.current = true;
               break;
               
             case "waiting_for_partner":
-              // User signaled ready, waiting for partner to also signal ready
               console.log("[Matchmaking] Waiting for partner to be ready");
               setState("waiting_for_partner");
               break;
               
             case "call_started":
-              // Both users are ready - timer starts NOW
               console.log("[Matchmaking] Call started! startedAt:", message.startedAt);
               setState("call_started");
               setCallStartedAt(message.startedAt);
               if (onCallStartedRef.current) {
                 onCallStartedRef.current(message.startedAt, message.duration);
               }
+              break;
+              
+            case "heartbeat_ack":
               break;
           }
         } catch (err) {
@@ -250,115 +237,87 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
 
       ws.onerror = (event) => {
         console.error("[Matchmaking] WebSocket error:", event);
+        isConnectingRef.current = false;
         setError("Connection error");
-        setState("error");
+        if (stateRef.current === "connecting") {
+          setState("error");
+        }
       };
 
       ws.onclose = () => {
         console.log("[Matchmaking] Connection closed, state:", stateRef.current);
         wsRef.current = null;
+        isConnectingRef.current = false;
         setIsConnected(false);
         
-        // Don't auto-reconnect if this connection was intentionally replaced
+        // Don't auto-reconnect if this connection was replaced
         if (connectionReplacedRef.current) {
           console.log("[Matchmaking] Connection was replaced, not auto-reconnecting");
           connectionReplacedRef.current = false;
           return;
         }
         
-        // Auto-reconnect if we were in queue, matched, or in active call states
+        // Auto-reconnect if we should maintain connection
         const shouldReconnect = 
           stateRef.current === "in_queue" || 
           stateRef.current === "matched" ||
           stateRef.current === "waiting_for_partner" ||
           stateRef.current === "call_started";
-        if (shouldReconnect) {
-          if (reconnectAttemptsRef.current < maxReconnectAttempts) {
-            reconnectAttemptsRef.current++;
-            const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000);
-            console.log("[Matchmaking] Auto-reconnecting in", delay, "ms (attempt", reconnectAttemptsRef.current, ")");
-            
-            reconnectTimeoutRef.current = setTimeout(() => {
-              const shouldReconnectNow = 
-                stateRef.current === "in_queue" || 
-                stateRef.current === "matched" ||
-                stateRef.current === "waiting_for_partner" ||
-                stateRef.current === "call_started";
-              if (shouldReconnectNow) {
-                connect();
-              }
-            }, delay);
-          } else {
-            console.log("[Matchmaking] Max reconnect attempts reached");
-            setError("Connection lost. Please try again.");
-            setState("error");
-          }
+          
+        if (shouldReconnect && reconnectAttemptsRef.current < maxReconnectAttempts) {
+          reconnectAttemptsRef.current++;
+          const delay = Math.min(1000 * reconnectAttemptsRef.current, 5000);
+          console.log("[Matchmaking] Auto-reconnecting in", delay, "ms (attempt", reconnectAttemptsRef.current, ")");
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (connectRef.current) {
+              connectRef.current();
+            }
+          }, delay);
+        } else if (reconnectAttemptsRef.current >= maxReconnectAttempts) {
+          console.log("[Matchmaking] Max reconnect attempts reached");
+          setError("Connection lost. Please try again.");
+          setState("error");
         }
       };
     } catch (err: any) {
       console.error("[Matchmaking] Failed to create WebSocket:", err);
+      isConnectingRef.current = false;
       setError(err.message || "Failed to connect");
       setState("error");
     }
-  }, [sessionId, getWsUrl]);
+  };
 
   const joinQueue = useCallback((mood: string, cardId: string) => {
     console.log("[Matchmaking] Joining queue:", { mood, cardId });
     
-    // Store queue info for auto-rejoin after reconnect
     currentQueueRef.current = { mood, cardId };
     reconnectAttemptsRef.current = 0;
+    setState("in_queue");
     
-    const sendJoinQueue = () => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log("[Matchmaking] Sending join_queue message");
-        wsRef.current.send(JSON.stringify({
-          type: "join_queue",
-          mood,
-          cardId,
-          isPriority: false,
-        }));
-        setState("in_queue");
-        return true;
-      }
-      return false;
-    };
-    
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log("[Matchmaking] Sending join_queue message");
+      wsRef.current.send(JSON.stringify({
+        type: "join_queue",
+        mood,
+        cardId,
+        isPriority: false,
+      }));
+    } else {
       console.log("[Matchmaking] Not connected, connecting first...");
-      setState("in_queue"); // Set state early so onopen can re-join
-      connect();
-      
-      // Poll for connection with increasing delays (up to 5 seconds total)
-      let attempts = 0;
-      const maxAttempts = 10;
-      const pollInterval = setInterval(() => {
-        attempts++;
-        console.log("[Matchmaking] Checking connection, attempt:", attempts);
-        
-        if (sendJoinQueue()) {
-          clearInterval(pollInterval);
-        } else if (attempts >= maxAttempts) {
-          console.log("[Matchmaking] Failed to connect after max attempts");
-          clearInterval(pollInterval);
-          setState("error");
-          setError("Failed to connect to matchmaking server");
-          currentQueueRef.current = null;
-        }
-      }, 500);
-      return;
+      if (connectRef.current) {
+        connectRef.current();
+      }
     }
-
-    sendJoinQueue();
-  }, [connect]);
+  }, []);
 
   const leaveQueue = useCallback(() => {
     console.log("[Matchmaking] Leaving queue");
     
-    // Clear queue info to prevent auto-rejoin
     currentQueueRef.current = null;
+    currentCallIdRef.current = null;
+    pendingCallReadyRef.current = null;
     
-    // Cancel any pending reconnect
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
       reconnectTimeoutRef.current = null;
@@ -367,29 +326,22 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "leave_queue" }));
     }
-    // Clear call tracking
-    currentCallIdRef.current = null;
-    pendingCallReadyRef.current = null;
-    currentQueueRef.current = null;
+    
     setState("idle");
     setQueuePosition(null);
   }, []);
 
   const endCall = useCallback((reason?: string, remainingSeconds?: number) => {
     console.log("[Matchmaking] Ending call:", { reason, remainingSeconds });
-    console.log("[Matchmaking] WebSocket state:", wsRef.current?.readyState, "OPEN =", WebSocket.OPEN);
     
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      console.log("[Matchmaking] Sending end_call message via WebSocket");
       wsRef.current.send(JSON.stringify({
         type: "end_call",
         reason: reason || "normal",
         remainingSeconds,
       }));
-    } else {
-      console.log("[Matchmaking] WARNING: WebSocket not open, cannot send end_call");
     }
-    // Clear call tracking
+    
     currentCallIdRef.current = null;
     pendingCallReadyRef.current = null;
     setState("idle");
@@ -399,65 +351,52 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
   const signalReady = useCallback((callId: string) => {
     console.log("[Matchmaking] Signaling ready for call:", callId);
     
-    // Validate that this call ID matches the current active call
+    // Only signal for the current active call
     if (currentCallIdRef.current && currentCallIdRef.current !== callId) {
-      console.log("[Matchmaking] Ignoring stale signalReady for old call:", callId, "current:", currentCallIdRef.current);
+      console.log("[Matchmaking] Ignoring stale call_ready for:", callId, "current call:", currentCallIdRef.current);
       return;
     }
     
-    const sendCallReady = () => {
-      // Double-check the call ID is still current before sending
-      if (currentCallIdRef.current && currentCallIdRef.current !== callId) {
-        console.log("[Matchmaking] Call ID changed, not sending stale call_ready");
-        pendingCallReadyRef.current = null;
-        return true; // Return true to stop polling
-      }
-      
+    setState("waiting_for_partner");
+    
+    const sendReadySignal = () => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({
-          type: "call_ready",
-          callId,
-        }));
-        console.log("[Matchmaking] Sent call_ready message for call:", callId);
-        pendingCallReadyRef.current = null;
+        console.log("[Matchmaking] Sending call_ready message for call:", callId);
+        wsRef.current.send(JSON.stringify({ type: "call_ready", callId }));
         return true;
       }
       return false;
     };
     
-    if (sendCallReady()) {
-      return; // Success - message sent
-    }
-    
-    // WebSocket not open yet - store pending and poll for connection
-    console.log("[Matchmaking] WebSocket not open, storing pending call_ready and polling...");
-    pendingCallReadyRef.current = callId;
-    
-    // Also try to connect if not already connecting
-    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-      connect();
-    }
-    
-    // Poll for connection with increasing delays (up to 5 seconds total)
-    let attempts = 0;
-    const maxAttempts = 10;
-    const pollInterval = setInterval(() => {
-      attempts++;
-      console.log("[Matchmaking] Checking connection for call_ready, attempt:", attempts);
+    if (!sendReadySignal()) {
+      console.log("[Matchmaking] WebSocket not ready, storing pending call_ready for:", callId);
+      pendingCallReadyRef.current = callId;
       
-      if (sendCallReady()) {
-        clearInterval(pollInterval);
-      } else if (attempts >= maxAttempts) {
-        console.log("[Matchmaking] Failed to send call_ready after max attempts");
-        clearInterval(pollInterval);
+      if (connectRef.current) {
+        connectRef.current();
       }
-    }, 500);
-  }, [connect]);
+      
+      let attempts = 0;
+      const maxAttempts = 10;
+      const pollInterval = setInterval(() => {
+        attempts++;
+        console.log("[Matchmaking] Checking connection for call_ready, attempt:", attempts);
+        
+        if (sendReadySignal()) {
+          pendingCallReadyRef.current = null;
+          clearInterval(pollInterval);
+        } else if (attempts >= maxAttempts) {
+          console.log("[Matchmaking] Failed to send call_ready after max attempts");
+          clearInterval(pollInterval);
+        }
+      }, 500);
+    }
+  }, []);
 
-  // Connect when sessionId is available
+  // Connect on mount when sessionId is available - only once per sessionId
   useEffect(() => {
-    if (sessionId) {
-      connect();
+    if (sessionId && connectRef.current) {
+      connectRef.current();
     }
 
     return () => {
@@ -466,20 +405,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
       }
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
-        heartbeatIntervalRef.current = null;
       }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [sessionId, connect]);
+  }, [sessionId]); // Only sessionId - not connect function
 
-  // Send heartbeats while in queue (every 5 seconds)
-  // This keeps our queue entry fresh and prevents being cleaned up as "stale"
+  // Heartbeat while in queue
   useEffect(() => {
     if (state !== "in_queue") {
-      // Clear heartbeat when not in queue
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = null;
@@ -487,12 +423,11 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
       return;
     }
     
-    // Start heartbeat interval
     heartbeatIntervalRef.current = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN && stateRef.current === "in_queue") {
         wsRef.current.send(JSON.stringify({ type: "heartbeat" }));
       }
-    }, 5000); // Every 5 seconds
+    }, 5000);
     
     return () => {
       if (heartbeatIntervalRef.current) {
@@ -502,20 +437,13 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     };
   }, [state]);
 
-  // Poll for match while in queue (HTTP fallback for unreliable WebSocket on mobile)
+  // HTTP fallback polling while in queue
   useEffect(() => {
     if (state !== "in_queue" || !sessionId) return;
     
     const checkMatchInterval = setInterval(async () => {
       if (stateRef.current !== "in_queue") return;
       
-      // First try WebSocket if connected
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log("[Matchmaking] Polling via WebSocket...");
-        wsRef.current.send(JSON.stringify({ type: "check_match" }));
-      }
-      
-      // Also poll HTTP API as a fallback (more reliable on mobile)
       try {
         const apiUrl = getApiUrl();
         const response = await fetch(`${apiUrl}/api/sessions/${sessionId}/pending-match`);
@@ -524,6 +452,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
           if (data.hasMatch && stateRef.current === "in_queue") {
             console.log("[Matchmaking] HTTP poll found match! callId:", data.callId);
             currentQueueRef.current = null;
+            currentCallIdRef.current = data.callId;
             const match = {
               callId: data.callId,
               partnerId: data.partnerId,
@@ -538,9 +467,9 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
           }
         }
       } catch (err) {
-        console.log("[Matchmaking] HTTP poll error (will retry):", err);
+        // Silent fail - will retry
       }
-    }, 1000); // Check every 1 second for faster match detection
+    }, 2000);
     
     return () => {
       clearInterval(checkMatchInterval);
