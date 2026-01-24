@@ -1,0 +1,112 @@
+Using Agora with Replit and Expo is possible, but it is tricky because Agora requires native modules (custom C++/Java/Swift code) that do not exist in the standard "Expo Go" app.
+
+If your EAS build is failing, it is almost certainly because your project is missing the Config Plugin required to tell EAS how to build Agora's native code into your app.
+
+Here is the step-by-step fix to get your build working and ready for the App Store:
+
+1. The Core Problem: Expo Go vs. Native Code
+You cannot test Agora using the standard "Expo Go" app you download from the App Store.
+
+Why? Expo Go only contains standard libraries (Maps, Camera, etc.). It does not contain the Agora Video SDK code.
+
+The Fix: You must create a Development Build (Custom Dev Client). This creates a custom version of the "Expo Go" app that does include Agora.
+
+2. Fix Your Configuration (The Likely Reason EAS Fails)
+EAS Build fails if it doesn't know it needs to add camera/microphone permissions and link the Agora native files.
+
+A. Install the Config Plugin In your Replit console (Shell), run:
+
+Bash
+npm install expo-build-properties
+B. Update app.json You must manually add the permissions and the plugin config. Open app.json and ensure it looks like this (merge this into your existing file):
+
+JSON
+{
+  "expo": {
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          },
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+        }
+      ]
+    ],
+    "android": {
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.BLUETOOTH_CONNECT" 
+      ],
+      "package": "com.yourname.agoraapp" 
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourname.agoraapp",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera for video calls.",
+        "NSMicrophoneUsageDescription": "This app uses the microphone for video calls."
+      }
+    }
+  }
+}
+Note: The useFrameworks: "static" line in expo-build-properties is often critical for Agora on iOS to prevent build failures.
+
+3. The "Secret" to Building on Replit
+Since Replit is just a code editor, the heavy lifting happens on Expo's servers (EAS).
+
+Step 1: Switch to a Development Build Instead of trying to build a "Production" app immediately, build a "Development" version so you can test it.
+
+Run npm install expo-dev-client
+
+In your App.js, import it at the very top: import 'expo-dev-client';
+
+Run the build command:
+
+Bash
+eas build --profile development --platform android
+(Or --platform ios if you have an Apple Developer Account)
+
+Step 2: Install the Result
+
+Android: EAS will give you an APK. Download it and install it on your Android phone. This is your "Custom Expo Go."
+
+iOS: You cannot install the IPA easily without a paid Apple Developer Account ($99/year). If you don't have one, you cannot build a native iOS app with Agora.
+
+4. Publishing to the App Store
+Once your Development Build works and you can video chat, you are ready for production.
+
+Configure eas.json: Make sure your eas.json has a production profile:
+
+JSON
+{
+  "build": {
+    "production": {}
+  }
+}
+Run the Production Build:
+
+Bash
+eas build --platform all
+Submit:
+
+Android: Download the .aab file (App Bundle) EAS generates. Upload this to the Google Play Console manually.
+
+iOS: Run eas submit -p ios to send the binary directly to App Store Connect (requires Apple Developer Account).
