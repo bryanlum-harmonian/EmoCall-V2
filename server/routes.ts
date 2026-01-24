@@ -137,6 +137,41 @@ async function createMatch(
   
   console.log("[Match] Match created! callId:", call.id, "waiting for both users to signal ready");
   
+  // Set a timeout to clean up stale calls where one user never signals ready
+  const CALL_READY_TIMEOUT = 30000; // 30 seconds
+  setTimeout(() => {
+    const readyUsers = callReadyUsers.get(call.id);
+    const participants = callParticipants.get(call.id);
+    
+    if (readyUsers && participants && readyUsers.size < 2) {
+      console.log(`[Match] Timeout! Call ${call.id} only has ${readyUsers.size} ready users after ${CALL_READY_TIMEOUT/1000}s. Cleaning up.`);
+      
+      // Notify any connected users that the match timed out
+      const timeoutMessage = JSON.stringify({ type: "call_ended", reason: "connection_timeout" });
+      
+      // Try to notify both participants
+      const venterWsStored = activeConnections.get(participants.venter);
+      const listenerWsStored = activeConnections.get(participants.listener);
+      
+      if (venterWsStored && venterWsStored.readyState === WebSocket.OPEN) {
+        try { venterWsStored.send(timeoutMessage); } catch (e) {}
+      }
+      if (listenerWsStored && listenerWsStored.readyState === WebSocket.OPEN) {
+        try { listenerWsStored.send(timeoutMessage); } catch (e) {}
+      }
+      
+      // Clean up all state for this call
+      callParticipants.delete(call.id);
+      callReadyUsers.delete(call.id);
+      pendingMatches.delete(venterSessionId);
+      pendingMatches.delete(listenerSessionId);
+      activeCalls.delete(venterSessionId);
+      activeCalls.delete(listenerSessionId);
+      
+      console.log(`[Match] Cleaned up timed-out call ${call.id}`);
+    }
+  }, CALL_READY_TIMEOUT);
+  
   // Notify both users via WebSocket - they should navigate to call screen and signal ready
   const matchFoundMessage = (partnerId: string) => JSON.stringify({
     type: "match_found",
