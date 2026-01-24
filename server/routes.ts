@@ -197,6 +197,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const existingWs = activeConnections.get(sessionId);
               if (existingWs && existingWs !== ws && existingWs.readyState === WebSocket.OPEN) {
                 console.log("[WS] Closing existing connection for session:", sessionId);
+                // Send "connection_replaced" message so client knows not to auto-reconnect
+                try {
+                  existingWs.send(JSON.stringify({ type: "connection_replaced" }));
+                } catch (e) {
+                  // Ignore send errors on closing connection
+                }
                 existingWs.close();
               }
               activeConnections.set(sessionId, ws);
