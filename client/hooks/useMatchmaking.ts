@@ -61,6 +61,8 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
   const minConnectIntervalMs = 500;
   // Store pending call_ready message to send when WebSocket reconnects
   const pendingCallReadyRef = useRef<string | null>(null);
+  // Track current active call ID to prevent stale signals
+  const currentCallIdRef = useRef<string | null>(null);
   
   // Keep refs in sync with latest values
   stateRef.current = state;
@@ -175,6 +177,13 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
               console.log("[Matchmaking] Match found! callId:", message.callId, "startedAt:", message.startedAt);
               // Clear queue info since we're matched
               currentQueueRef.current = null;
+              // IMPORTANT: Clear any pending call_ready for a previous call to prevent stale signals
+              if (pendingCallReadyRef.current && pendingCallReadyRef.current !== message.callId) {
+                console.log("[Matchmaking] Clearing stale pending call_ready for:", pendingCallReadyRef.current);
+                pendingCallReadyRef.current = null;
+              }
+              // Track the current call ID for this match
+              currentCallIdRef.current = message.callId;
               const match = {
                 callId: message.callId,
                 partnerId: message.partnerId,
@@ -192,6 +201,9 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
             case "call_ended":
               console.log("[Matchmaking] Call ended by partner:", message.reason);
               const endReason = message.reason || "partner_ended";
+              // Clear call tracking
+              currentCallIdRef.current = null;
+              pendingCallReadyRef.current = null;
               setState("idle");
               setCallEndedByPartner(endReason);
               if (onCallEndedRef.current) {
@@ -351,6 +363,10 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "leave_queue" }));
     }
+    // Clear call tracking
+    currentCallIdRef.current = null;
+    pendingCallReadyRef.current = null;
+    currentQueueRef.current = null;
     setState("idle");
     setQueuePosition(null);
   }, []);
@@ -369,6 +385,9 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     } else {
       console.log("[Matchmaking] WARNING: WebSocket not open, cannot send end_call");
     }
+    // Clear call tracking
+    currentCallIdRef.current = null;
+    pendingCallReadyRef.current = null;
     setState("idle");
     setCallStartedAt(null);
   }, []);
@@ -376,13 +395,26 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
   const signalReady = useCallback((callId: string) => {
     console.log("[Matchmaking] Signaling ready for call:", callId);
     
+    // Validate that this call ID matches the current active call
+    if (currentCallIdRef.current && currentCallIdRef.current !== callId) {
+      console.log("[Matchmaking] Ignoring stale signalReady for old call:", callId, "current:", currentCallIdRef.current);
+      return;
+    }
+    
     const sendCallReady = () => {
+      // Double-check the call ID is still current before sending
+      if (currentCallIdRef.current && currentCallIdRef.current !== callId) {
+        console.log("[Matchmaking] Call ID changed, not sending stale call_ready");
+        pendingCallReadyRef.current = null;
+        return true; // Return true to stop polling
+      }
+      
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({
           type: "call_ready",
           callId,
         }));
-        console.log("[Matchmaking] Sent call_ready message");
+        console.log("[Matchmaking] Sent call_ready message for call:", callId);
         pendingCallReadyRef.current = null;
         return true;
       }
