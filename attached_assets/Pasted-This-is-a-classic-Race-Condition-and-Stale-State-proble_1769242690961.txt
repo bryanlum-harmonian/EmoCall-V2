@@ -1,0 +1,98 @@
+This is a classic "Race Condition" and "Stale State" problem. It happens when the matchmaking logic isn't "Atomic" (meaning it doesn't handle two actions happening at different times correctly).
+
+Here is a comprehensive list of Test Cases to break your system (so you can fix it) and the Logic Blueprint you need to give Replit to fix the code.
+
+Part 1: The "Kill Switch" Test Cases
+Use this list to test your app. If you pass all of these, your matching system is stable.
+
+Category A: The Basic Flow (Sanity Check)
+Listener First: User A (Listener) joins -> Waits -> User B (Venter) joins. (Result: Match)
+
+Venter First: User B (Venter) joins -> Waits -> User A (Listener) joins. (Result: Match)
+
+Current Status: FAILING. (This implies the Listener isn't checking the queue properly).
+
+Category B: The "Ghost" & Cancellation (Stale Data)
+The "Impatient" User: User A joins, waits 10 seconds, clicks "Cancel/Back". User B joins immediately after.
+
+Expected: B should NOT match with A. B should see "Waiting".
+
+Bug Risk: If B matches with A, your DB didn't delete A when they clicked Cancel.
+
+The "App Killer": User A joins, waits, then Force Closes the app (swipes up). User B joins.
+
+Expected: B waits.
+
+Bug Risk: B matches with "Ghost A" because the server never got the "Disconnect" signal.
+
+Category C: The Race Conditions (Concurrency)
+The "Simultaneous" Click: User A and User B click the button at the exact same second.
+
+Expected: One matches the other.
+
+Bug Risk: Both enter the "Waiting" queue and sit there staring at the screen because neither checked for the other after joining.
+
+The "Threesome" Bug: User A (Listener) is waiting. User B (Venter) and User C (Venter) join at the same time.
+
+Expected: A matches with B. C waits.
+
+Bug Risk: A matches with BOTH B and C (Double Booking), or the server crashes.
+
+Category D: The "Role Swap" (State Confusion)
+The Identity Crisis: User A plays as a Listener (call ends). User A immediately tries to join as a Venter.
+
+Bug Risk: System still thinks A is a "Listener" and tries to match A with another Venter.
+
+Part 2: The Solution for Replit (The Logic Fix)
+Copy and paste this prompt to Replit. It explains exactly how to code a Robust Matchmaking System that avoids these bugs.
+
+PROMPT FOR REPLIT:
+
+Plaintext
+I am experiencing critical bugs in the matchmaking logic (e.g., Venter first -> Listener join = No Match). The system seems to be crashing or creating "Ghost Matches."
+
+Please rewrite the matchmaking backend logic using the following "Atomic Locking" strategy to fix race conditions and stale data:
+
+### 1. The Database Schema Update
+Ensure the `matchmaking_queue` table has:
+- `user_id`: UUID
+- `role`: 'LISTENER' or 'VENTER'
+- `socket_id`: To notify them instantly.
+- `last_heartbeat`: Timestamp (Crucial for filtering dead users).
+- `status`: 'WAITING' or 'MATCHED'.
+
+### 2. The "Find Match" Algorithm (The Fix)
+When a user (let's say, a Listener) requests to join:
+
+STEP 1: CLEANUP (The Garbage Collector)
+- Before doing anything, delete any rows in the queue where `last_heartbeat` is older than 10 seconds.
+- This fixes the "Ghost Match" bug where User A enters a room alone.
+
+STEP 2: ATOMIC SEARCH (The Transaction)
+- Start a Database Transaction.
+- Look for a user in the queue who:
+  - Is the OPPOSITE role (Venter).
+  - Has status 'WAITING'.
+  - Is NOT me.
+- *CRITICAL:* Use `FOR UPDATE SKIP LOCKED` (if using Postgres). This locks the row so no other Listener can grab this Venter at the same time.
+
+STEP 3: DECISION
+- **IF FOUND:**
+  - Update both users to 'MATCHED'.
+  - Create a new Session/Call ID.
+  - Return the Call ID to both users immediately.
+- **IF NOT FOUND:**
+  - Insert myself into the queue with status 'WAITING'.
+  - Start sending "Heartbeats" every 5 seconds to tell the server "I am still here."
+
+### 3. The Polling/Socket Logic
+- If the user is put in the queue (WAITING), the Client must either:
+  - **Option A (WebSockets):** Listen for a `match_found` event.
+  - **Option B (Polling):** Query the endpoint `GET /match-status` every 2 seconds.
+  - *Current Bug Fix:* Ensure BOTH Venter and Listener run this check. Currently, it seems only one role triggers the check.
+
+Please implement this using [Insert your Tech Stack: e.g., Node.js + Supabase/Postgres].
+Why your current app is failing (The Diagnosis)
+Why "Venter first" fails: Your code likely says "When Listener joins -> Check Queue." But it forgets to say "When Venter joins -> Check Queue." It assumes Venters always wait. You need Symmetric Logic: Whoever joins second triggers the match.
+
+Why "Ghost Matches" happen: You are matching with database rows, not real people. User A closed the app, but their row remained in the DB. The "Heartbeat/Cleanup" log
