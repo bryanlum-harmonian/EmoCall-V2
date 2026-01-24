@@ -316,6 +316,24 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
               Unused extension time is refunded to your Time Bank if a call ends early.
             </ThemedText>
           </Animated.View>
+
+          <Animated.View
+            entering={FadeInUp.delay(500).duration(400)}
+            style={[styles.maxDurationCard, { backgroundColor: `${theme.secondary}10`, borderColor: theme.secondary }]}
+          >
+            <View style={styles.maxDurationHeader}>
+              <Feather name="heart" size={18} color={theme.secondary} />
+              <ThemedText type="body" style={{ color: theme.secondary, fontWeight: "600" }}>
+                60-Minute Maximum
+              </ThemedText>
+            </View>
+            <ThemedText
+              type="small"
+              style={{ color: theme.textSecondary, textAlign: "center", lineHeight: 20 }}
+            >
+              Beautiful moments don't need to last forever. Each call has a 60-minute limit—just enough time to share what matters, without overstaying. Keep the magic short and sweet; that's how real memories are made.
+            </ThemedText>
+          </Animated.View>
         </ScrollView>
       </View>
       
@@ -470,5 +488,20 @@ const styles = StyleSheet.create({
   refundNote: {
     marginTop: Spacing.md,
     fontStyle: "italic",
+  },
+  maxDurationCard: {
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+    borderRadius: BorderRadius.lg,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  maxDurationHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
   },
 });

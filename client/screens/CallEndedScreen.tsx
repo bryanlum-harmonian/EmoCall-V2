@@ -18,7 +18,7 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
-type EndReason = "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left";
+type EndReason = "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left" | "max_duration";
 
 const getEndReasonContent = (reason: EndReason) => {
   switch (reason) {
@@ -27,6 +27,12 @@ const getEndReasonContent = (reason: EndReason) => {
         icon: "clock" as const,
         title: "Time's Up",
         message: "Your free session has ended. Hope you found some relief!",
+      };
+    case "max_duration":
+      return {
+        icon: "heart" as const,
+        title: "A Beautiful Hour",
+        message: "The most precious moments are the ones we hold close. An hour of connection is a gift—treasure it, and carry its warmth with you.",
       };
     case "ended":
       return {

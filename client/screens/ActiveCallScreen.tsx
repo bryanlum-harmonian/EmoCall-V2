@@ -43,6 +43,8 @@ const MINUTE_REMINDER_INTERVAL = 60;
 const TOPUP_REMINDER_THRESHOLD = 600; // Start showing reminders when 10 minutes or less remaining
 const SAFETY_CHECK_INTERVAL = 120; // Show safety check every 2 minutes
 const AURA_AWARD_INTERVAL = 60; // Award aura every 1 minute
+const MAX_CALL_DURATION = 3600; // Maximum call duration: 60 minutes
+const MAX_DURATION_WARNING = 300; // Show warning 5 minutes before max
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -685,6 +687,7 @@ export default function ActiveCallScreen() {
   }, [remoteUserLeft, leaveVoice, navigation]);
 
   const [timeRemaining, setTimeRemaining] = useState(INITIAL_TIME);
+  const [totalCallTime, setTotalCallTime] = useState(0); // Track total elapsed time
   const [showExtensionModal, setShowExtensionModal] = useState(false);
   const [showReminderModal, setShowReminderModal] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
@@ -705,6 +708,8 @@ export default function ActiveCallScreen() {
   const [lastAuraAwardTime, setLastAuraAwardTime] = useState(INITIAL_TIME);
   const [showEndCallConfirm, setShowEndCallConfirm] = useState(false);
   const [showAuraInfo, setShowAuraInfo] = useState(false);
+  const [showMaxTimeWarning, setShowMaxTimeWarning] = useState(false);
+  const [reachedMaxDuration, setReachedMaxDuration] = useState(false);
 
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
@@ -736,6 +741,26 @@ export default function ActiveCallScreen() {
 
   const isWarningTime = timeRemaining <= WARNING_TIME && !hasExtended;
   const isUrgent = timeRemaining <= WARNING_TIME;
+
+  // Handle when max duration is reached - auto-end call with emotional message
+  useEffect(() => {
+    if (reachedMaxDuration && !hasEndedRef.current) {
+      hasEndedRef.current = true;
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (speakingRef.current) {
+        clearInterval(speakingRef.current);
+      }
+      setShowExtensionModal(false);
+      setShowReminderModal(false);
+      
+      endCallWs("max_duration", 0);
+      leaveVoice().then(() => {
+        navigation.replace("CallEnded", { reason: "max_duration" });
+      });
+    }
+  }, [reachedMaxDuration, leaveVoice, navigation, endCallWs]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -789,6 +814,27 @@ export default function ActiveCallScreen() {
     if (isConnecting) return;
 
     timerRef.current = setInterval(() => {
+      // Track total elapsed time
+      setTotalCallTime((prevTotal) => {
+        const newTotal = prevTotal + 1;
+        
+        // Check if we've reached max duration
+        if (newTotal >= MAX_CALL_DURATION) {
+          clearInterval(timerRef.current!);
+          setReachedMaxDuration(true);
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          return MAX_CALL_DURATION;
+        }
+        
+        // Show warning 5 minutes before max
+        if (newTotal === MAX_CALL_DURATION - MAX_DURATION_WARNING && !showMaxTimeWarning) {
+          setShowMaxTimeWarning(true);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        }
+        
+        return newTotal;
+      });
+      
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
@@ -833,7 +879,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, lastAuraAwardTime, awardCallMinute]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, lastAuraAwardTime, awardCallMinute, showMaxTimeWarning]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {
@@ -979,9 +1025,23 @@ export default function ActiveCallScreen() {
       setHasExtended(true);
       setCurrentExtension(extensionId);
       setExtensionStartTime(Date.now());
-      setTimeRemaining((prev) => prev + (result.minutes * 60));
+      
+      // Cap extension time so total doesn't exceed max duration
+      const remainingToMax = MAX_CALL_DURATION - totalCallTime;
+      const extensionSeconds = result.minutes * 60;
+      const cappedExtension = Math.min(extensionSeconds, remainingToMax - timeRemaining);
+      setTimeRemaining((prev) => prev + Math.max(0, cappedExtension));
     }
   };
+  
+  // Calculate available extension time
+  const getAvailableExtensionTime = () => {
+    const remainingToMax = MAX_CALL_DURATION - totalCallTime;
+    return Math.max(0, remainingToMax - timeRemaining);
+  };
+  
+  const availableExtensionMinutes = Math.floor(getAvailableExtensionTime() / 60);
+  const isNearMaxDuration = totalCallTime >= MAX_CALL_DURATION - MAX_DURATION_WARNING;
 
   const handleReminderExtend = () => {
     setShowReminderModal(false);
