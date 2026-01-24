@@ -467,6 +467,7 @@ async function findAndLockWaitingUser(
 
   console.log(`[Storage] Looking for ${mood}er, found`, users.length, "waiting in queue");
   console.log(`[Storage] activeConnections size:`, activeConnections.size);
+  console.log(`[Storage] activeConnections keys:`, Array.from(activeConnections.keys()).join(", "));
   if (users.length > 0) {
     console.log(`[Storage] Queue users:`, users.map(u => u.sessionId).join(", "));
   }
@@ -483,9 +484,10 @@ async function findAndLockWaitingUser(
     const connection = activeConnections.get(user.sessionId);
     console.log(`[Storage] Checking connection for ${user.sessionId}:`, connection ? `readyState=${connection.readyState}` : "NOT FOUND in activeConnections");
     if (!connection || connection.readyState !== 1) {
-      console.log(`[Storage] Removing stale ${mood}er without active connection:`, user.sessionId, "- connection:", connection ? "exists but wrong state" : "missing");
-      // IMPORTANT: Clean up this stale entry immediately
-      await leaveQueue(user.sessionId);
+      // User doesn't have active connection - they may be reconnecting
+      // Don't delete their queue entry (heartbeat timeout handles cleanup)
+      // Just skip them for now and try the next candidate
+      console.log(`[Storage] Skipping ${mood}er without active connection:`, user.sessionId, "- connection:", connection ? "exists but wrong state" : "missing (may be reconnecting)");
       continue;
     }
     

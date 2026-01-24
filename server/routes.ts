@@ -659,10 +659,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log(`[WS] Session ${sessionId} disconnected with pending match, keeping state for reconnect`);
               // Don't cleanup - they'll reconnect and send call_ready
             } else {
-              // NOT in a call and no pending match - user disconnected while in queue or idle
-              // Clean up queue state
-              console.log("[WS] Session disconnected while not in call, cleaning up queue");
-              await cleanupSessionState(sessionId, "ws_disconnect_not_in_call");
+              // NOT in a call and no pending match - user may be in queue or idle
+              // DON'T clean up queue immediately - let them reconnect
+              // The heartbeat timeout (15s) and active connection check during matching
+              // will clean up stale entries. This prevents race conditions when
+              // WebSocket disconnects briefly during matchmaking.
+              console.log(`[WS] Session ${sessionId} disconnected while in queue/idle, keeping queue entry for reconnect`);
+              // Don't cleanup - they may reconnect quickly
             }
           }
         }
