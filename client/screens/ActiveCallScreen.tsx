@@ -739,9 +739,14 @@ export default function ActiveCallScreen() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const speakingRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { endCall: endCallWs, callEndedByPartner, clearCallEnded } = useMatchmaking({
+  const { endCall: endCallWs, callEndedByPartner, clearCallEnded, signalReady, callStartedAt, state: matchmakingState } = useMatchmaking({
     sessionId: session?.id || null,
   });
+  
+  // Track if we've signaled ready to the server
+  const hasSignaledReadyRef = useRef(false);
+  // Track if we're waiting for partner to be ready
+  const [waitingForPartner, setWaitingForPartner] = useState(true);
 
   useEffect(() => {
     if (callEndedByPartner && !hasEndedRef.current) {
@@ -791,20 +796,46 @@ export default function ActiveCallScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Join Agora immediately, then signal ready to the server
   useEffect(() => {
-    const connectTimeout = setTimeout(() => {
+    console.log("[ActiveCall] Joining voice channel immediately...");
+    joinVoice();
+  }, []);
+  
+  // When Agora is connected, signal ready to the server
+  useEffect(() => {
+    if (isVoiceConnected && !hasSignaledReadyRef.current && callId) {
+      console.log("[ActiveCall] Agora connected, signaling ready to server...");
+      hasSignaledReadyRef.current = true;
+      signalReady(callId);
+    }
+  }, [isVoiceConnected, callId, signalReady]);
+  
+  // When call_started is received, stop the connecting state and start the timer
+  useEffect(() => {
+    if (callStartedAt && waitingForPartner) {
+      console.log("[ActiveCall] call_started received! startedAt:", callStartedAt);
+      setWaitingForPartner(false);
+      
+      // Reset timer to exactly 5 minutes (ignore any previous elapsed time since we're synchronized now)
+      setTimeRemaining(INITIAL_TIME);
+      setTotalCallTime(0);
+      setLastReminderTime(INITIAL_TIME);
+      setLastSafetyCheckTime(INITIAL_TIME);
+      setLastAuraAwardTime(INITIAL_TIME);
+      
+      // Now we're ready to start
       setIsConnecting(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }, 2000);
-
-    return () => clearTimeout(connectTimeout);
-  }, []);
-
-  useEffect(() => {
-    if (!isConnecting) {
-      joinVoice();
     }
-  }, [isConnecting, joinVoice]);
+  }, [callStartedAt, waitingForPartner]);
+  
+  // Also handle matchmaking state changes for waiting_for_partner
+  useEffect(() => {
+    if (matchmakingState === "waiting_for_partner") {
+      console.log("[ActiveCall] Waiting for partner to join...");
+    }
+  }, [matchmakingState]);
 
   useEffect(() => {
     if (isConnecting) return;
@@ -1167,13 +1198,17 @@ export default function ActiveCallScreen() {
               </View>
             </Animated.View>
             <ThemedText type="h3" style={styles.connectingText}>
-              Connecting...
+              {isVoiceConnected && waitingForPartner ? "Waiting for Partner..." : "Connecting..."}
             </ThemedText>
             <ThemedText
               type="body"
               style={[styles.connectingSubtext, { color: theme.textSecondary }]}
             >
-              Finding your match
+              {isVoiceConnected && waitingForPartner 
+                ? "Your partner is joining the call" 
+                : isVoiceConnecting 
+                  ? "Setting up voice connection" 
+                  : "Preparing your call"}
             </ThemedText>
           </Animated.View>
         ) : (

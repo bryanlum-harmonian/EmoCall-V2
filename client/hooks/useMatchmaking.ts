@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { getApiUrl } from "@/lib/query-client";
 
-type MatchmakingState = "idle" | "connecting" | "in_queue" | "matched" | "error";
+type MatchmakingState = "idle" | "connecting" | "in_queue" | "matched" | "waiting_for_partner" | "call_started" | "error";
 
 interface MatchResult {
   callId: string;
@@ -14,6 +14,7 @@ interface UseMatchmakingOptions {
   sessionId: string | null;
   onMatchFound?: (match: MatchResult) => void;
   onCallEnded?: (reason: string) => void;
+  onCallStarted?: (startedAt: string, duration: number) => void;
 }
 
 interface UseMatchmakingReturn {
@@ -28,21 +29,25 @@ interface UseMatchmakingReturn {
   joinQueue: (mood: string, cardId: string) => void;
   leaveQueue: () => void;
   endCall: (reason?: string, remainingSeconds?: number) => void;
+  signalReady: (callId: string) => void;
+  callStartedAt: string | null;
 }
 
-export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatchmakingOptions): UseMatchmakingReturn {
+export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallStarted }: UseMatchmakingOptions): UseMatchmakingReturn {
   const [state, setState] = useState<MatchmakingState>("idle");
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [matchResult, setMatchResult] = useState<MatchResult | null>(null);
   const [callEndedByPartner, setCallEndedByPartner] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [callStartedAt, setCallStartedAt] = useState<string | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const stateRef = useRef<MatchmakingState>("idle");
   const onMatchFoundRef = useRef(onMatchFound);
   const onCallEndedRef = useRef(onCallEnded);
+  const onCallStartedRef = useRef(onCallStarted);
   // Store current queue info for auto-rejoin after reconnect
   const currentQueueRef = useRef<{ mood: string; cardId: string } | null>(null);
   const reconnectAttemptsRef = useRef(0);
@@ -59,6 +64,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   stateRef.current = state;
   onMatchFoundRef.current = onMatchFound;
   onCallEndedRef.current = onCallEnded;
+  onCallStartedRef.current = onCallStarted;
   
   const clearMatchResult = useCallback(() => {
     setMatchResult(null);
@@ -190,6 +196,22 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
               // Another tab/device connected with this session - don't auto-reconnect
               console.log("[Matchmaking] Connection replaced by another connection");
               connectionReplacedRef.current = true;
+              break;
+              
+            case "waiting_for_partner":
+              // User signaled ready, waiting for partner to also signal ready
+              console.log("[Matchmaking] Waiting for partner to be ready");
+              setState("waiting_for_partner");
+              break;
+              
+            case "call_started":
+              // Both users are ready - timer starts NOW
+              console.log("[Matchmaking] Call started! startedAt:", message.startedAt);
+              setState("call_started");
+              setCallStartedAt(message.startedAt);
+              if (onCallStartedRef.current) {
+                onCallStartedRef.current(message.startedAt, message.duration);
+              }
               break;
           }
         } catch (err) {
@@ -325,6 +347,21 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
       console.log("[Matchmaking] WARNING: WebSocket not open, cannot send end_call");
     }
     setState("idle");
+    setCallStartedAt(null);
+  }, []);
+  
+  const signalReady = useCallback((callId: string) => {
+    console.log("[Matchmaking] Signaling ready for call:", callId);
+    
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "call_ready",
+        callId,
+      }));
+      console.log("[Matchmaking] Sent call_ready message");
+    } else {
+      console.log("[Matchmaking] WARNING: WebSocket not open, cannot signal ready");
+    }
   }, []);
 
   // Connect when sessionId is available
@@ -432,5 +469,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
     joinQueue,
     leaveQueue,
     endCall,
+    signalReady,
+    callStartedAt,
   };
 }

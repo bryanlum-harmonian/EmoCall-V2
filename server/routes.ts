@@ -66,6 +66,11 @@ const activeConnections = new Map<string, WebSocket>();
 const activeCalls = new Map<string, { callId: string; partnerId: string; endTime: number; startTime: number }>();
 // Pending matches for users who weren't connected when match was found
 const pendingMatches = new Map<string, { callId: string; partnerId: string; duration: number; startedAt: string }>();
+// Track which users are ready for each call (both must signal ready before timer starts)
+// Key: callId, Value: Set of sessionIds that are ready
+const callReadyUsers = new Map<string, Set<string>>();
+// Track call participants for ready signaling
+const callParticipants = new Map<string, { venter: string; listener: string }>();
 // Grace period before ending call on disconnect (in milliseconds) - allows time for reconnect
 const CALL_DISCONNECT_GRACE_PERIOD = 15000; // 15 seconds
 
@@ -97,47 +102,48 @@ async function createMatch(
   pendingMatches.delete(venterSessionId);
   pendingMatches.delete(listenerSessionId);
   
-  // Create the call in database
+  // Create the call in database (startedAt will be updated when both users are ready)
   const call = await createCall({
     callerSessionId: venterSessionId,
     listenerSessionId: listenerSessionId,
     callerMood: "vent",
-    status: "connected",
+    status: "pending", // Status is pending until both users signal ready
     startedAt: new Date(),
   });
   
-  // Track active call for both users
-  const startTime = Date.now();
-  const startedAtISO = new Date(startTime).toISOString();
-  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
-  activeCalls.set(venterSessionId, { callId: call.id, partnerId: listenerSessionId, endTime, startTime });
-  activeCalls.set(listenerSessionId, { callId: call.id, partnerId: venterSessionId, endTime, startTime });
+  // Track call participants for ready signaling
+  callParticipants.set(call.id, { venter: venterSessionId, listener: listenerSessionId });
+  callReadyUsers.set(call.id, new Set());
+  
+  // Don't set activeCalls yet - will be set when both users are ready
+  // This prevents the timer from starting prematurely
   
   // Store pending match for BOTH users as backup for HTTP polling
+  // Note: startedAt is empty - will be set when both users signal ready
   const matchDataForVenter = {
     callId: call.id,
     partnerId: listenerSessionId,
     duration: DEFAULT_CALL_DURATION_SECONDS,
-    startedAt: startedAtISO,
+    startedAt: "", // Will be set in call_started message
   };
   const matchDataForListener = {
     callId: call.id,
     partnerId: venterSessionId,
     duration: DEFAULT_CALL_DURATION_SECONDS,
-    startedAt: startedAtISO,
+    startedAt: "", // Will be set in call_started message
   };
   pendingMatches.set(venterSessionId, matchDataForVenter);
   pendingMatches.set(listenerSessionId, matchDataForListener);
   
-  console.log("[Match] Match created! callId:", call.id, "startedAt:", startedAtISO);
+  console.log("[Match] Match created! callId:", call.id, "waiting for both users to signal ready");
   
-  // Notify both users via WebSocket
+  // Notify both users via WebSocket - they should navigate to call screen and signal ready
   const matchFoundMessage = (partnerId: string) => JSON.stringify({
     type: "match_found",
     callId: call.id,
     partnerId,
     duration: DEFAULT_CALL_DURATION_SECONDS,
-    startedAt: startedAtISO,
+    // Note: startedAt not included - timer doesn't start until call_started message
   });
   
   // Try to notify venter
@@ -321,6 +327,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const updated = await updateQueueHeartbeat(sessionId);
               if (updated) {
                 ws.send(JSON.stringify({ type: "heartbeat_ack" }));
+              }
+            }
+            break;
+          
+          case "call_ready":
+            // User signals they have joined Agora and are ready to start the call
+            // Timer only starts when BOTH users signal ready
+            if (sessionId && message.callId) {
+              const callId = message.callId;
+              const participants = callParticipants.get(callId);
+              const readySet = callReadyUsers.get(callId);
+              
+              if (participants && readySet) {
+                console.log(`[WS] call_ready received from ${sessionId} for call ${callId}`);
+                readySet.add(sessionId);
+                
+                // Check if both participants are ready
+                const bothReady = readySet.has(participants.venter) && readySet.has(participants.listener);
+                
+                if (bothReady) {
+                  console.log(`[WS] Both users ready for call ${callId} - starting timer NOW`);
+                  
+                  // NOW set the actual start time
+                  const startTime = Date.now();
+                  const startedAtISO = new Date(startTime).toISOString();
+                  const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
+                  
+                  // Set active calls for both users
+                  activeCalls.set(participants.venter, { callId, partnerId: participants.listener, endTime, startTime });
+                  activeCalls.set(participants.listener, { callId, partnerId: participants.venter, endTime, startTime });
+                  
+                  // Update the call status in database
+                  await updateCall(callId, {
+                    status: "connected",
+                    startedAt: new Date(startTime),
+                  });
+                  
+                  // Send call_started to BOTH users with the synchronized startedAt
+                  const callStartedMessage = JSON.stringify({
+                    type: "call_started",
+                    callId,
+                    startedAt: startedAtISO,
+                    duration: DEFAULT_CALL_DURATION_SECONDS,
+                  });
+                  
+                  const venterWs = activeConnections.get(participants.venter);
+                  const listenerWs = activeConnections.get(participants.listener);
+                  
+                  if (venterWs && venterWs.readyState === WebSocket.OPEN) {
+                    venterWs.send(callStartedMessage);
+                    console.log(`[WS] Sent call_started to venter ${participants.venter}`);
+                  }
+                  if (listenerWs && listenerWs.readyState === WebSocket.OPEN) {
+                    listenerWs.send(callStartedMessage);
+                    console.log(`[WS] Sent call_started to listener ${participants.listener}`);
+                  }
+                  
+                  // Clean up tracking maps
+                  callReadyUsers.delete(callId);
+                  callParticipants.delete(callId);
+                  pendingMatches.delete(participants.venter);
+                  pendingMatches.delete(participants.listener);
+                } else {
+                  // Send acknowledgement to let user know we're waiting for partner
+                  ws.send(JSON.stringify({ type: "waiting_for_partner", callId }));
+                  console.log(`[WS] Waiting for partner to be ready for call ${callId}`);
+                }
+              } else {
+                console.log(`[WS] call_ready for unknown call ${callId} from ${sessionId}`);
               }
             }
             break;
