@@ -48,6 +48,11 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
   const maxReconnectAttempts = 10;
   // Heartbeat interval ref for cleanup
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Track intentional connection replacement to prevent auto-reconnect
+  const connectionReplacedRef = useRef(false);
+  // Debounce: track last connection attempt time to prevent rapid reconnections
+  const lastConnectAttemptRef = useRef<number>(0);
+  const minConnectIntervalMs = 500;
   
   // Keep refs in sync with latest values
   stateRef.current = state;
@@ -82,6 +87,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
       console.log("[Matchmaking] Already connected");
       return;
     }
+    
+    // Debounce: prevent rapid reconnection attempts
+    const now = Date.now();
+    if (now - lastConnectAttemptRef.current < minConnectIntervalMs) {
+      console.log("[Matchmaking] Debouncing rapid connect attempt");
+      return;
+    }
+    lastConnectAttemptRef.current = now;
+    
+    // Reset connection_replaced flag for new connection
+    connectionReplacedRef.current = false;
 
     setState("connecting");
     setError(null);
@@ -167,6 +183,12 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
               setError(message.message);
               setState("error");
               break;
+              
+            case "connection_replaced":
+              // Another tab/device connected with this session - don't auto-reconnect
+              console.log("[Matchmaking] Connection replaced by another connection");
+              connectionReplacedRef.current = true;
+              break;
           }
         } catch (err) {
           console.error("[Matchmaking] Failed to parse message:", err);
@@ -183,6 +205,13 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded }: UseMatc
         console.log("[Matchmaking] Connection closed, state:", stateRef.current);
         wsRef.current = null;
         setIsConnected(false);
+        
+        // Don't auto-reconnect if this connection was intentionally replaced
+        if (connectionReplacedRef.current) {
+          console.log("[Matchmaking] Connection was replaced, not auto-reconnecting");
+          connectionReplacedRef.current = false;
+          return;
+        }
         
         // Auto-reconnect if we were in queue or matched (call in progress)
         if (stateRef.current === "in_queue" || stateRef.current === "matched") {
