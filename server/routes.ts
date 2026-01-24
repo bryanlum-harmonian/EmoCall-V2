@@ -203,7 +203,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 } catch (e) {
                   // Ignore send errors on closing connection
                 }
-                existingWs.close();
+                // Small delay to let client process the message before close
+                setTimeout(() => {
+                  if (existingWs.readyState === WebSocket.OPEN) {
+                    existingWs.close();
+                  }
+                }, 50);
               }
               activeConnections.set(sessionId, ws);
               
