@@ -48,11 +48,7 @@
           }
         }
       ],
-      "expo-web-browser",
-      [
-        "react-native-agora",
-        {}
-      ]
+      "expo-web-browser"
     ],
     "experiments": {
       "reactCompiler": true
