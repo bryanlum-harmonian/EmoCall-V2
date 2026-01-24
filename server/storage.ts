@@ -483,7 +483,9 @@ async function findAndLockWaitingUser(
     const connection = activeConnections.get(user.sessionId);
     console.log(`[Storage] Checking connection for ${user.sessionId}:`, connection ? `readyState=${connection.readyState}` : "NOT FOUND in activeConnections");
     if (!connection || connection.readyState !== 1) {
-      console.log(`[Storage] Skipping ${mood}er without active connection:`, user.sessionId, "- connection:", connection ? "exists but wrong state" : "missing");
+      console.log(`[Storage] Removing stale ${mood}er without active connection:`, user.sessionId, "- connection:", connection ? "exists but wrong state" : "missing");
+      // IMPORTANT: Clean up this stale entry immediately
+      await leaveQueue(user.sessionId);
       continue;
     }
     

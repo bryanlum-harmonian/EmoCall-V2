@@ -300,17 +300,23 @@ export default function MoodSelectionScreen() {
     isSearchingRef.current = isSearching;
   }, [isSearching]);
 
-  // Leave queue when navigating away from screen while searching (but NOT if we matched)
+  // Track leaveQueue in ref to avoid effect re-runs when callback changes
+  const leaveQueueRef = useRef(leaveQueue);
+  useEffect(() => {
+    leaveQueueRef.current = leaveQueue;
+  }, [leaveQueue]);
+
+  // Leave queue ONLY on actual component unmount (empty deps), NOT on re-renders
   useEffect(() => {
     return () => {
       if (isSearchingRef.current && !matchedSuccessfullyRef.current) {
         console.log("[MoodSelection] Component unmounting while searching (no match), leaving queue");
-        leaveQueue();
+        leaveQueueRef.current();
       } else if (matchedSuccessfullyRef.current) {
         console.log("[MoodSelection] Component unmounting after successful match, NOT leaving queue");
       }
     };
-  }, [leaveQueue]);
+  }, []); // Empty deps - only runs on mount/unmount
 
   // Handle match result
   useEffect(() => {
