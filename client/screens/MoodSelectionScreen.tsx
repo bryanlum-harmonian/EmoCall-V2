@@ -268,9 +268,16 @@ export default function MoodSelectionScreen() {
     fetchHabitData();
   }, [session?.id]);
 
+  // Track if we successfully matched - used to prevent cleanup from sending leave_queue
+  const matchedSuccessfullyRef = useRef(false);
+  
   const handleMatchFound = useCallback((match: { callId: string; partnerId: string; duration: number; startedAt?: string }) => {
     console.log("[MoodSelection] Match found:", match);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    // IMPORTANT: Mark as matched BEFORE navigation to prevent cleanup from calling leaveQueue
+    matchedSuccessfullyRef.current = true;
+    
     setIsSearching(false);
     setSelectedMood(null);
     // Use replace to prevent going back to this screen with stale state
@@ -293,12 +300,14 @@ export default function MoodSelectionScreen() {
     isSearchingRef.current = isSearching;
   }, [isSearching]);
 
-  // Leave queue when navigating away from screen while searching
+  // Leave queue when navigating away from screen while searching (but NOT if we matched)
   useEffect(() => {
     return () => {
-      if (isSearchingRef.current) {
-        console.log("[MoodSelection] Component unmounting while searching, leaving queue");
+      if (isSearchingRef.current && !matchedSuccessfullyRef.current) {
+        console.log("[MoodSelection] Component unmounting while searching (no match), leaving queue");
         leaveQueue();
+      } else if (matchedSuccessfullyRef.current) {
+        console.log("[MoodSelection] Component unmounting after successful match, NOT leaving queue");
       }
     };
   }, [leaveQueue]);

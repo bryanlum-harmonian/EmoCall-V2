@@ -615,10 +615,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await leaveQueue(partnerId);
             }
           } else {
-            // NOT in a call - user disconnected while in queue or idle
-            // Clean up queue and pending match state
-            console.log("[WS] Session disconnected while not in call, cleaning up queue");
-            await cleanupSessionState(sessionId, "ws_disconnect_not_in_call");
+            // Check if user has a pending match (matched but not yet both ready)
+            const pendingMatch = pendingMatches.get(sessionId);
+            if (pendingMatch) {
+              // User is in a pending call - DON'T clean up immediately
+              // They may reconnect to complete the call_ready signaling
+              console.log(`[WS] Session ${sessionId} disconnected with pending match, keeping state for reconnect`);
+              // Don't cleanup - they'll reconnect and send call_ready
+            } else {
+              // NOT in a call and no pending match - user disconnected while in queue or idle
+              // Clean up queue state
+              console.log("[WS] Session disconnected while not in call, cleaning up queue");
+              await cleanupSessionState(sessionId, "ws_disconnect_not_in_call");
+            }
           }
         }
         // If currentWs !== ws, a new connection has already replaced this one, so don't cleanup

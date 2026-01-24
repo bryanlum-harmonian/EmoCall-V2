@@ -466,18 +466,24 @@ async function findAndLockWaitingUser(
   });
 
   console.log(`[Storage] Looking for ${mood}er, found`, users.length, "waiting in queue");
+  console.log(`[Storage] activeConnections size:`, activeConnections.size);
+  if (users.length > 0) {
+    console.log(`[Storage] Queue users:`, users.map(u => u.sessionId).join(", "));
+  }
 
   // Step 3: Try to atomically claim each candidate
   for (const user of users) {
     // Skip self
     if (excludeSessionId && user.sessionId === excludeSessionId) {
+      console.log(`[Storage] Skipping self:`, user.sessionId);
       continue;
     }
     
     // Check for active WebSocket connection
     const connection = activeConnections.get(user.sessionId);
+    console.log(`[Storage] Checking connection for ${user.sessionId}:`, connection ? `readyState=${connection.readyState}` : "NOT FOUND in activeConnections");
     if (!connection || connection.readyState !== 1) {
-      console.log(`[Storage] Skipping ${mood}er without active connection:`, user.sessionId);
+      console.log(`[Storage] Skipping ${mood}er without active connection:`, user.sessionId, "- connection:", connection ? "exists but wrong state" : "missing");
       continue;
     }
     
