@@ -421,7 +421,7 @@ export default function MoodSelectionScreen() {
         <Animated.View entering={FadeIn.delay(200).duration(400)} style={styles.header}>
           <View style={styles.logoContainer}>
             <Image
-              source={require("../../assets/images/icon.png")}
+              source={require("../../assets/images/logo.png")}
               style={styles.logo}
               resizeMode="contain"
             />
