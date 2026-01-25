@@ -34,6 +34,7 @@ import {
   findWaitingListener,
   getQueuePosition,
   createReport,
+  createBugReport,
   createCallRating,
   hasSubmittedRating,
   activatePremium,
@@ -1177,6 +1178,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error creating report:", error);
       res.status(500).json({ error: "Failed to create report" });
+    }
+  });
+
+  // ===============================
+  // Bug Reports API
+  // ===============================
+
+  app.post("/api/bug-reports", async (req: Request, res: Response) => {
+    try {
+      const { sessionId, description, deviceInfo } = req.body;
+      
+      if (!description || typeof description !== "string" || description.trim().length === 0) {
+        return res.status(400).json({ error: "Description is required" });
+      }
+
+      await createBugReport({
+        sessionId: sessionId || null,
+        description: description.trim(),
+        deviceInfo: deviceInfo || null,
+      });
+      
+      console.log("[Bug Report] New bug report submitted:", description.substring(0, 50) + "...");
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error creating bug report:", error);
+      res.status(500).json({ error: "Failed to submit bug report" });
     }
   });
 

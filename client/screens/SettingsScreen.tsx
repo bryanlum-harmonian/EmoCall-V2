@@ -13,6 +13,7 @@ import { ThemedView } from "@/components/ThemedView";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { CreditsStoreModal } from "@/components/CreditsStoreModal";
 import { BackupRestoreModal } from "@/components/BackupRestoreModal";
+import { BugReportModal } from "@/components/BugReportModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
@@ -123,6 +124,7 @@ export default function SettingsScreen() {
   const [blockLastMatch, setBlockLastMatch] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
+  const [showBugReport, setShowBugReport] = useState(false);
 
   const handleBlockToggle = async (value: boolean) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -429,6 +431,14 @@ export default function SettingsScreen() {
             onPress={handleContactSupport}
             delay={750}
           />
+          <View style={[styles.divider, { backgroundColor: theme.border }]} />
+          <SettingsItem
+            icon="alert-circle"
+            title={t("settings.reportBug")}
+            subtitle={t("settings.reportBugSubtitle")}
+            onPress={() => setShowBugReport(true)}
+            delay={800}
+          />
         </SettingsSection>
 
         <SettingsSection title={t("settings.sections.account")} delay={800}>
@@ -480,6 +490,11 @@ export default function SettingsScreen() {
         onRestoreSuccess={() => {
           Alert.alert(t("common.success"), t("settings.restoreSuccess"));
         }}
+      />
+
+      <BugReportModal
+        visible={showBugReport}
+        onClose={() => setShowBugReport(false)}
       />
     </ThemedView>
   );

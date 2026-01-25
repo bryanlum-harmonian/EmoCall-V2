@@ -7,6 +7,7 @@ import {
   creditTransactions,
   auraTransactions,
   reports,
+  bugReports,
   matchmakingQueue,
   callRatings,
   countryRankings,
@@ -17,6 +18,7 @@ import {
   type InsertCreditTransaction,
   type InsertAuraTransaction,
   type InsertReport,
+  type InsertBugReport,
   type InsertMatchmakingQueue,
   type InsertCallRating,
   type CallRating,
@@ -544,6 +546,11 @@ export async function getQueuePosition(sessionId: string): Promise<number> {
 // Reports
 export async function createReport(data: InsertReport): Promise<void> {
   await db.insert(reports).values(data);
+}
+
+// Bug Reports
+export async function createBugReport(data: InsertBugReport): Promise<void> {
+  await db.insert(bugReports).values(data);
 }
 
 // Call Ratings

@@ -148,6 +148,22 @@ export const insertCountryRankingSchema = createInsertSchema(countryRankings);
 export type InsertCountryRanking = z.infer<typeof insertCountryRankingSchema>;
 export type CountryRanking = typeof countryRankings.$inferSelect;
 
+// Bug reports from users
+export const bugReports = pgTable("bug_reports", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id"),
+  description: text("description").notNull(),
+  deviceInfo: text("device_info"), // Platform, OS version, app version
+  status: text("status").notNull().default("pending"), // pending, reviewed, resolved
+  createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
+});
+
+export const insertBugReportSchema = createInsertSchema(bugReports);
+export type InsertBugReport = z.infer<typeof insertBugReportSchema>;
+export type BugReport = typeof bugReports.$inferSelect;
+
 // Matchmaking queue
 export const matchmakingQueue = pgTable("matchmaking_queue", {
   id: varchar("id")
