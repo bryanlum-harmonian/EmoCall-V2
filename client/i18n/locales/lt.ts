@@ -131,6 +131,13 @@ export default {
     successMessage: "Pranešimas pateiktas. Ačiū, kad padedate išlaikyti mūsų bendruomenę saugią.",
   },
   
+  searching: {
+    waitingForListener: "Laukiama klausytojo...",
+    connecting: "Jungiamasi...",
+    willConnectSoon: "Kažkas netrukus prisijungs prie jūsų",
+    findingSomeone: "Ieškoma žmogaus, kuriam reikia pasikalbėti",
+  },
+  
   settings: {
     title: "Nustatymai",
     language: "Kalba",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Tai visam laikui ištrins visus jūsų duomenis, įskaitant kreditus ir auros taškus.",
     contact: "Susisiekite su Mumis",
     rateApp: "Įvertinkite EmoCall",
+    sections: {
+      subscription: "PRENUMERATA",
+      language: "KALBA",
+      appearance: "IŠVAIZDA",
+      safety: "SAUGUMAS",
+      legal: "TEISINĖ INFO",
+      support: "PAGALBA",
+      account: "PASKYRA",
+    },
   },
   
   credits: {

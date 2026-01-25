@@ -131,6 +131,13 @@ export default {
     successMessage: "رپورٹ جمع کر دی گئی۔ ہماری کمیونٹی کو محفوظ رکھنے میں مدد کے لیے شکریہ۔",
   },
   
+  searching: {
+    waitingForListener: "سننے والے کا انتظار...",
+    connecting: "جڑ رہا ہے...",
+    willConnectSoon: "کوئی جلد ہی آپ سے جڑے گا",
+    findingSomeone: "بات کرنا چاہنے والے کسی کو تلاش کر رہا ہے",
+  },
+  
   settings: {
     title: "سیٹنگز",
     language: "زبان",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "یہ آپ کا تمام ڈیٹا مستقل طور پر حذف کر دے گا بشمول کریڈٹس اور آورا پوائنٹس۔",
     contact: "ہم سے رابطہ کریں",
     rateApp: "EmoCall کی درجہ بندی کریں",
+    sections: {
+      subscription: "سبسکرپشن",
+      language: "زبان",
+      appearance: "ظاہری شکل",
+      safety: "حفاظت",
+      legal: "قانونی",
+      support: "سپورٹ",
+      account: "اکاؤنٹ",
+    },
   },
   
   credits: {

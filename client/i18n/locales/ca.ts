@@ -115,6 +115,13 @@ export default {
     backToHome: "Tornar a l'inici",
   },
   
+  searching: {
+    waitingForListener: "Esperant un Oient...",
+    connecting: "Connectant...",
+    willConnectSoon: "Algú es connectarà amb tu aviat",
+    findingSomeone: "Buscant algú que necessita parlar",
+  },
+  
   report: {
     title: "Denunciar usuari",
     subtitle: "Ajuda'ns a mantenir EmoCall segur",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Això eliminarà permanentment totes les teves dades, inclosos els crèdits i punts d'aura.",
     contact: "Contacta'ns",
     rateApp: "Valora EmoCall",
+    sections: {
+      subscription: "SUBSCRIPCIÓ",
+      language: "IDIOMA",
+      appearance: "APARENÇA",
+      safety: "SEGURETAT",
+      legal: "LEGAL",
+      support: "SUPORT",
+      account: "COMPTE",
+    },
   },
   
   credits: {

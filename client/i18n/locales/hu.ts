@@ -131,6 +131,13 @@ export default {
     successMessage: "Jelentés elküldve. Köszönjük, hogy segítesz biztonságban tartani közösségünket.",
   },
   
+  searching: {
+    waitingForListener: "Várakozás hallgatóra...",
+    connecting: "Kapcsolódás...",
+    willConnectSoon: "Valaki hamarosan kapcsolódik hozzád",
+    findingSomeone: "Keresünk valakit, akinek beszélnie kell",
+  },
+  
   settings: {
     title: "Beállítások",
     language: "Nyelv",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Ez véglegesen törli az összes adatodat, beleértve a krediteket és aura pontokat.",
     contact: "Kapcsolat",
     rateApp: "EmoCall értékelése",
+    sections: {
+      subscription: "ELŐFIZETÉS",
+      language: "NYELV",
+      appearance: "MEGJELENÉS",
+      safety: "BIZTONSÁG",
+      legal: "JOGI",
+      support: "TÁMOGATÁS",
+      account: "FIÓK",
+    },
   },
   
   credits: {

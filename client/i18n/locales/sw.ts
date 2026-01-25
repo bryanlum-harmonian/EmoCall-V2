@@ -115,6 +115,13 @@ export default {
     backToHome: "Rudi Nyumbani",
   },
   
+  searching: {
+    waitingForListener: "Inasubiri Msikilizaji...",
+    connecting: "Inaunganisha...",
+    willConnectSoon: "Mtu ataunganika nawe hivi karibuni",
+    findingSomeone: "Inatafuta mtu anayehitaji kuongea",
+  },
+  
   report: {
     title: "Ripoti Mtumiaji",
     subtitle: "Tusaidie kuweka EmoCall salama",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Hii itafuta kabisa data yako yote ikiwa ni pamoja na mikopo na pointi za aura.",
     contact: "Wasiliana Nasi",
     rateApp: "Kadiria EmoCall",
+    sections: {
+      subscription: "USAJILI",
+      language: "LUGHA",
+      appearance: "MUONEKANO",
+      safety: "USALAMA",
+      legal: "KISHERIA",
+      support: "MSAADA",
+      account: "AKAUNTI",
+    },
   },
   
   credits: {

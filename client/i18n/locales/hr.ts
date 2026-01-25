@@ -115,6 +115,13 @@ export default {
     backToHome: "Natrag na Početnu",
   },
   
+  searching: {
+    waitingForListener: "Čekanje Slušatelja...",
+    connecting: "Povezivanje...",
+    willConnectSoon: "Netko će se uskoro povezati s vama",
+    findingSomeone: "Traženje nekoga tko treba razgovarati",
+  },
+  
   report: {
     title: "Prijavi Korisnika",
     subtitle: "Pomozite nam održati EmoCall sigurnim",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Ovo će trajno izbrisati sve vaše podatke uključujući kredite i aura bodove.",
     contact: "Kontaktirajte Nas",
     rateApp: "Ocijenite EmoCall",
+    sections: {
+      subscription: "PRETPLATA",
+      language: "JEZIK",
+      appearance: "IZGLED",
+      safety: "SIGURNOST",
+      legal: "PRAVNO",
+      support: "PODRŠKA",
+      account: "RAČUN",
+    },
   },
   
   credits: {

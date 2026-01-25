@@ -131,6 +131,13 @@ export default {
     successMessage: "Ilmianto lähetetty. Kiitos että autat pitämään yhteisömme turvallisena.",
   },
   
+  searching: {
+    waitingForListener: "Odotetaan kuuntelijaa...",
+    connecting: "Yhdistetään...",
+    willConnectSoon: "Joku yhdistää sinuun pian",
+    findingSomeone: "Etsitään jotakuta joka tarvitsee puhua",
+  },
+  
   settings: {
     title: "Asetukset",
     language: "Kieli",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Tämä poistaa pysyvästi kaikki tietosi mukaan lukien krediitit ja aura-pisteet.",
     contact: "Ota Yhteyttä",
     rateApp: "Arvioi EmoCall",
+    sections: {
+      subscription: "TILAUS",
+      language: "KIELI",
+      appearance: "ULKOASU",
+      safety: "TURVALLISUUS",
+      legal: "OIKEUDELLINEN",
+      support: "TUKI",
+      account: "TILI",
+    },
   },
   
   credits: {

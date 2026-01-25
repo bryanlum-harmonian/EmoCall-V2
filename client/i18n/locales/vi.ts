@@ -131,6 +131,13 @@ export default {
     successMessage: "Báo cáo đã được gửi. Cảm ơn bạn đã giúp giữ cộng đồng của chúng tôi an toàn.",
   },
   
+  searching: {
+    waitingForListener: "Đang Chờ Người Lắng Nghe...",
+    connecting: "Đang Kết Nối...",
+    willConnectSoon: "Ai đó sẽ kết nối với bạn sớm",
+    findingSomeone: "Đang tìm người cần trò chuyện",
+  },
+  
   settings: {
     title: "Cài Đặt",
     language: "Ngôn ngữ",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Điều này sẽ xóa vĩnh viễn tất cả dữ liệu của bạn bao gồm xu và điểm aura.",
     contact: "Liên Hệ",
     rateApp: "Đánh Giá EmoCall",
+    sections: {
+      subscription: "ĐĂNG KÝ",
+      language: "NGÔN NGỮ",
+      appearance: "GIAO DIỆN",
+      safety: "AN TOÀN",
+      legal: "PHÁP LÝ",
+      support: "HỖ TRỢ",
+      account: "TÀI KHOẢN",
+    },
   },
   
   credits: {

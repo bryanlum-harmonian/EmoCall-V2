@@ -208,7 +208,8 @@ function RankingItem({ item, isUserCountry, theme, t }: RankingItemProps) {
 export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const { session } = useSession();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);

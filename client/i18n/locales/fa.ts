@@ -131,6 +131,13 @@ export default {
     successMessage: "گزارش ارسال شد. از کمک شما برای حفظ امنیت جامعه متشکریم.",
   },
   
+  searching: {
+    waitingForListener: "در انتظار شنونده...",
+    connecting: "در حال اتصال...",
+    willConnectSoon: "به زودی کسی به شما متصل می‌شود",
+    findingSomeone: "در حال یافتن کسی که نیاز به صحبت دارد",
+  },
+  
   settings: {
     title: "تنظیمات",
     language: "زبان",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "این کار تمام داده‌های شما از جمله اعتبار و امتیازات اورا را برای همیشه حذف می‌کند.",
     contact: "تماس با ما",
     rateApp: "امتیاز به EmoCall",
+    sections: {
+      subscription: "اشتراک",
+      language: "زبان",
+      appearance: "ظاهر",
+      safety: "امنیت",
+      legal: "قانونی",
+      support: "پشتیبانی",
+      account: "حساب",
+    },
   },
   
   credits: {

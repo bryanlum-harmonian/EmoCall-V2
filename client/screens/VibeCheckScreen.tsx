@@ -30,7 +30,8 @@ import { getApiUrl } from "@/lib/query-client";
 export default function VibeCheckScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const { syncWithBackend } = useAura();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();

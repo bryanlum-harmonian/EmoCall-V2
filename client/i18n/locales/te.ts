@@ -131,6 +131,13 @@ export default {
     successMessage: "నివేదిక సమర్పించబడింది. మా కమ్యూనిటీని సురక్షితంగా ఉంచడంలో సహాయపడినందుకు ధన్యవాదాలు.",
   },
   
+  searching: {
+    waitingForListener: "వినేవారి కోసం వేచి ఉంది...",
+    connecting: "కనెక్ట్ అవుతోంది...",
+    willConnectSoon: "త్వరలో ఎవరైనా మీతో కనెక్ట్ అవుతారు",
+    findingSomeone: "మాట్లాడాలనుకునే వారిని కనుగొంటోంది",
+  },
+  
   settings: {
     title: "సెట్టింగ్‌లు",
     language: "భాష",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "ఇది క్రెడిట్స్ మరియు ఆరా పాయింట్లతో సహా మీ మొత్తం డేటాను శాశ్వతంగా తొలగిస్తుంది.",
     contact: "మమ్మల్ని సంప్రదించండి",
     rateApp: "EmoCallని రేట్ చేయండి",
+    sections: {
+      subscription: "సబ్‌స్క్రిప్షన్",
+      language: "భాష",
+      appearance: "రూపం",
+      safety: "భద్రత",
+      legal: "చట్టపరమైన",
+      support: "మద్దతు",
+      account: "ఖాతా",
+    },
   },
   
   credits: {

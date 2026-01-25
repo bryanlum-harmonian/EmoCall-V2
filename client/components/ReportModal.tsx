@@ -46,7 +46,8 @@ export function ReportModal({
   isSubmitting = false,
 }: ReportModalProps) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const [selectedReasons, setSelectedReasons] = useState<Set<ReportReasonId>>(new Set());
   const [otherReason, setOtherReason] = useState("");
   const [showOther, setShowOther] = useState(false);

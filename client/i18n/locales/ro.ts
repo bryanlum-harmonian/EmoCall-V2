@@ -131,6 +131,13 @@ export default {
     successMessage: "Raport trimis. Mulțumim că ne ajuți să păstrăm comunitatea noastră sigură.",
   },
   
+  searching: {
+    waitingForListener: "Se așteaptă un ascultător...",
+    connecting: "Se conectează...",
+    willConnectSoon: "Cineva se va conecta cu tine în curând",
+    findingSomeone: "Căutăm pe cineva care are nevoie să vorbească",
+  },
+  
   settings: {
     title: "Setări",
     language: "Limbă",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Aceasta va șterge permanent toate datele tale, inclusiv creditele și punctele de aura.",
     contact: "Contactează-ne",
     rateApp: "Evaluează EmoCall",
+    sections: {
+      subscription: "ABONAMENT",
+      language: "LIMBĂ",
+      appearance: "ASPECT",
+      safety: "SIGURANȚĂ",
+      legal: "LEGAL",
+      support: "SUPORT",
+      account: "CONT",
+    },
   },
   
   credits: {

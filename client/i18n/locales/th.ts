@@ -131,6 +131,13 @@ export default {
     successMessage: "ส่งรายงานแล้ว ขอบคุณที่ช่วยรักษาความปลอดภัยของชุมชน",
   },
   
+  searching: {
+    waitingForListener: "กำลังรอผู้รับฟัง...",
+    connecting: "กำลังเชื่อมต่อ...",
+    willConnectSoon: "จะมีคนเชื่อมต่อกับคุณเร็วๆ นี้",
+    findingSomeone: "กำลังหาคนที่ต้องการพูดคุย",
+  },
+  
   settings: {
     title: "การตั้งค่า",
     language: "ภาษา",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "การดำเนินการนี้จะลบข้อมูลทั้งหมดของคุณอย่างถาวร รวมถึงเครดิตและคะแนนออร่า",
     contact: "ติดต่อเรา",
     rateApp: "ให้คะแนน EmoCall",
+    sections: {
+      subscription: "การสมัครสมาชิก",
+      language: "ภาษา",
+      appearance: "ลักษณะที่ปรากฏ",
+      safety: "ความปลอดภัย",
+      legal: "ข้อกฎหมาย",
+      support: "การสนับสนุน",
+      account: "บัญชี",
+    },
   },
   
   credits: {

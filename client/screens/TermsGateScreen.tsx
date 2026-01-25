@@ -24,7 +24,8 @@ interface TermsGateScreenProps {
 export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const scale = useSharedValue(1);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);

@@ -131,6 +131,13 @@ export default {
     successMessage: "Rapor gönderildi. Topluluğumuzu güvende tutmaya yardımcı olduğunuz için teşekkürler.",
   },
   
+  searching: {
+    waitingForListener: "Dinleyici Bekleniyor...",
+    connecting: "Bağlanıyor...",
+    willConnectSoon: "Birisi yakında sizinle bağlanacak",
+    findingSomeone: "Konuşmak isteyen biri aranıyor",
+  },
+  
   settings: {
     title: "Ayarlar",
     language: "Dil",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Bu, krediler ve aura puanları dahil tüm verilerinizi kalıcı olarak silecektir.",
     contact: "İletişim",
     rateApp: "EmoCall'ı Değerlendir",
+    sections: {
+      subscription: "ABONELİK",
+      language: "DİL",
+      appearance: "GÖRÜNÜM",
+      safety: "GÜVENLİK",
+      legal: "YASAL",
+      support: "DESTEK",
+      account: "HESAP",
+    },
   },
   
   credits: {

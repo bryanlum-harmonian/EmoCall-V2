@@ -131,6 +131,13 @@ export default {
     successMessage: "Laporan terkirim. Terima kasih telah membantu menjaga keamanan komunitas kami.",
   },
   
+  searching: {
+    waitingForListener: "Menunggu Pendengar...",
+    connecting: "Menghubungkan...",
+    willConnectSoon: "Seseorang akan segera terhubung dengan Anda",
+    findingSomeone: "Mencari seseorang yang perlu berbicara",
+  },
+  
   settings: {
     title: "Pengaturan",
     language: "Bahasa",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Ini akan menghapus semua data Anda secara permanen termasuk kredit dan poin aura.",
     contact: "Hubungi Kami",
     rateApp: "Beri Rating EmoCall",
+    sections: {
+      subscription: "LANGGANAN",
+      language: "BAHASA",
+      appearance: "TAMPILAN",
+      safety: "KEAMANAN",
+      legal: "LEGAL",
+      support: "DUKUNGAN",
+      account: "AKUN",
+    },
   },
   
   credits: {

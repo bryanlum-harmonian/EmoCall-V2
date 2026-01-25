@@ -115,6 +115,13 @@ export default {
     backToHome: "Späť Domov",
   },
   
+  searching: {
+    waitingForListener: "Čaká sa na Poslucháča...",
+    connecting: "Pripája sa...",
+    willConnectSoon: "Niekto sa s vami čoskoro spojí",
+    findingSomeone: "Hľadá sa niekto, kto potrebuje hovoriť",
+  },
+  
   report: {
     title: "Nahlásiť Používateľa",
     subtitle: "Pomôžte nám udržať EmoCall bezpečné",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Toto natrvalo vymaže všetky vaše údaje vrátane kreditov a bodov aury.",
     contact: "Kontaktujte Nás",
     rateApp: "Ohodnoťte EmoCall",
+    sections: {
+      subscription: "PREDPLATNÉ",
+      language: "JAZYK",
+      appearance: "VZHĽAD",
+      safety: "BEZPEČNOSŤ",
+      legal: "PRÁVNE",
+      support: "PODPORA",
+      account: "ÚČET",
+    },
   },
   
   credits: {

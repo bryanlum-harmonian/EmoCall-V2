@@ -131,6 +131,13 @@ export default {
     successMessage: "Rapport indsendt. Tak fordi du hjælper med at holde vores fællesskab sikkert.",
   },
   
+  searching: {
+    waitingForListener: "Venter på en lytter...",
+    connecting: "Forbinder...",
+    willConnectSoon: "Nogen vil snart forbinde med dig",
+    findingSomeone: "Finder nogen der har brug for at snakke",
+  },
+  
   settings: {
     title: "Indstillinger",
     language: "Sprog",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Dette vil permanent slette alle dine data inklusive kreditter og aura-point.",
     contact: "Kontakt Os",
     rateApp: "Bedøm EmoCall",
+    sections: {
+      subscription: "ABONNEMENT",
+      language: "SPROG",
+      appearance: "UDSEENDE",
+      safety: "SIKKERHED",
+      legal: "JURIDISK",
+      support: "SUPPORT",
+      account: "KONTO",
+    },
   },
   
   credits: {

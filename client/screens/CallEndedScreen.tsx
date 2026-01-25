@@ -92,7 +92,8 @@ const getEndReasonContent = (reason: EndReason, t: (key: string) => string) => {
 export default function CallEndedScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "CallEnded">>();
   const { session } = useSession();

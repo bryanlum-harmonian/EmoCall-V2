@@ -194,7 +194,8 @@ interface MinuteReminderModalProps {
 
 function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }: MinuteReminderModalProps) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -272,7 +273,8 @@ function SafetyCheckModal({
   showFollowUp 
 }: SafetyCheckModalProps) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -376,7 +378,8 @@ interface EndCallConfirmModalProps {
 
 function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmModalProps) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -449,7 +452,8 @@ function ExtensionModal({
   isFinalWarning = false,
 }: ExtensionModalProps) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -646,7 +650,8 @@ function ControlButton({
 export default function ActiveCallScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
   const { awardCallCompletion, awardCallExtension, awardCallMinute, aura } = useAura();
   const { session } = useSession();

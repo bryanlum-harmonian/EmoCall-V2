@@ -131,6 +131,13 @@ export default {
     successMessage: "Ziņojums iesniegts. Paldies, ka palīdzi uzturēt mūsu kopienu drošu.",
   },
   
+  searching: {
+    waitingForListener: "Gaida klausītāju...",
+    connecting: "Savienojas...",
+    willConnectSoon: "Kāds drīz savienosies ar tevi",
+    findingSomeone: "Meklē kādu, kam jāparunā",
+  },
+  
   settings: {
     title: "Iestatījumi",
     language: "Valoda",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Tas neatgriezeniski izdzēsīs visus tavus datus, ieskaitot kredītus un auras punktus.",
     contact: "Sazinies ar mums",
     rateApp: "Novērtē EmoCall",
+    sections: {
+      subscription: "ABONEMENTS",
+      language: "VALODA",
+      appearance: "IZSKATS",
+      safety: "DROŠĪBA",
+      legal: "JURIDISKĀ INFO",
+      support: "ATBALSTS",
+      account: "KONTS",
+    },
   },
   
   credits: {

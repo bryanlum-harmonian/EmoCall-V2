@@ -131,6 +131,13 @@ export default {
     successMessage: "Скаргу надіслано. Дякуємо за допомогу в підтримці безпеки нашої спільноти.",
   },
   
+  searching: {
+    waitingForListener: "Очікування слухача...",
+    connecting: "З'єднання...",
+    willConnectSoon: "Хтось незабаром з'єднається з вами",
+    findingSomeone: "Шукаємо когось, хто хоче поговорити",
+  },
+  
   settings: {
     title: "Налаштування",
     language: "Мова",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Це назавжди видалить усі ваші дані, включаючи кредити та бали аури.",
     contact: "Зв'язатися з нами",
     rateApp: "Оцінити EmoCall",
+    sections: {
+      subscription: "ПІДПИСКА",
+      language: "МОВА",
+      appearance: "ЗОВНІШНІЙ ВИГЛЯД",
+      safety: "БЕЗПЕКА",
+      legal: "ПРАВОВА ІНФОРМАЦІЯ",
+      support: "ПІДТРИМКА",
+      account: "АКАУНТ",
+    },
   },
   
   credits: {

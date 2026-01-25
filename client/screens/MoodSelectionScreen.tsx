@@ -146,7 +146,8 @@ interface RefillModalProps {
 
 function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage;
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -205,7 +206,8 @@ export default function MoodSelectionScreen() {
   const { session } = useSession();
   const { credits, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useCredits();
   const { aura, currentLevel } = useAura();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showRefillModal, setShowRefillModal] = useState(false);

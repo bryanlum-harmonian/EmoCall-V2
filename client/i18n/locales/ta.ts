@@ -131,6 +131,13 @@ export default {
     successMessage: "புகார் சமர்ப்பிக்கப்பட்டது. எங்கள் சமூகத்தை பாதுகாப்பாக வைக்க உதவியதற்கு நன்றி.",
   },
   
+  searching: {
+    waitingForListener: "கேட்பவருக்காக காத்திருக்கிறது...",
+    connecting: "இணைக்கிறது...",
+    willConnectSoon: "விரைவில் யாரோ உங்களுடன் இணைவார்கள்",
+    findingSomeone: "பேச வேண்டியவரைக் கண்டுபிடிக்கிறது",
+  },
+  
   settings: {
     title: "அமைப்புகள்",
     language: "மொழி",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "இது கிரெடிட்கள் மற்றும் aura புள்ளிகள் உட்பட உங்கள் அனைத்து தரவையும் நிரந்தரமாக நீக்கும்.",
     contact: "தொடர்புகொள்ளுங்கள்",
     rateApp: "EmoCall-ஐ மதிப்பிடு",
+    sections: {
+      subscription: "சந்தா",
+      language: "மொழி",
+      appearance: "தோற்றம்",
+      safety: "பாதுகாப்பு",
+      legal: "சட்ட",
+      support: "ஆதரவு",
+      account: "கணக்கு",
+    },
   },
   
   credits: {

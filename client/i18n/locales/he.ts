@@ -131,6 +131,13 @@ export default {
     successMessage: "הדיווח נשלח. תודה שאתה עוזר לשמור על הקהילה שלנו בטוחה.",
   },
   
+  searching: {
+    waitingForListener: "ממתין למאזין...",
+    connecting: "מתחבר...",
+    willConnectSoon: "מישהו יתחבר אליך בקרוב",
+    findingSomeone: "מחפש מישהו שצריך לדבר",
+  },
+  
   settings: {
     title: "הגדרות",
     language: "שפה",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "פעולה זו תמחק לצמיתות את כל הנתונים שלך כולל קרדיטים ונקודות אאורה.",
     contact: "צור קשר",
     rateApp: "דרג את EmoCall",
+    sections: {
+      subscription: "מנוי",
+      language: "שפה",
+      appearance: "מראה",
+      safety: "בטיחות",
+      legal: "משפטי",
+      support: "תמיכה",
+      account: "חשבון",
+    },
   },
   
   credits: {

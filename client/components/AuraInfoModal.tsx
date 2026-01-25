@@ -100,7 +100,8 @@ function LevelItem({ level, isCurrentLevel, theme, t }: LevelItemProps) {
 export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const { aura, currentLevel, nextLevel, progressToNextLevel } = useAura();
 
   const handleClose = () => {

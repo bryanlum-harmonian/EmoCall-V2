@@ -39,7 +39,8 @@ interface PurchaseConfirmation {
 export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
+  void currentLanguage; // Trigger re-render on language change
   const { credits, priorityTokens, isPremium, purchasePackage, setPremium } = useCredits();
   const [confirmation, setConfirmation] = useState<PurchaseConfirmation | null>(null);
 

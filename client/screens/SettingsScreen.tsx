@@ -115,7 +115,10 @@ export default function SettingsScreen() {
   const { theme, isDark, appTheme } = useTheme();
   const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
   const { credits, isPremium, setPremium } = useCredits();
-  const { getCurrentLanguageInfo, t } = useLanguage();
+  const { getCurrentLanguageInfo, t, currentLanguage } = useLanguage();
+  
+  // Force re-render when language changes by using currentLanguage as key dependency
+  void currentLanguage;
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);

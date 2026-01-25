@@ -131,6 +131,13 @@ export default {
     successMessage: "Rapport ingediend. Bedankt voor het veilig houden van onze community.",
   },
   
+  searching: {
+    waitingForListener: "Wachten op een luisteraar...",
+    connecting: "Verbinden...",
+    willConnectSoon: "Iemand zal binnenkort met je verbinden",
+    findingSomeone: "Iemand zoeken die wil praten",
+  },
+  
   settings: {
     title: "Instellingen",
     language: "Taal",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Dit verwijdert permanent al je gegevens inclusief credits en aurapunten.",
     contact: "Neem contact op",
     rateApp: "Beoordeel EmoCall",
+    sections: {
+      subscription: "ABONNEMENT",
+      language: "TAAL",
+      appearance: "UITERLIJK",
+      safety: "VEILIGHEID",
+      legal: "JURIDISCH",
+      support: "ONDERSTEUNING",
+      account: "ACCOUNT",
+    },
   },
   
   credits: {

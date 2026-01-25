@@ -131,6 +131,13 @@ export default {
     successMessage: "Teade esitatud. Täname, et aitad meie kogukonda turvalisena hoida.",
   },
   
+  searching: {
+    waitingForListener: "Ootan kuulajat...",
+    connecting: "Ühendamine...",
+    willConnectSoon: "Keegi ühendub sinuga peagi",
+    findingSomeone: "Otsin kedagi, kes vajab rääkimist",
+  },
+  
   settings: {
     title: "Seaded",
     language: "Keel",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "See kustutab jäädavalt kõik sinu andmed, sealhulgas krediidid ja aura punktid.",
     contact: "Võta meiega ühendust",
     rateApp: "Hinda EmoCall",
+    sections: {
+      subscription: "TELLIMUS",
+      language: "KEEL",
+      appearance: "VÄLIMUS",
+      safety: "TURVALISUS",
+      legal: "JURIIDILINE",
+      support: "TUGI",
+      account: "KONTO",
+    },
   },
   
   credits: {

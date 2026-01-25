@@ -131,6 +131,13 @@ export default {
     successMessage: "Η αναφορά υποβλήθηκε. Ευχαριστούμε που βοηθάτε να κρατήσουμε την κοινότητά μας ασφαλή.",
   },
   
+  searching: {
+    waitingForListener: "Αναμονή για ακροατή...",
+    connecting: "Σύνδεση...",
+    willConnectSoon: "Κάποιος θα συνδεθεί μαζί σας σύντομα",
+    findingSomeone: "Αναζήτηση κάποιου που χρειάζεται να μιλήσει",
+  },
+  
   settings: {
     title: "Ρυθμίσεις",
     language: "Γλώσσα",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Αυτό θα διαγράψει οριστικά όλα τα δεδομένα σας, συμπεριλαμβανομένων πιστώσεων και πόντων aura.",
     contact: "Επικοινωνήστε μαζί μας",
     rateApp: "Αξιολογήστε το EmoCall",
+    sections: {
+      subscription: "ΣΥΝΔΡΟΜΗ",
+      language: "ΓΛΩΣΣΑ",
+      appearance: "ΕΜΦΑΝΙΣΗ",
+      safety: "ΑΣΦΑΛΕΙΑ",
+      legal: "ΝΟΜΙΚΑ",
+      support: "ΥΠΟΣΤΗΡΙΞΗ",
+      account: "ΛΟΓΑΡΙΑΣΜΟΣ",
+    },
   },
   
   credits: {

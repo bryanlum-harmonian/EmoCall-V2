@@ -131,6 +131,13 @@ export default {
     successMessage: "Zgłoszenie wysłane. Dziękujemy za pomoc w utrzymaniu bezpieczeństwa naszej społeczności.",
   },
   
+  searching: {
+    waitingForListener: "Czekam na słuchacza...",
+    connecting: "Łączenie...",
+    willConnectSoon: "Ktoś wkrótce się z Tobą połączy",
+    findingSomeone: "Szukam kogoś, kto chce porozmawiać",
+  },
+  
   settings: {
     title: "Ustawienia",
     language: "Język",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "To trwale usunie wszystkie Twoje dane, w tym kredyty i punkty aury.",
     contact: "Skontaktuj się z nami",
     rateApp: "Oceń EmoCall",
+    sections: {
+      subscription: "SUBSKRYPCJA",
+      language: "JĘZYK",
+      appearance: "WYGLĄD",
+      safety: "BEZPIECZEŃSTWO",
+      legal: "INFORMACJE PRAWNE",
+      support: "WSPARCIE",
+      account: "KONTO",
+    },
   },
   
   credits: {

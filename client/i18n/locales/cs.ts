@@ -131,6 +131,13 @@ export default {
     successMessage: "Hlášení odesláno. Děkujeme, že pomáháte udržovat naši komunitu bezpečnou.",
   },
   
+  searching: {
+    waitingForListener: "Čekání na posluchače...",
+    connecting: "Připojování...",
+    willConnectSoon: "Někdo se s vámi brzy spojí",
+    findingSomeone: "Hledání někoho, kdo potřebuje mluvit",
+  },
+  
   settings: {
     title: "Nastavení",
     language: "Jazyk",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Toto trvale smaže všechna vaše data včetně kreditů a bodů aury.",
     contact: "Kontaktujte nás",
     rateApp: "Ohodnotit EmoCall",
+    sections: {
+      subscription: "PŘEDPLATNÉ",
+      language: "JAZYK",
+      appearance: "VZHLED",
+      safety: "BEZPEČNOST",
+      legal: "PRÁVNÍ",
+      support: "PODPORA",
+      account: "ÚČET",
+    },
   },
   
   credits: {

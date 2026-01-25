@@ -115,6 +115,13 @@ export default {
     backToHome: "Bumalik sa Home",
   },
   
+  searching: {
+    waitingForListener: "Naghihintay ng Tagapakinig...",
+    connecting: "Kumokonekta...",
+    willConnectSoon: "May makokonekta sa iyo sa lalong madaling panahon",
+    findingSomeone: "Naghahanap ng taong kailangang makipag-usap",
+  },
+  
   report: {
     title: "I-report ang User",
     subtitle: "Tulungan kaming panatilihing ligtas ang EmoCall",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Permanente nitong buburahin ang lahat ng iyong data kasama ang mga credits at aura points.",
     contact: "Makipag-ugnayan sa Amin",
     rateApp: "I-rate ang EmoCall",
+    sections: {
+      subscription: "SUBSCRIPTION",
+      language: "WIKA",
+      appearance: "ITSURA",
+      safety: "KALIGTASAN",
+      legal: "LEGAL",
+      support: "SUPORTA",
+      account: "ACCOUNT",
+    },
   },
   
   credits: {

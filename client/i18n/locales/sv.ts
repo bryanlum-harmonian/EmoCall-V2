@@ -131,6 +131,13 @@ export default {
     successMessage: "Rapport skickad. Tack för att du hjälper till att hålla vår gemenskap säker.",
   },
   
+  searching: {
+    waitingForListener: "Väntar på en lyssnare...",
+    connecting: "Ansluter...",
+    willConnectSoon: "Någon kommer snart ansluta till dig",
+    findingSomeone: "Letar efter någon som behöver prata",
+  },
+  
   settings: {
     title: "Inställningar",
     language: "Språk",
@@ -150,6 +157,15 @@ export default {
     deleteDataWarning: "Detta raderar permanent all din data inklusive krediter och aurapoäng.",
     contact: "Kontakta oss",
     rateApp: "Betygsätt EmoCall",
+    sections: {
+      subscription: "PRENUMERATION",
+      language: "SPRÅK",
+      appearance: "UTSEENDE",
+      safety: "SÄKERHET",
+      legal: "JURIDISK",
+      support: "SUPPORT",
+      account: "KONTO",
+    },
   },
   
   credits: {
