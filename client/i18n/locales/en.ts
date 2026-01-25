@@ -30,8 +30,8 @@ export default {
   
   mood: {
     headline: "How are you feeling?",
-    ventTitle: "I Need to Vent",
-    listenTitle: "I Can Listen",
+    ventTitle: "Vent",
+    listenTitle: "Listen",
     matchesLeft: "Matches Left",
     subtitle: "Pick your mood. You'll connect in 15 seconds.",
     noMatchesSubtitle: "Refill your matches to continue connecting",
