@@ -807,25 +807,20 @@ export default function ActiveCallScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Join Agora immediately, then signal ready to the server
+  // Signal ready to server immediately on mount (before Agora connects)
+  // This tells the server "I'm on the call screen"
   useEffect(() => {
-    console.log("[ActiveCall] Joining voice channel immediately...");
-    joinVoice();
-  }, []);
-  
-  // When Agora is connected, signal ready to the server
-  useEffect(() => {
-    if (isVoiceConnected && !hasSignaledReadyRef.current && callId) {
-      console.log("[ActiveCall] Agora connected, signaling ready to server...");
+    if (!hasSignaledReadyRef.current && callId) {
+      console.log("[ActiveCall] Signaling ready to server (waiting for partner)...");
       hasSignaledReadyRef.current = true;
       signalReady(callId);
     }
-  }, [isVoiceConnected, callId, signalReady]);
+  }, [callId, signalReady]);
   
-  // When call_started is received, stop the connecting state and start the timer
+  // When call_started is received (both users on screen), join Agora voice
   useEffect(() => {
     if (callStartedAt && waitingForPartner) {
-      console.log("[ActiveCall] call_started received! startedAt:", callStartedAt);
+      console.log("[ActiveCall] call_started received! Both users ready, joining voice...");
       setWaitingForPartner(false);
       
       // Reset timer to exactly 5 minutes (ignore any previous elapsed time since we're synchronized now)
@@ -835,11 +830,20 @@ export default function ActiveCallScreen() {
       setLastSafetyCheckTime(INITIAL_TIME);
       setLastAuraAwardTime(INITIAL_TIME);
       
-      // Now we're ready to start
+      // Now join Agora voice - both users are confirmed on the call screen
+      console.log("[ActiveCall] Joining Agora voice channel now...");
+      joinVoice();
+    }
+  }, [callStartedAt, waitingForPartner, joinVoice]);
+  
+  // When Agora is connected, we're fully ready - stop the connecting state
+  useEffect(() => {
+    if (isVoiceConnected && !waitingForPartner) {
+      console.log("[ActiveCall] Agora connected - call is now active!");
       setIsConnecting(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
-  }, [callStartedAt, waitingForPartner]);
+  }, [isVoiceConnected, waitingForPartner]);
   
   // Also handle matchmaking state changes for waiting_for_partner
   useEffect(() => {
