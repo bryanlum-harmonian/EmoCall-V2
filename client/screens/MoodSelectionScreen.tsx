@@ -485,143 +485,90 @@ export default function MoodSelectionScreen() {
           </View>
         </Animated.View>
 
-        {/* Level & Streak Badges */}
-        <Animated.View 
-          entering={FadeIn.delay(250).duration(400)} 
-          style={styles.karmaLevelContainer}
-        >
-          <View style={styles.levelStreakRow}>
-            <View style={[styles.karmaLevelBadge, { backgroundColor: theme.backgroundSecondary }]}>
-              <Feather name="award" size={12} color={theme.primary} />
-              <ThemedText type="caption" style={{ color: theme.text, fontWeight: "500" }}>
-                Level {currentLevel.level}: {currentLevel.name}
-              </ThemedText>
-            </View>
-            {dailyStreak > 0 ? (
-              <View style={[styles.streakBadge, { backgroundColor: `${theme.warning}20` }]}>
-                <Feather name="zap" size={12} color={theme.warning} />
-                <ThemedText type="caption" style={{ color: theme.warning, fontWeight: "600" }}>
-                  {dailyStreak} {t("mood.dayStreak")}
-                </ThemedText>
-              </View>
-            ) : null}
-          </View>
-        </Animated.View>
-
-        {/* Headline */}
-        <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-          <ThemedText type="h3" style={styles.headline}>
-            {t("mood.headline")}
-          </ThemedText>
-        </Animated.View>
-
-        {/* Matches Counter */}
-        <View style={styles.matchesCounter}>
-          <Animated.View 
-            entering={FadeIn.delay(400).duration(400)}
-            style={[
-              styles.matchesBadge,
-              { 
-                backgroundColor: noMatchesLeft ? `${theme.error}15` : theme.backgroundSecondary,
-                borderColor: noMatchesLeft ? theme.error : theme.border,
-              },
-            ]}
-          >
-            <Feather 
-              name="layers" 
-              size={14} 
-              color={noMatchesLeft ? theme.error : theme.primary} 
-            />
-            <ThemedText 
-              type="small" 
-              style={{ 
-                color: noMatchesLeft ? theme.error : theme.text,
-                fontWeight: "600",
-              }}
-            >
-              {t("mood.matchesLeft")}: {dailyMatchesLeft}/{MAX_DAILY_MATCHES}
+        {/* Main Content - Centered */}
+        <View style={styles.mainContent}>
+          {/* Headline */}
+          <Animated.View entering={FadeInUp.delay(300).duration(400)}>
+            <ThemedText type="h3" style={styles.headline}>
+              {t("mood.headline")}
             </ThemedText>
-            {noMatchesLeft ? (
-              <Pressable
-                onPress={() => setShowRefillModal(true)}
-                style={({ pressed }) => [
-                  styles.refillBadgeButton,
-                  { backgroundColor: theme.error, opacity: pressed ? 0.8 : 1 },
-                ]}
+          </Animated.View>
+
+          {/* Matches Counter */}
+          <View style={styles.matchesCounter}>
+            <Animated.View 
+              entering={FadeIn.delay(400).duration(400)}
+              style={[
+                styles.matchesBadge,
+                { 
+                  backgroundColor: noMatchesLeft ? `${theme.error}15` : theme.backgroundSecondary,
+                  borderColor: noMatchesLeft ? theme.error : theme.border,
+                },
+              ]}
+            >
+              <Feather 
+                name="layers" 
+                size={14} 
+                color={noMatchesLeft ? theme.error : theme.primary} 
+              />
+              <ThemedText 
+                type="small" 
+                style={{ 
+                  color: noMatchesLeft ? theme.error : theme.text,
+                  fontWeight: "600",
+                }}
               >
-                <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 10 }}>
-                  {t("mood.refill")}
-                </ThemedText>
-              </Pressable>
-            ) : null}
+                {t("mood.matchesLeft")}: {dailyMatchesLeft}/{MAX_DAILY_MATCHES}
+              </ThemedText>
+              {noMatchesLeft ? (
+                <Pressable
+                  onPress={() => setShowRefillModal(true)}
+                  style={({ pressed }) => [
+                    styles.refillBadgeButton,
+                    { backgroundColor: theme.error, opacity: pressed ? 0.8 : 1 },
+                  ]}
+                >
+                  <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 10 }}>
+                    {t("mood.refill")}
+                  </ThemedText>
+                </Pressable>
+              ) : null}
+            </Animated.View>
+          </View>
+
+          {/* Mood Cards */}
+          <View style={styles.cardsContainer}>
+            <MoodCard
+              type="vent"
+              icon="message-circle"
+              title={t("mood.ventTitle")}
+              onPress={() => handleMoodSelect("vent")}
+              delay={450}
+              disabled={noMatchesLeft}
+            />
+            <MoodCard
+              type="listen"
+              icon="headphones"
+              title={t("mood.listenTitle")}
+              onPress={() => handleMoodSelect("listen")}
+              delay={550}
+              disabled={noMatchesLeft}
+            />
+          </View>
+
+          {/* Subtitle */}
+          <Animated.View entering={FadeIn.delay(650).duration(400)}>
+            <ThemedText
+              type="caption"
+              style={[styles.subtitle, { color: theme.textSecondary }]}
+            >
+              {noMatchesLeft 
+                ? t("mood.noMatchesSubtitle")
+                : t("mood.subtitle")
+              }
+            </ThemedText>
           </Animated.View>
         </View>
-
-        {/* Mood Cards */}
-        <View style={styles.cardsContainer}>
-          <MoodCard
-            type="vent"
-            icon="message-circle"
-            title={t("mood.ventTitle")}
-            onPress={() => handleMoodSelect("vent")}
-            delay={450}
-            disabled={noMatchesLeft}
-          />
-          <MoodCard
-            type="listen"
-            icon="headphones"
-            title={t("mood.listenTitle")}
-            onPress={() => handleMoodSelect("listen")}
-            delay={550}
-            disabled={noMatchesLeft}
-          />
-        </View>
-
-        {/* Subtitle */}
-        <Animated.View entering={FadeIn.delay(650).duration(400)}>
-          <ThemedText
-            type="caption"
-            style={[styles.subtitle, { color: theme.textSecondary }]}
-          >
-            {noMatchesLeft 
-              ? t("mood.noMatchesSubtitle")
-              : t("mood.subtitle")
-            }
-          </ThemedText>
-        </Animated.View>
-
-        {/* Footer */}
-        <Animated.View entering={FadeIn.delay(750).duration(400)} style={styles.footer}>
-          <ThemedText
-            type="caption"
-            style={[styles.footerText, { color: theme.textDisabled }]}
-          >
-            {t("mood.anonymousCalls")}
-          </ThemedText>
-        </Animated.View>
-
-        {/* Developer Preview Button - for web testing */}
-        <Animated.View entering={FadeIn.delay(800).duration(400)} style={styles.devButtonContainer}>
-          <Pressable
-            onPress={() => {
-              navigation.navigate("ActiveCall", {
-                callId: "dev-preview-call",
-                partnerId: "dev-partner-123",
-                duration: 300,
-                isPreview: true,
-              });
-            }}
-            style={({ pressed }) => [
-              styles.devButton,
-              { backgroundColor: theme.backgroundSecondary, opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Feather name="code" size={14} color={theme.textSecondary} />
-            <ThemedText type="caption" style={{ color: theme.textSecondary }}>
-              Dev: Test Call Screen
-            </ThemedText>
-          </Pressable>
-        </Animated.View>
       </ScrollView>
 
       <CreditsStoreModal
@@ -709,6 +656,11 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: Spacing.lg,
+  },
+  mainContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   header: {
     flexDirection: "row",
