@@ -156,6 +156,7 @@ export const bugReports = pgTable("bug_reports", {
   sessionId: varchar("session_id"),
   description: text("description").notNull(),
   deviceInfo: text("device_info"), // Platform, OS version, app version
+  attachments: text("attachments").array(), // Array of file URLs for screenshots/videos
   status: text("status").notNull().default("pending"), // pending, reviewed, resolved
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
 });

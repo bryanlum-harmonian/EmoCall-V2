@@ -3,6 +3,9 @@ import { createServer, type Server } from "node:http";
 import { WebSocketServer, WebSocket, type RawData } from "ws";
 import type { IncomingMessage } from "node:http";
 import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:crypto";
+import path from "node:path";
+import fs from "node:fs";
+import multer from "multer";
 
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
@@ -74,6 +77,48 @@ const callReadyUsers = new Map<string, Set<string>>();
 const callParticipants = new Map<string, { venter: string; listener: string }>();
 // Grace period before ending call on disconnect (in milliseconds) - allows time for reconnect
 const CALL_DISCONNECT_GRACE_PERIOD = 15000; // 15 seconds
+
+// File upload configuration for bug report attachments
+const uploadsDir = path.join(process.cwd(), "server", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `bug-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB max per file
+    files: 5, // Max 5 files at once
+  },
+  fileFilter: (_req, file, cb) => {
+    // Allow images and videos
+    const allowedMimes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "video/mp4",
+      "video/quicktime",
+      "video/webm",
+    ];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only images and videos are allowed."));
+    }
+  },
+});
 
 // Helper function to clean up all state for a session (used after calls end or user leaves queue)
 async function cleanupSessionState(sessionId: string, reason: string = "cleanup") {
@@ -1182,24 +1227,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===============================
+  // File Upload API (for bug report attachments)
+  // ===============================
+
+  // Serve uploaded files statically
+  app.use("/uploads", (req: Request, res: Response, next) => {
+    const filePath = path.join(uploadsDir, req.path);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ error: "File not found" });
+    }
+  });
+
+  // Upload endpoint for bug report attachments
+  app.post("/api/upload", upload.array("files", 5), (req: Request, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "No files uploaded" });
+      }
+
+      // Return URLs for the uploaded files
+      const baseUrl = `${req.protocol}://${req.get("host")}`;
+      const urls = files.map((file) => `${baseUrl}/uploads/${file.filename}`);
+      
+      console.log(`[Upload] ${files.length} file(s) uploaded:`, urls);
+      res.json({ urls });
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      res.status(500).json({ error: "Failed to upload files" });
+    }
+  });
+
+  // ===============================
   // Bug Reports API
   // ===============================
 
   app.post("/api/bug-reports", async (req: Request, res: Response) => {
     try {
-      const { sessionId, description, deviceInfo } = req.body;
+      const { sessionId, description, deviceInfo, attachments } = req.body;
       
       if (!description || typeof description !== "string" || description.trim().length === 0) {
         return res.status(400).json({ error: "Description is required" });
+      }
+
+      // Validate attachments is an array of strings if provided
+      let validatedAttachments: string[] | null = null;
+      if (attachments && Array.isArray(attachments)) {
+        validatedAttachments = attachments.filter((a: unknown) => typeof a === "string");
       }
 
       await createBugReport({
         sessionId: sessionId || null,
         description: description.trim(),
         deviceInfo: deviceInfo || null,
+        attachments: validatedAttachments,
       });
       
-      console.log("[Bug Report] New bug report submitted:", description.substring(0, 50) + "...");
+      console.log("[Bug Report] New bug report submitted:", description.substring(0, 50) + "...", validatedAttachments?.length ? `with ${validatedAttachments.length} attachments` : "");
       res.json({ success: true });
     } catch (error) {
       console.error("Error creating bug report:", error);
