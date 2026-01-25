@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useSession } from "@/contexts/SessionContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { getApiUrl } from "@/lib/query-client";
@@ -74,10 +75,11 @@ function formatNumber(num: number): string {
 interface ShareableRankingCardProps {
   ranking: CountryRanking;
   theme: ReturnType<typeof useTheme>["theme"];
+  t: (key: string, options?: object) => string;
 }
 
 const ShareableRankingCard = React.forwardRef<View, ShareableRankingCardProps>(
-  ({ ranking, theme }, ref) => {
+  ({ ranking, theme, t }, ref) => {
     const isTop3 = ranking.rank <= 3;
     const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
     const medalColor = isTop3 ? medalColors[ranking.rank - 1] : theme.primary;
@@ -98,7 +100,7 @@ const ShareableRankingCard = React.forwardRef<View, ShareableRankingCardProps>(
             <View style={shareCardStyles.logoCircle}>
               <Feather name="phone-call" size={18} color={theme.primary} />
             </View>
-            <ThemedText style={shareCardStyles.brandName}>EmoCall</ThemedText>
+            <ThemedText style={shareCardStyles.brandName}>{t("common.appName")}</ThemedText>
           </View>
         </View>
 
@@ -115,23 +117,23 @@ const ShareableRankingCard = React.forwardRef<View, ShareableRankingCardProps>(
           {/* Rank badge */}
           <View style={[shareCardStyles.rankBadge, { backgroundColor: medalColor }]}>
             <Feather name="award" size={20} color="#FFFFFF" />
-            <ThemedText style={shareCardStyles.rankText}>#{ranking.rank} Worldwide</ThemedText>
+            <ThemedText style={shareCardStyles.rankText}>{t("rankings.worldwide", { rank: ranking.rank })}</ThemedText>
           </View>
 
           {/* Aura points */}
           <View style={shareCardStyles.auraContainer}>
             <Feather name="star" size={24} color="#FFD700" />
             <ThemedText style={shareCardStyles.auraText}>{formatNumber(ranking.totalAura)}</ThemedText>
-            <ThemedText style={shareCardStyles.auraLabel}>Total Aura</ThemedText>
+            <ThemedText style={shareCardStyles.auraLabel}>{t("rankings.totalAura")}</ThemedText>
           </View>
         </View>
 
         {/* Footer */}
         <View style={shareCardStyles.footer}>
-          <ThemedText style={shareCardStyles.tagline}>Join us on EmoCall!</ThemedText>
+          <ThemedText style={shareCardStyles.tagline}>{t("rankings.joinUs")}</ThemedText>
           <View style={shareCardStyles.userCount}>
             <Feather name="users" size={14} color="#FFFFFF99" />
-            <ThemedText style={shareCardStyles.userCountText}>{ranking.userCount} souls connected</ThemedText>
+            <ThemedText style={shareCardStyles.userCountText}>{t("rankings.soulsConnected", { count: ranking.userCount })}</ThemedText>
           </View>
         </View>
       </View>
@@ -143,9 +145,10 @@ interface RankingItemProps {
   item: CountryRanking;
   isUserCountry: boolean;
   theme: ReturnType<typeof useTheme>["theme"];
+  t: (key: string, options?: object) => string;
 }
 
-function RankingItem({ item, isUserCountry, theme }: RankingItemProps) {
+function RankingItem({ item, isUserCountry, theme, t }: RankingItemProps) {
   const isTop3 = item.rank <= 3;
   const medalColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
   const medalColor = isTop3 ? medalColors[item.rank - 1] : undefined;
@@ -186,7 +189,7 @@ function RankingItem({ item, isUserCountry, theme }: RankingItemProps) {
           {item.countryName}
         </ThemedText>
         <ThemedText type="small" style={{ color: theme.textSecondary }}>
-          {item.userCount} soul{item.userCount !== 1 ? "s" : ""}
+          {item.userCount} {item.userCount !== 1 ? t("rankings.soulsPlural") : t("rankings.souls")}
         </ThemedText>
       </View>
 
@@ -205,6 +208,7 @@ function RankingItem({ item, isUserCountry, theme }: RankingItemProps) {
 export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { session } = useSession();
   const shareCardRef = useRef<View>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -231,10 +235,15 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
     try {
       // On web, use simple text sharing since image capture isn't available
       if (Platform.OS === "web") {
-        const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} worldwide on EmoCall with ${formatNumber(userRanking.totalAura)} Aura! Join us!`;
+        const message = t("rankings.shareMessage", { 
+          flag: getFlag(userRanking.countryCode), 
+          country: userRanking.countryName, 
+          rank: userRanking.rank, 
+          aura: formatNumber(userRanking.totalAura) 
+        });
         await Share.share({
           message,
-          title: "EmoCall Global Rankings",
+          title: t("rankings.title"),
         });
         setIsSharing(false);
         return;
@@ -250,10 +259,15 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
       
       if (!isAvailable) {
         // Fallback to text sharing
-        const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} worldwide on EmoCall with ${formatNumber(userRanking.totalAura)} Aura! Join us!`;
+        const message = t("rankings.shareMessage", { 
+          flag: getFlag(userRanking.countryCode), 
+          country: userRanking.countryName, 
+          rank: userRanking.rank, 
+          aura: formatNumber(userRanking.totalAura) 
+        });
         await Share.share({
           message,
-          title: "EmoCall Global Rankings",
+          title: t("rankings.title"),
         });
         setIsSharing(false);
         return;
@@ -277,10 +291,15 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
       console.error("Error sharing:", error);
       // Fallback to text sharing on any error
       try {
-        const message = `${getFlag(userRanking.countryCode)} ${userRanking.countryName} is ranked #${userRanking.rank} worldwide on EmoCall with ${formatNumber(userRanking.totalAura)} Aura! Join us!`;
+        const message = t("rankings.shareMessage", { 
+          flag: getFlag(userRanking.countryCode), 
+          country: userRanking.countryName, 
+          rank: userRanking.rank, 
+          aura: formatNumber(userRanking.totalAura) 
+        });
         await Share.share({
           message,
-          title: "EmoCall Global Rankings",
+          title: t("rankings.title"),
         });
       } catch (e) {
         console.error("Fallback sharing failed:", e);
@@ -319,7 +338,7 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
         >
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <ThemedText type="h2" style={{ color: theme.text }}>
-              Global Rankings
+              {t("rankings.title")}
             </ThemedText>
             <Pressable onPress={handleClose} style={styles.closeButton}>
               <Feather name="x" size={24} color={theme.text} />
@@ -334,7 +353,7 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
                   {userRanking.countryName}
                 </ThemedText>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Ranked #{userRanking.rank} worldwide
+                  {t("rankings.rankedWorldwide", { rank: userRanking.rank })}
                 </ThemedText>
               </View>
               <Pressable 
@@ -354,14 +373,14 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
           {/* Hidden shareable card for image capture */}
           {userRanking ? (
             <View style={styles.hiddenCardContainer}>
-              <ShareableRankingCard ref={shareCardRef} ranking={userRanking} theme={theme} />
+              <ShareableRankingCard ref={shareCardRef} ranking={userRanking} theme={theme} t={t} />
             </View>
           ) : null}
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
               <ThemedText type="body" style={{ color: theme.textSecondary }}>
-                Loading rankings...
+                {t("rankings.loadingRankings")}
               </ThemedText>
             </View>
           ) : (
@@ -373,6 +392,7 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
                   item={item} 
                   isUserCountry={item.countryCode === userCountryCode}
                   theme={theme}
+                  t={t}
                 />
               )}
               contentContainerStyle={styles.listContent}
@@ -381,10 +401,10 @@ export function GlobalRankingsModal({ visible, onClose }: GlobalRankingsModalPro
                 <View style={styles.emptyContainer}>
                   <Feather name="globe" size={48} color={theme.textSecondary} />
                   <ThemedText type="body" style={{ color: theme.textSecondary, marginTop: Spacing.md }}>
-                    No rankings yet
+                    {t("rankings.noRankingsYet")}
                   </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary, textAlign: "center" }}>
-                    Be the first to earn Aura!
+                    {t("rankings.beFirstToEarn")}
                   </ThemedText>
                 </View>
               }

@@ -14,56 +14,77 @@ import { StarRating } from "@/components/StarRating";
 import { useTheme } from "@/hooks/useTheme";
 import { useSession } from "@/contexts/SessionContext";
 import { useAura } from "@/contexts/AuraContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
 
 type EndReason = "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left" | "max_duration";
 
-const getEndReasonContent = (reason: EndReason) => {
+const getEndReasonIcon = (reason: EndReason) => {
+  switch (reason) {
+    case "timeout":
+      return "clock" as const;
+    case "max_duration":
+      return "heart" as const;
+    case "ended":
+      return "phone-off" as const;
+    case "reported":
+      return "flag" as const;
+    case "disconnected":
+      return "wifi-off" as const;
+    case "partner_ended":
+    case "partner_left":
+      return "user-x" as const;
+    default:
+      return "phone" as const;
+  }
+};
+
+const getEndReasonContent = (reason: EndReason, t: (key: string) => string) => {
   switch (reason) {
     case "timeout":
       return {
-        icon: "clock" as const,
-        title: "Time's Up",
-        message: "Your free session has ended. Hope you found some relief!",
+        icon: getEndReasonIcon(reason),
+        title: t("callEnded.timeoutTitle"),
+        message: t("callEnded.timeoutMessage"),
       };
     case "max_duration":
       return {
-        icon: "heart" as const,
-        title: "A Beautiful Hour",
-        message: "The most precious moments are the ones we hold close. An hour of connection is a gift—treasure it, and carry its warmth with you.",
+        icon: getEndReasonIcon(reason),
+        title: t("callEnded.maxDurationTitle"),
+        message: t("callEnded.maxDurationMessage"),
       };
     case "ended":
       return {
-        icon: "phone-off" as const,
-        title: "Call Ended",
-        message: "How was the vibe?",
+        icon: getEndReasonIcon(reason),
+        title: t("callEnded.title"),
+        message: t("callEnded.howWasVibe"),
       };
     case "reported":
       return {
-        icon: "flag" as const,
-        title: "Report Submitted",
-        message: "Thank you for helping keep EmoCall safe. Your report has been logged.",
+        icon: getEndReasonIcon(reason),
+        title: t("callEnded.reportedTitle"),
+        message: t("callEnded.reportedMessage"),
       };
     case "disconnected":
       return {
-        icon: "wifi-off" as const,
-        title: "Connection Lost",
-        message: "The call was disconnected. Please try again.",
+        icon: getEndReasonIcon(reason),
+        title: t("callEnded.disconnectedTitle"),
+        message: t("callEnded.disconnectedMessage"),
       };
     case "partner_ended":
     case "partner_left":
       return {
-        icon: "user-x" as const,
-        title: "Partner Left",
-        message: "Your call partner ended the session. We hope you found some comfort.",
+        icon: getEndReasonIcon(reason),
+        title: t("partnerLeft.title"),
+        message: t("partnerLeft.message"),
       };
     default:
       return {
-        icon: "phone" as const,
-        title: "Call Ended",
-        message: "How was the vibe?",
+        icon: getEndReasonIcon(reason),
+        title: t("callEnded.title"),
+        message: t("callEnded.howWasVibe"),
       };
   }
 };
@@ -71,6 +92,7 @@ const getEndReasonContent = (reason: EndReason) => {
 export default function CallEndedScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "CallEnded">>();
   const { session } = useSession();
@@ -78,7 +100,7 @@ export default function CallEndedScreen() {
 
   const reason = route.params?.reason || "ended";
   const callId = route.params?.callId;
-  const content = getEndReasonContent(reason);
+  const content = getEndReasonContent(reason, t);
 
   const [voiceQuality, setVoiceQuality] = useState(0);
   const [strangerQuality, setStrangerQuality] = useState(0);
@@ -189,11 +211,11 @@ export default function CallEndedScreen() {
             style={[styles.ratingsCard, { backgroundColor: theme.backgroundSecondary }]}
           >
             <ThemedText type="caption" style={[styles.ratingsHeader, { color: theme.textSecondary }]}>
-              Rate your experience to continue
+              {t("callEnded.rateExperience")}
             </ThemedText>
 
             <StarRating
-              label="Voice Quality"
+              label={t("callEnded.voiceQuality")}
               rating={voiceQuality}
               onRatingChange={setVoiceQuality}
             />
@@ -201,7 +223,7 @@ export default function CallEndedScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <StarRating
-              label="Stranger Quality"
+              label={t("callEnded.strangerQuality")}
               rating={strangerQuality}
               onRatingChange={setStrangerQuality}
             />
@@ -209,7 +231,7 @@ export default function CallEndedScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <StarRating
-              label="Overall Experience"
+              label={t("callEnded.overallExperience")}
               rating={overallExperience}
               onRatingChange={setOverallExperience}
             />
@@ -218,7 +240,7 @@ export default function CallEndedScreen() {
               <View style={styles.auraRewardBadge}>
                 <Feather name="zap" size={16} color="#FFD700" />
                 <ThemedText type="caption" style={styles.auraRewardText}>
-                  +100 Aura for your feedback
+                  {t("callEnded.auraReward")}
                 </ThemedText>
               </View>
             ) : null}
@@ -234,12 +256,12 @@ export default function CallEndedScreen() {
               <Feather name="check" size={24} color="#FFFFFF" />
             </View>
             <ThemedText type="h4" style={styles.successTitle}>
-              Thanks for your feedback!
+              {t("callEnded.thankYou")}
             </ThemedText>
             <View style={styles.auraEarnedRow}>
               <Feather name="zap" size={20} color="#FFD700" />
               <ThemedText type="body" style={styles.auraEarnedText}>
-                +{auraEarned} Aura earned
+                +{auraEarned} {t("callEnded.auraEarned")}
               </ThemedText>
             </View>
           </Animated.View>
@@ -261,14 +283,14 @@ export default function CallEndedScreen() {
                   { backgroundColor: canSubmit ? theme.primary : theme.backgroundSecondary },
                 ]}
               >
-                {isSubmitting ? "Submitting..." : "Submit Feedback"}
+                {isSubmitting ? t("callEnded.submitting") : t("callEnded.submitFeedback")}
               </Button>
               <Button
                 onPress={handleSkipRating}
                 variant="secondary"
                 style={styles.secondaryButton}
               >
-                Skip
+                {t("callEnded.skip")}
               </Button>
             </>
           ) : (
@@ -276,7 +298,7 @@ export default function CallEndedScreen() {
               onPress={handleTryAgain}
               style={[styles.primaryButton, { backgroundColor: theme.primary }]}
             >
-              Start Another Call
+              {t("callEnded.newCall")}
             </Button>
           )}
         </Animated.View>

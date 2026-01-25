@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -45,6 +46,7 @@ export function ReportModal({
   isSubmitting = false,
 }: ReportModalProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [selectedReasons, setSelectedReasons] = useState<Set<ReportReasonId>>(new Set());
   const [otherReason, setOtherReason] = useState("");
   const [showOther, setShowOther] = useState(false);
@@ -112,10 +114,10 @@ export function ReportModal({
               <Feather name="flag" size={24} color={theme.error} />
             </View>
             <ThemedText type="h3" style={styles.title}>
-              Report User
+              {t("report.title")}
             </ThemedText>
             <ThemedText type="body" style={[styles.subtitle, { color: theme.textSecondary }]}>
-              Select all reasons that apply
+              {t("report.selectReasons")}
             </ThemedText>
           </View>
 
@@ -154,7 +156,7 @@ export function ReportModal({
                     ) : null}
                   </View>
                   <ThemedText type="body" style={{ flex: 1 }}>
-                    {reason.label}
+                    {t(`report.reasons.${reason.id}`)}
                   </ThemedText>
                 </Pressable>
               );
@@ -187,7 +189,7 @@ export function ReportModal({
                 ) : null}
               </View>
               <ThemedText type="body" style={{ flex: 1 }}>
-                Other
+                {t("report.reasons.other")}
               </ThemedText>
             </Pressable>
 
@@ -196,7 +198,7 @@ export function ReportModal({
                 <TextInput
                   value={otherReason}
                   onChangeText={setOtherReason}
-                  placeholder="Please describe the issue..."
+                  placeholder={t("report.placeholderDetails")}
                   placeholderTextColor={theme.textDisabled}
                   multiline
                   numberOfLines={3}
@@ -226,7 +228,7 @@ export function ReportModal({
               ]}
             >
               <ThemedText type="body" style={{ color: theme.text, fontWeight: "600" }}>
-                Cancel
+                {t("report.cancelButton")}
               </ThemedText>
             </Pressable>
 
@@ -243,13 +245,13 @@ export function ReportModal({
             >
               {isSubmitting ? (
                 <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                  Submitting...
+                  {t("report.submitting")}
                 </ThemedText>
               ) : (
                 <>
                   <Feather name="send" size={16} color="#FFFFFF" />
                   <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                    Submit Report
+                    {t("report.submitButton")}
                   </ThemedText>
                 </>
               )}

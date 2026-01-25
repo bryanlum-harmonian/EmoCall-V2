@@ -22,6 +22,7 @@ import { StarRating } from "@/components/StarRating";
 import { useTheme } from "@/hooks/useTheme";
 import { useSession } from "@/contexts/SessionContext";
 import { useAura } from "@/contexts/AuraContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl } from "@/lib/query-client";
@@ -29,6 +30,7 @@ import { getApiUrl } from "@/lib/query-client";
 export default function VibeCheckScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { syncWithBackend } = useAura();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -154,13 +156,13 @@ export default function VibeCheckScreen() {
 
         <Animated.View entering={FadeInUp.delay(400).duration(500)}>
           <ThemedText type="h3" style={styles.title}>
-            Call Ended
+            {t("callEnded.title")}
           </ThemedText>
           <ThemedText
             type="body"
             style={[styles.subtitle, { color: theme.textSecondary }]}
           >
-            How was the vibe?
+            {t("callEnded.howWasVibe")}
           </ThemedText>
         </Animated.View>
 
@@ -170,7 +172,7 @@ export default function VibeCheckScreen() {
             style={[styles.ratingsCard, { backgroundColor: theme.backgroundSecondary }]}
           >
             <StarRating
-              label="Voice Quality"
+              label={t("callEnded.voiceQuality")}
               rating={voiceQuality}
               onRatingChange={setVoiceQuality}
             />
@@ -178,7 +180,7 @@ export default function VibeCheckScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <StarRating
-              label="Stranger Quality"
+              label={t("callEnded.strangerQuality")}
               rating={strangerQuality}
               onRatingChange={setStrangerQuality}
             />
@@ -186,7 +188,7 @@ export default function VibeCheckScreen() {
             <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
             <StarRating
-              label="Experience"
+              label={t("callEnded.overallExperience")}
               rating={overallExperience}
               onRatingChange={setOverallExperience}
             />
@@ -195,7 +197,7 @@ export default function VibeCheckScreen() {
               <View style={styles.auraRewardBadge}>
                 <Feather name="zap" size={16} color="#FFD700" />
                 <ThemedText type="caption" style={styles.auraRewardText}>
-                  +100 Aura for your feedback
+                  {t("callEnded.auraReward")}
                 </ThemedText>
               </View>
             ) : null}
@@ -207,14 +209,14 @@ export default function VibeCheckScreen() {
                 <Feather name="check" size={24} color="#FFFFFF" />
               </View>
               <ThemedText type="h4" style={styles.successTitle}>
-                Thanks for your feedback!
+                {t("callEnded.thankYou")}
               </ThemedText>
               <View style={styles.auraEarnedRow}>
                 <Animated.View style={heartStyle}>
                   <Feather name="zap" size={20} color="#FFD700" />
                 </Animated.View>
                 <ThemedText type="body" style={styles.auraEarnedText}>
-                  +{auraEarned} Aura earned
+                  +{auraEarned} {t("callEnded.auraEarned")}
                 </ThemedText>
               </View>
             </View>
@@ -226,7 +228,7 @@ export default function VibeCheckScreen() {
         <View style={styles.actionsContainer}>
           {hasSubmitted ? (
             <Animated.View entering={FadeIn.delay(300)} style={styles.fullWidth}>
-              <Button onPress={handleGoHome}>Start Another Call</Button>
+              <Button onPress={handleGoHome}>{t("callEnded.newCall")}</Button>
             </Animated.View>
           ) : (
             <>
@@ -238,14 +240,14 @@ export default function VibeCheckScreen() {
                   { backgroundColor: canSubmit ? theme.primary : theme.backgroundSecondary },
                 ]}
               >
-                {isSubmitting ? "Submitting..." : "Submit Feedback"}
+                {isSubmitting ? t("callEnded.submitting") : t("callEnded.submitFeedback")}
               </Button>
               <Button
                 onPress={handleSkip}
                 variant="secondary"
                 style={styles.secondaryButton}
               >
-                Skip
+                {t("callEnded.skip")}
               </Button>
             </>
           )}

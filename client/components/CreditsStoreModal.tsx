@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import {
   useCredits,
@@ -38,6 +39,7 @@ interface PurchaseConfirmation {
 export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { credits, priorityTokens, isPremium, purchasePackage, setPremium } = useCredits();
   const [confirmation, setConfirmation] = useState<PurchaseConfirmation | null>(null);
 
@@ -67,29 +69,29 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
   };
 
   const getConfirmationContent = () => {
-    if (!confirmation) return { title: "", message: "", confirmText: "OK" };
+    if (!confirmation) return { title: "", message: "", confirmText: t("common.ok") };
     
     switch (confirmation.type) {
       case "credits":
         return {
-          title: "Purchase Credits",
-          message: `Buy ${confirmation.name} for $${confirmation.price?.toFixed(2)}?\n\nFor this demo, credits will be added for free.`,
-          confirmText: "Buy Now",
+          title: t("credits.purchaseCredits"),
+          message: t("credits.purchaseCreditsMessage", { name: confirmation.name, price: confirmation.price?.toFixed(2) }),
+          confirmText: t("credits.buyNow"),
         };
       case "premium":
         return {
-          title: "Subscribe to Premium",
-          message: `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n• ${PREMIUM_BONUS_CREDITS} bonus credits\n• Gender filter on daily cards\n• Priority matching\n\nFor this demo, premium will be activated for free.`,
-          confirmText: "Subscribe",
+          title: t("credits.subscribeToPremium"),
+          message: t("credits.premiumIncludes", { price: PREMIUM_MONTHLY_PRICE, credits: PREMIUM_BONUS_CREDITS }),
+          confirmText: t("credits.subscribe"),
         };
       case "premium_active":
         return {
-          title: "Premium Active",
-          message: "You already have an active premium subscription.",
-          confirmText: "OK",
+          title: t("credits.premiumActive"),
+          message: t("credits.premiumAlreadyActive"),
+          confirmText: t("common.ok"),
         };
       default:
-        return { title: "", message: "", confirmText: "OK" };
+        return { title: "", message: "", confirmText: t("common.ok") };
     }
   };
 
@@ -112,7 +114,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
         >
           <View style={styles.headerLeft} />
           <ThemedText type="h3" style={styles.headerTitle}>
-            Credits Store
+            {t("credits.title")}
           </ThemedText>
           <Pressable
             onPress={onClose}
@@ -145,9 +147,9 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                   <Feather name="shield" size={20} color="#FFFFFF" />
                 </View>
                 <View style={styles.timeBankInfo}>
-                  <ThemedText type="h4">Time Bank</ThemedText>
+                  <ThemedText type="h4">{t("credits.timeBank")}</ThemedText>
                   <ThemedText type="body" style={{ color: theme.success, fontWeight: "600" }}>
-                    Priority Tokens: {priorityTokens}
+                    {t("credits.priorityTokens")}: {priorityTokens}
                   </ThemedText>
                 </View>
               </View>
@@ -155,7 +157,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                 type="small"
                 style={[styles.timeBankSubtext, { color: theme.textSecondary }]}
               >
-                If a paid call drops, your refund appears here as Priority Tokens.
+                {t("credits.timeBankDescription")}
               </ThemedText>
             </View>
           </Animated.View>
@@ -170,10 +172,10 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
               <Feather name="zap" size={32} color={theme.primary} />
               <View style={styles.balanceInfo}>
                 <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                  Your Balance
+                  {t("credits.balance")}
                 </ThemedText>
                 <ThemedText type="h2" style={{ color: theme.primary }}>
-                  {credits} credits
+                  {credits} {t("credits.creditsUnit")}
                 </ThemedText>
               </View>
             </View>
@@ -181,7 +183,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
 
           <Animated.View entering={FadeInUp.delay(200).duration(400)}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Credit Packages
+              {t("credits.packages")}
             </ThemedText>
             <View style={styles.packagesContainer}>
               {CREDIT_PACKAGES.map((pkg) => (
@@ -204,7 +206,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                     {pkg.label}
                   </ThemedText>
                   <ThemedText type="body" style={styles.packageCredits}>
-                    {pkg.amount.toLocaleString()} credits
+                    {pkg.amount.toLocaleString()} {t("credits.creditsUnit")}
                   </ThemedText>
                   {pkg.bonus ? (
                     <View
@@ -214,7 +216,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                       ]}
                     >
                       <ThemedText type="small" style={styles.bonusText}>
-                        +{pkg.bonus} bonus
+                        {t("credits.bonus", { amount: pkg.bonus })}
                       </ThemedText>
                     </View>
                   ) : null}
@@ -225,7 +227,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
 
           <Animated.View entering={FadeInUp.delay(300).duration(400)}>
             <ThemedText type="h4" style={styles.sectionTitle}>
-              Premium Subscription
+              {t("credits.premiumSubscription")}
             </ThemedText>
             <Pressable
               onPress={handlePremiumSubscribe}
@@ -253,13 +255,13 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                 </View>
                 <View style={styles.premiumInfo}>
                   <ThemedText type="h4">
-                    {isPremium ? "Premium Active" : "Go Premium"}
+                    {isPremium ? t("credits.premiumActive") : t("credits.goPremium")}
                   </ThemedText>
                   <ThemedText
                     type="body"
                     style={{ color: isPremium ? theme.success : theme.primary }}
                   >
-                    ${PREMIUM_MONTHLY_PRICE}/month
+                    {t("credits.perMonth", { price: PREMIUM_MONTHLY_PRICE })}
                   </ThemedText>
                 </View>
               </View>
@@ -270,7 +272,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                     type="small"
                     style={{ color: theme.textSecondary }}
                   >
-                    {PREMIUM_BONUS_CREDITS} bonus credits monthly
+                    {t("credits.bonusCreditsMonthly", { amount: PREMIUM_BONUS_CREDITS })}
                   </ThemedText>
                 </View>
                 <View style={styles.perkItem}>
@@ -279,7 +281,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                     type="small"
                     style={{ color: theme.textSecondary }}
                   >
-                    Gender filter on daily cards
+                    {t("credits.genderFilter")}
                   </ThemedText>
                 </View>
                 <View style={styles.perkItem}>
@@ -288,7 +290,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
                     type="small"
                     style={{ color: theme.textSecondary }}
                   >
-                    Priority matching
+                    {t("credits.priorityMatching")}
                   </ThemedText>
                 </View>
               </View>
@@ -300,12 +302,12 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
             style={styles.infoSection}
           >
             <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "600" }}>
-              Extension Pricing:
+              {t("credits.extensionPricing")}
             </ThemedText>
             <View style={styles.usageList}>
               {CALL_EXTENSIONS.map((ext) => (
                 <ThemedText key={ext.id} type="small" style={{ color: theme.textSecondary }}>
-                  - {ext.label}: {ext.cost} credits
+                  {t("credits.extensionCost", { label: ext.label, cost: ext.cost })}
                 </ThemedText>
               ))}
             </View>
@@ -313,7 +315,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
               type="small"
               style={[styles.refundNote, { color: theme.textSecondary }]}
             >
-              Unused extension time is refunded to your Time Bank if a call ends early.
+              {t("credits.refundNote")}
             </ThemedText>
           </Animated.View>
 
@@ -324,14 +326,14 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
             <View style={styles.maxDurationHeader}>
               <Feather name="heart" size={18} color={theme.secondary} />
               <ThemedText type="body" style={{ color: theme.secondary, fontWeight: "600" }}>
-                60-Minute Maximum
+                {t("credits.maxDuration")}
               </ThemedText>
             </View>
             <ThemedText
               type="small"
               style={{ color: theme.textSecondary, textAlign: "center", lineHeight: 20 }}
             >
-              Beautiful moments don't need to last forever. Each call has a 60-minute limit—just enough time to share what matters, without overstaying. Keep the magic short and sweet; that's how real memories are made.
+              {t("credits.maxDurationDescription")}
             </ThemedText>
           </Animated.View>
         </ScrollView>
@@ -342,7 +344,7 @@ export function CreditsStoreModal({ visible, onClose }: CreditsStoreModalProps) 
         title={getConfirmationContent().title}
         message={getConfirmationContent().message}
         confirmText={getConfirmationContent().confirmText}
-        cancelText={confirmation?.type === "premium_active" ? undefined : "Cancel"}
+        cancelText={confirmation?.type === "premium_active" ? undefined : t("common.cancel")}
         onConfirm={handleConfirmPurchase}
         onCancel={() => setConfirmation(null)}
       />

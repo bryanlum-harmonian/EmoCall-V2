@@ -154,16 +154,16 @@ export default function SettingsScreen() {
   const handleDeleteData = async () => {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     Alert.alert(
-      "Delete My Data",
-      "This will permanently delete all your local data including blocked matches. This action cannot be undone.",
+      t("settings.deleteDataTitle"),
+      t("settings.deleteDataMessage"),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("settings.deleteDataConfirm"),
           style: "destructive",
           onPress: async () => {
             await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            Alert.alert("Data Deleted", "All your local data has been removed.");
+            Alert.alert(t("settings.dataDeleted"), t("settings.dataDeletedMessage"));
           },
         },
       ]
@@ -179,26 +179,26 @@ export default function SettingsScreen() {
       try {
         await Linking.openURL(url);
       } catch (error) {
-        Alert.alert("Contact Support", `Email us at ${email}`);
+        Alert.alert(t("settings.contactSupport"), t("settings.contactSupportEmail", { email }));
       }
     } else {
-      Alert.alert("Contact Support", `Email us at ${email}`);
+      Alert.alert(t("settings.contactSupport"), t("settings.contactSupportEmail", { email }));
     }
   };
 
   const handlePremiumSubscribe = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (isPremium) {
-      Alert.alert("Premium Active", "You already have an active premium subscription.");
+      Alert.alert(t("settings.premiumAlreadyActive"), t("settings.premiumAlreadyActiveMessage"));
       return;
     }
     Alert.alert(
-      "Subscribe to Premium",
-      `$${PREMIUM_MONTHLY_PRICE}/month includes:\n\n- ${PREMIUM_BONUS_CREDITS} bonus credits ($2 value)\n- Gender filter on daily cards\n- Priority matching\n\nFor this demo, premium will be activated for free.`,
+      t("settings.subscribeToPremium"),
+      t("settings.subscribeToPremiumMessage", { price: PREMIUM_MONTHLY_PRICE, credits: PREMIUM_BONUS_CREDITS }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Subscribe",
+          text: t("settings.subscribe"),
           onPress: () => {
             setPremium(true);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -225,11 +225,11 @@ export default function SettingsScreen() {
           paddingHorizontal: Spacing.lg,
         }}
       >
-        <SettingsSection title="SUBSCRIPTION" delay={50}>
+        <SettingsSection title={t("settings.sections.subscription")} delay={50}>
           <SettingsItem
             icon="star"
-            title={isPremium ? "Premium Active" : "Go Premium"}
-            subtitle={isPremium ? `$${PREMIUM_MONTHLY_PRICE}/month - Renews monthly` : `$${PREMIUM_MONTHLY_PRICE}/month for exclusive features`}
+            title={isPremium ? t("settings.premiumActive") : t("settings.goPremium")}
+            subtitle={isPremium ? t("settings.premiumActiveSubtitle", { price: PREMIUM_MONTHLY_PRICE }) : t("settings.goPremiumSubtitle", { price: PREMIUM_MONTHLY_PRICE })}
             onPress={handlePremiumSubscribe}
             isPremium={isPremium}
             delay={100}
@@ -237,14 +237,14 @@ export default function SettingsScreen() {
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
             icon="zap"
-            title="Credits"
-            subtitle={`${credits} credits available`}
+            title={t("settings.credits")}
+            subtitle={t("settings.creditsAvailable", { count: credits })}
             onPress={() => setShowCreditsStore(true)}
             delay={150}
           />
         </SettingsSection>
 
-        <SettingsSection title="LANGUAGE" delay={200}>
+        <SettingsSection title={t("settings.sections.language")} delay={200}>
           <SettingsItem
             icon="globe"
             title={t("settings.language")}
@@ -254,11 +254,11 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
-        <SettingsSection title="APPEARANCE" delay={300}>
+        <SettingsSection title={t("settings.sections.appearance")} delay={300}>
           <Animated.View entering={FadeInUp.delay(320).duration(400)}>
             <View style={styles.themePickerContainer}>
               <ThemedText type="body" style={[styles.themePickerLabel, { color: theme.text }]}>
-                App Theme
+                {t("settings.appTheme")}
               </ThemedText>
               <View style={styles.themePicker}>
                 <Pressable
@@ -280,7 +280,7 @@ export default function SettingsScreen() {
                     </View>
                   </View>
                   <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "sunny" ? "700" : "400" }}>
-                    Sunny
+                    {t("settings.themeSunny")}
                   </ThemedText>
                   {appTheme === "sunny" ? (
                     <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
@@ -308,7 +308,7 @@ export default function SettingsScreen() {
                     </View>
                   </View>
                   <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "coral" ? "700" : "400" }}>
-                    Coral
+                    {t("settings.themeCoral")}
                   </ThemedText>
                   {appTheme === "coral" ? (
                     <View style={[styles.checkBadge, { backgroundColor: "#FF6B4A" }]}>
@@ -341,7 +341,7 @@ export default function SettingsScreen() {
                     </View>
                   </View>
                   <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "rainbow" ? "700" : "400" }}>
-                    Rainbow
+                    {t("settings.themeRainbow")}
                   </ThemedText>
                   {appTheme === "rainbow" ? (
                     <View style={[styles.checkBadge, { backgroundColor: "#FF3366" }]}>
@@ -355,8 +355,8 @@ export default function SettingsScreen() {
           <View style={[styles.divider, { backgroundColor: theme.border, marginLeft: 0 }]} />
           <SettingsItem
             icon={isDark ? "moon" : "sun"}
-            title="Dark Mode"
-            subtitle={isDark ? "Dark theme is active" : "Light theme is active"}
+            title={t("settings.darkMode")}
+            subtitle={isDark ? t("settings.darkModeActive") : t("settings.lightModeActive")}
             rightElement={
               <Switch
                 value={colorScheme === "dark"}
@@ -369,11 +369,11 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
-        <SettingsSection title="SAFETY" delay={400}>
+        <SettingsSection title={t("settings.sections.safety")} delay={400}>
           <SettingsItem
             icon="user-x"
-            title="Block Last Match"
-            subtitle="Prevent matching with your last conversation partner"
+            title={t("settings.blockLastMatch")}
+            subtitle={t("settings.blockLastMatchSubtitle")}
             rightElement={
               <Switch
                 value={blockLastMatch}
@@ -387,60 +387,60 @@ export default function SettingsScreen() {
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
             icon="shield"
-            title="Report History"
-            subtitle="View your submitted reports"
-            onPress={() => Alert.alert("Report History", "No reports submitted yet.")}
+            title={t("settings.reportHistory")}
+            subtitle={t("settings.reportHistorySubtitle")}
+            onPress={() => Alert.alert(t("settings.reportHistory"), t("settings.reportHistoryEmpty"))}
             delay={500}
           />
         </SettingsSection>
 
-        <SettingsSection title="LEGAL" delay={550}>
+        <SettingsSection title={t("settings.sections.legal")} delay={550}>
           <SettingsItem
             icon="file-text"
-            title="Terms of Service"
+            title={t("settings.termsOfService")}
             onPress={handleOpenTerms}
             delay={600}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
             icon="lock"
-            title="Privacy Policy"
+            title={t("settings.privacyPolicy")}
             onPress={handleOpenPrivacy}
             delay={650}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
             icon="database"
-            title="Data Collection"
-            subtitle="What data we collect and why"
+            title={t("settings.dataCollection")}
+            subtitle={t("settings.dataCollectionSubtitle")}
             onPress={handleOpenDataCollection}
             delay={700}
           />
         </SettingsSection>
 
-        <SettingsSection title="SUPPORT" delay={700}>
+        <SettingsSection title={t("settings.sections.support")} delay={700}>
           <SettingsItem
             icon="mail"
-            title="Contact Support"
-            subtitle="Get help with the app"
+            title={t("settings.contactSupport")}
+            subtitle={t("settings.contactSupportSubtitle")}
             onPress={handleContactSupport}
             delay={750}
           />
         </SettingsSection>
 
-        <SettingsSection title="ACCOUNT" delay={800}>
+        <SettingsSection title={t("settings.sections.account")} delay={800}>
           <SettingsItem
             icon="download-cloud"
-            title="Backup & Restore"
-            subtitle="Save or recover your session"
+            title={t("settings.backupRestore")}
+            subtitle={t("settings.backupRestoreSubtitle")}
             onPress={() => setShowBackupRestore(true)}
             delay={850}
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
             icon="trash-2"
-            title="Delete My Data"
-            subtitle="Permanently remove all local data"
+            title={t("settings.deleteData")}
+            subtitle={t("settings.deleteDataSubtitle")}
             onPress={handleDeleteData}
             isDestructive
             delay={900}
@@ -455,13 +455,13 @@ export default function SettingsScreen() {
             type="caption"
             style={[styles.footerText, { color: theme.textDisabled }]}
           >
-            EmoCall v1.0.0
+            {t("settings.footerVersion", { version: "1.0.0" })}
           </ThemedText>
           <ThemedText
             type="caption"
             style={[styles.footerText, { color: theme.textDisabled }]}
           >
-            No Names. No Judgement. Just Talk.
+            {t("settings.footerTagline")}
           </ThemedText>
         </Animated.View>
       </KeyboardAwareScrollViewCompat>
@@ -475,7 +475,7 @@ export default function SettingsScreen() {
         visible={showBackupRestore}
         onClose={() => setShowBackupRestore(false)}
         onRestoreSuccess={() => {
-          Alert.alert("Success", "Your session has been restored successfully!");
+          Alert.alert(t("common.success"), t("settings.restoreSuccess"));
         }}
       />
     </ThemedView>

@@ -3,6 +3,7 @@ import { View, StyleSheet, Modal, Pressable } from "react-native";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface ConfirmDialogProps {
@@ -19,12 +20,16 @@ export function ConfirmDialog({
   visible,
   title,
   message,
-  confirmText = "Confirm",
-  cancelText = "Cancel",
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
+  
+  const resolvedConfirmText = confirmText ?? t("common.confirm");
+  const resolvedCancelText = cancelText ?? t("common.cancel");
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -52,7 +57,7 @@ export function ConfirmDialog({
               ]}
             >
               <ThemedText style={[styles.buttonText, { color: theme.textSecondary }]}>
-                {cancelText}
+                {resolvedCancelText}
               </ThemedText>
             </Pressable>
             <Pressable
@@ -64,7 +69,7 @@ export function ConfirmDialog({
               ]}
             >
               <ThemedText style={[styles.buttonText, { color: "#FFFFFF" }]}>
-                {confirmText}
+                {resolvedConfirmText}
               </ThemedText>
             </Pressable>
           </View>

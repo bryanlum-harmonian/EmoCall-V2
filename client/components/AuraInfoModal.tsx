@@ -7,6 +7,7 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useAura, AURA_LEVELS, AURA_REWARDS } from "@/contexts/AuraContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
@@ -17,13 +18,14 @@ interface AuraInfoModalProps {
 
 interface EarnItemProps {
   icon: keyof typeof Feather.glyphMap;
-  label: string;
+  labelKey: string;
   amount: number;
   theme: ReturnType<typeof useTheme>["theme"];
   isNegative?: boolean;
+  t: (key: string, options?: object) => string;
 }
 
-function EarnItem({ icon, label, amount, theme, isNegative }: EarnItemProps) {
+function EarnItem({ icon, labelKey, amount, theme, isNegative, t }: EarnItemProps) {
   const amountColor = isNegative ? theme.error : "#4CAF50";
   const amountText = isNegative ? `${amount}` : `+${amount}`;
   
@@ -34,7 +36,7 @@ function EarnItem({ icon, label, amount, theme, isNegative }: EarnItemProps) {
           <Feather name={icon} size={18} color={theme.primary} />
         </View>
         <ThemedText type="body" style={{ color: theme.textSecondary, flex: 1 }}>
-          {label}
+          {t(labelKey)}
         </ThemedText>
       </View>
       <View style={[styles.earnBadge, { backgroundColor: `${amountColor}20` }]}>
@@ -51,9 +53,10 @@ interface LevelItemProps {
   level: { level: number; name: string; minAura: number };
   isCurrentLevel: boolean;
   theme: ReturnType<typeof useTheme>["theme"];
+  t: (key: string, options?: object) => string;
 }
 
-function LevelItem({ level, isCurrentLevel, theme }: LevelItemProps) {
+function LevelItem({ level, isCurrentLevel, theme, t }: LevelItemProps) {
   return (
     <View 
       style={[
@@ -88,7 +91,7 @@ function LevelItem({ level, isCurrentLevel, theme }: LevelItemProps) {
         </ThemedText>
       </View>
       <ThemedText type="small" style={{ color: theme.textSecondary }}>
-        {level.minAura}+ aura
+        {t("aura.minAura", { min: level.minAura })}
       </ThemedText>
     </View>
   );
@@ -97,6 +100,7 @@ function LevelItem({ level, isCurrentLevel, theme }: LevelItemProps) {
 export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { aura, currentLevel, nextLevel, progressToNextLevel } = useAura();
 
   const handleClose = () => {
@@ -133,7 +137,7 @@ export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
             <View style={styles.headerTitle}>
               <Feather name="star" size={24} color={theme.primary} />
               <ThemedText type="h4" style={{ marginLeft: 10 }}>
-                Your Aura
+                {t("aura.yourAura")}
               </ThemedText>
             </View>
             <Pressable
@@ -176,50 +180,54 @@ export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
                     />
                   </View>
                   <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 6 }}>
-                    {nextLevel.minAura - aura} aura to {nextLevel.name}
+                    {t("aura.auraToNext", { aura: nextLevel.minAura - aura, level: nextLevel.name })}
                   </ThemedText>
                 </View>
               ) : (
                 <ThemedText type="small" style={{ color: theme.textSecondary, marginTop: 8 }}>
-                  Maximum level reached!
+                  {t("aura.maxLevelReached")}
                 </ThemedText>
               )}
             </View>
 
             <ThemedText type="h4" style={{ marginBottom: Spacing.md, marginTop: Spacing.lg }}>
-              How to Earn Aura
+              {t("aura.howToEarn")}
             </ThemedText>
 
             <View style={styles.earnList}>
               <EarnItem
                 icon="clock"
-                label="Each minute during call"
+                labelKey="aura.earnMethods.callMinute"
                 amount={AURA_REWARDS.CALL_MINUTE}
                 theme={theme}
+                t={t}
               />
               <EarnItem
                 icon="check-circle"
-                label="Complete a call"
+                labelKey="aura.earnMethods.completeCall"
                 amount={AURA_REWARDS.COMPLETE_CALL}
                 theme={theme}
+                t={t}
               />
               <EarnItem
                 icon="plus-circle"
-                label="Extend a call"
+                labelKey="aura.earnMethods.extendCall"
                 amount={AURA_REWARDS.EXTEND_CALL}
                 theme={theme}
+                t={t}
               />
               <EarnItem
                 icon="alert-triangle"
-                label="Get reported"
+                labelKey="aura.earnMethods.getReported"
                 amount={AURA_REWARDS.REPORTED}
                 theme={theme}
+                t={t}
                 isNegative
               />
             </View>
 
             <ThemedText type="h4" style={{ marginBottom: Spacing.md, marginTop: Spacing.xl }}>
-              Aura Levels
+              {t("aura.auraLevels")}
             </ThemedText>
 
             <View style={styles.levelsList}>
@@ -229,6 +237,7 @@ export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
                   level={level}
                   isCurrentLevel={level.level === currentLevel.level}
                   theme={theme}
+                  t={t}
                 />
               ))}
             </View>

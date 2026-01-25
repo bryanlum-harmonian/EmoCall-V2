@@ -14,6 +14,7 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 interface TermsGateScreenProps {
@@ -23,6 +24,7 @@ interface TermsGateScreenProps {
 export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const scale = useSharedValue(1);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -72,7 +74,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
 
         <Animated.View entering={FadeInUp.delay(400).duration(500)}>
           <ThemedText type="h1" style={styles.headline}>
-            Safe Space.{"\n"}Zero Judgment.{"\n"}Let's Talk!
+            {t("terms.headline")}
           </ThemedText>
         </Animated.View>
 
@@ -87,7 +89,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               <Feather name="check" size={14} color="#FFFFFF" />
             </View>
             <ThemedText type="body" style={styles.termText}>
-              Connect anonymously with real people in seconds
+              {t("terms.feature1")}
             </ThemedText>
           </View>
 
@@ -98,7 +100,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               <Feather name="check" size={14} color="#FFFFFF" />
             </View>
             <ThemedText type="body" style={styles.termText}>
-              5-minute voice calls, no personal data required
+              {t("terms.feature2")}
             </ThemedText>
           </View>
 
@@ -109,7 +111,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               <Feather name="check" size={14} color="#FFFFFF" />
             </View>
             <ThemedText type="body" style={styles.termText}>
-              Safe and moderated for your protection
+              {t("terms.feature3")}
             </ThemedText>
           </View>
         </Animated.View>
@@ -129,7 +131,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               type="small"
               style={[styles.legalText, { color: theme.textSecondary }]}
             >
-              By continuing, you confirm you are 18+ years old and agree to our community guidelines. Harassment, scams, fraud, and abusive behavior are strictly prohibited and may result in permanent ban.
+              {t("terms.ageWarning")}
             </ThemedText>
           </View>
         </Animated.View>
@@ -150,7 +152,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               type="small"
               style={[styles.linkText, { color: theme.primary }]}
             >
-              Terms of Service
+              {t("terms.termsOfService")}
             </ThemedText>
           </Pressable>
 
@@ -168,7 +170,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               type="small"
               style={[styles.linkText, { color: theme.primary }]}
             >
-              Privacy Policy
+              {t("terms.privacyPolicy")}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -188,7 +190,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
           onPress={handleAccept}
           style={[styles.button, { backgroundColor: theme.primary }]}
         >
-          Let's Talk!
+          {t("terms.acceptButton")}
         </Button>
       </Animated.View>
 
@@ -209,7 +211,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
             >
               <Feather name="x" size={20} color={theme.text} />
             </Pressable>
-            <ThemedText type="h3">Terms of Service</ThemedText>
+            <ThemedText type="h3">{t("terms.termsOfService")}</ThemedText>
             <View style={styles.modalPlaceholder} />
           </View>
           <ScrollView
@@ -239,7 +241,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
             >
               <Feather name="x" size={20} color={theme.text} />
             </Pressable>
-            <ThemedText type="h3">Privacy Policy</ThemedText>
+            <ThemedText type="h3">{t("terms.privacyPolicy")}</ThemedText>
             <View style={styles.modalPlaceholder} />
           </View>
           <ScrollView

@@ -718,15 +718,15 @@ export default function MoodSelectionScreen() {
               <Feather name="search" size={48} color={theme.primary} />
             </Animated.View>
             <ThemedText type="h2" style={{ textAlign: "center", marginTop: Spacing.lg }}>
-              {selectedMood === "vent" ? "Waiting for a Listener..." : "Connecting..."}
+              {selectedMood === "vent" ? t("searching.waitingForListener") : t("searching.connecting")}
             </ThemedText>
             <ThemedText 
               type="body" 
               style={{ color: theme.textSecondary, textAlign: "center", marginTop: Spacing.sm }}
             >
               {selectedMood === "vent" 
-                ? "Someone will connect with you soon" 
-                : "Finding someone who needs to talk"}
+                ? t("searching.willConnectSoon") 
+                : t("searching.findingSomeone")}
             </ThemedText>
             <Pressable
               onPress={handleCancelSearch}
@@ -736,7 +736,7 @@ export default function MoodSelectionScreen() {
               ]}
             >
               <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                Cancel
+                {t("common.cancel")}
               </ThemedText>
             </Pressable>
           </Animated.View>

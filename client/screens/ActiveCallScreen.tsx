@@ -32,6 +32,7 @@ import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
 import { useAura } from "@/contexts/AuraContext";
 import { useSession } from "@/contexts/SessionContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { apiRequest } from "@/lib/query-client";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -193,6 +194,7 @@ interface MinuteReminderModalProps {
 
 function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }: MinuteReminderModalProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -212,7 +214,7 @@ function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }
           </View>
 
           <ThemedText type="h3" style={styles.reminderTitle}>
-            {formatTime(timeLeft)} remaining
+            {t("reminder.title", { time: formatTime(timeLeft) })}
           </ThemedText>
 
           <ThemedText
@@ -232,7 +234,7 @@ function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }
               ]}
             >
               <Feather name="plus-circle" size={18} color="#FFFFFF" />
-              <ThemedText style={styles.reminderButtonText}>Extend Call</ThemedText>
+              <ThemedText style={styles.reminderButtonText}>{t("call.extendCall")}</ThemedText>
             </Pressable>
             <Pressable
               onPress={onDismiss}
@@ -242,7 +244,7 @@ function MinuteReminderModal({ visible, message, timeLeft, onExtend, onDismiss }
               ]}
             >
               <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
-                Maybe Later
+                {t("reminder.laterButton")}
               </ThemedText>
             </Pressable>
           </View>
@@ -270,6 +272,7 @@ function SafetyCheckModal({
   showFollowUp 
 }: SafetyCheckModalProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -289,13 +292,13 @@ function SafetyCheckModal({
           {showFollowUp ? (
             <>
               <ThemedText type="h3" style={styles.reminderTitle}>
-                We understand
+                {t("safety.followUpTitle")}
               </ThemedText>
               <ThemedText
                 type="body"
                 style={[styles.reminderMessage, { color: theme.textSecondary }]}
               >
-                Would you like to continue the conversation or end the call now?
+                {t("safety.followUpMessage")}
               </ThemedText>
               <View style={styles.reminderButtons}>
                 <Pressable
@@ -307,7 +310,7 @@ function SafetyCheckModal({
                   ]}
                 >
                   <Feather name="phone-off" size={18} color="#FFFFFF" />
-                  <ThemedText style={styles.reminderButtonText}>End Call</ThemedText>
+                  <ThemedText style={styles.reminderButtonText}>{t("safety.endCallButton")}</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={onContinueAnyway}
@@ -317,7 +320,7 @@ function SafetyCheckModal({
                   ]}
                 >
                   <ThemedText style={[styles.reminderButtonTextSecondary, { color: theme.textSecondary }]}>
-                    Continue Anyway
+                    {t("safety.continueButton")}
                   </ThemedText>
                 </Pressable>
               </View>
@@ -325,13 +328,13 @@ function SafetyCheckModal({
           ) : (
             <>
               <ThemedText type="h3" style={styles.reminderTitle}>
-                Safety Check
+                {t("safety.title")}
               </ThemedText>
               <ThemedText
                 type="body"
                 style={[styles.reminderMessage, { color: theme.textSecondary }]}
               >
-                Are you feeling safe during this call?
+                {t("safety.question")}
               </ThemedText>
               <View style={styles.reminderButtons}>
                 <Pressable
@@ -343,7 +346,7 @@ function SafetyCheckModal({
                   ]}
                 >
                   <Feather name="check-circle" size={18} color="#FFFFFF" />
-                  <ThemedText style={styles.reminderButtonText}>Yes, I'm Safe</ThemedText>
+                  <ThemedText style={styles.reminderButtonText}>{t("safety.safeButton")}</ThemedText>
                 </Pressable>
                 <Pressable
                   onPress={onNotSafe}
@@ -353,7 +356,7 @@ function SafetyCheckModal({
                   ]}
                 >
                   <ThemedText style={[styles.reminderButtonText, { color: "#FFFFFF" }]}>
-                    No, Not Really
+                    {t("safety.notSafeButton")}
                   </ThemedText>
                 </Pressable>
               </View>
@@ -373,6 +376,7 @@ interface EndCallConfirmModalProps {
 
 function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmModalProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -386,13 +390,13 @@ function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmMod
           </View>
 
           <ThemedText type="h3" style={styles.reminderTitle}>
-            End Call?
+            {t("callEnd.title")}
           </ThemedText>
           <ThemedText
             type="body"
             style={[styles.reminderMessage, { color: theme.textSecondary }]}
           >
-            Are you sure you want to end this call?
+            {t("callEnd.message")}
           </ThemedText>
 
           <View style={styles.reminderButtons}>
@@ -405,7 +409,7 @@ function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmMod
               ]}
             >
               <Feather name="phone-off" size={18} color="#FFFFFF" />
-              <ThemedText style={styles.reminderButtonText}>Yes, End Call</ThemedText>
+              <ThemedText style={styles.reminderButtonText}>{t("callEnd.confirmButton")}</ThemedText>
             </Pressable>
             <Pressable
               onPress={onCancel}
@@ -415,7 +419,7 @@ function EndCallConfirmModal({ visible, onConfirm, onCancel }: EndCallConfirmMod
               ]}
             >
               <ThemedText style={[styles.reminderButtonText, { color: "#FFFFFF" }]}>
-                Keep Talking
+                {t("callEnd.cancelButton")}
               </ThemedText>
             </Pressable>
           </View>
@@ -445,6 +449,7 @@ function ExtensionModal({
   isFinalWarning = false,
 }: ExtensionModalProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -458,12 +463,12 @@ function ExtensionModal({
           >
             <Feather name={isFinalWarning ? "alert-circle" : "clock"} size={16} color="#FFFFFF" />
             <ThemedText style={styles.modalBadgeText}>
-              {timeLeft}s left
+              {t("extension.timeLeft", { time: timeLeft })}
             </ThemedText>
           </View>
 
           <ThemedText type="h2" style={styles.modalTitle}>
-            {isFinalWarning ? "Last Chance!" : "Extend Your Call?"}
+            {isFinalWarning ? t("extension.lastChanceTitle") : t("extension.title")}
           </ThemedText>
           
           <ThemedText
@@ -471,8 +476,8 @@ function ExtensionModal({
             style={[styles.modalDescription, { color: theme.textSecondary }]}
           >
             {isFinalWarning 
-              ? "Once this call ends, you may never connect with this person again. This is your fate calling."
-              : "Choose how long you want to continue this unique connection"}
+              ? t("extension.lastChanceDescription")
+              : t("extension.description")}
           </ThemedText>
 
           <Pressable
@@ -487,7 +492,7 @@ function ExtensionModal({
           >
             <Feather name="zap" size={16} color={theme.primary} />
             <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
-              {credits} credits
+              {credits} {t("call.credits")}
             </ThemedText>
             <Feather name="plus" size={14} color={theme.primary} />
           </Pressable>
@@ -516,13 +521,13 @@ function ExtensionModal({
                 >
                   <View style={styles.extensionInfo}>
                     <ThemedText type="h4" style={{ color: canAfford ? theme.text : theme.textDisabled }}>
-                      +{ext.minutes} minutes
+                      {t("extension.minutes", { count: ext.minutes })}
                     </ThemedText>
                     <ThemedText 
                       type="small" 
                       style={{ color: canAfford ? theme.textSecondary : theme.textDisabled }}
                     >
-                      {ext.cost} credits
+                      {ext.cost} {t("call.credits")}
                     </ThemedText>
                   </View>
                   {canAfford ? (
@@ -536,7 +541,7 @@ function ExtensionModal({
                       ]}
                     >
                       <ThemedText type="small" style={{ color: theme.text, fontWeight: "600" }}>
-                        Get Credits
+                        {t("call.getCredits")}
                       </ThemedText>
                     </Pressable>
                   )}
@@ -549,7 +554,7 @@ function ExtensionModal({
             type="small"
             style={[styles.refundNote, { color: theme.textSecondary }]}
           >
-            Unused time is refunded as credits if call ends early
+            {t("extension.refundNote")}
           </ThemedText>
 
           <Pressable
@@ -563,7 +568,7 @@ function ExtensionModal({
               type="body"
               style={[styles.endCallText, { color: theme.error }]}
             >
-              End Call
+              {t("extension.endCallButton")}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -641,6 +646,7 @@ function ControlButton({
 export default function ActiveCallScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
   const { awardCallCompletion, awardCallExtension, awardCallMinute, aura } = useAura();
   const { session } = useSession();
@@ -1198,17 +1204,17 @@ export default function ActiveCallScreen() {
               </View>
             </Animated.View>
             <ThemedText type="h3" style={styles.connectingText}>
-              {isVoiceConnected && waitingForPartner ? "Waiting for Partner..." : "Connecting..."}
+              {isVoiceConnected && waitingForPartner ? t("call.waitingForPartner") : t("call.connecting")}
             </ThemedText>
             <ThemedText
               type="body"
               style={[styles.connectingSubtext, { color: theme.textSecondary }]}
             >
               {isVoiceConnected && waitingForPartner 
-                ? "Your partner is joining the call" 
+                ? t("call.partnerJoining") 
                 : isVoiceConnecting 
-                  ? "Setting up voice connection" 
-                  : "Preparing your call"}
+                  ? t("call.settingUpVoice") 
+                  : t("call.preparingCall")}
             </ThemedText>
           </Animated.View>
         ) : (
@@ -1222,7 +1228,7 @@ export default function ActiveCallScreen() {
                 },
               ]}
             >
-              {isUrgent && !hasExtended ? "Time Almost Up!" : "Connected"}
+              {isUrgent && !hasExtended ? t("call.timeAlmostUp") : t("call.connected")}
             </ThemedText>
             
             {/* Voice status indicator */}
@@ -1233,18 +1239,18 @@ export default function ActiveCallScreen() {
               ]} />
               <ThemedText type="caption" style={{ color: theme.textSecondary }}>
                 {voiceError 
-                  ? `Voice Error: ${voiceError}` 
+                  ? t("call.voiceError", { error: voiceError }) 
                   : isVoiceConnecting 
-                    ? "Connecting voice..." 
+                    ? t("call.voiceConnecting") 
                     : isVoiceConnected 
-                      ? (remoteUserJoined ? "Voice: Partner connected" : "Voice: Waiting for partner") 
-                      : "Voice: Initializing..."}
+                      ? (remoteUserJoined ? t("call.voicePartnerConnected") : t("call.voiceWaitingPartner")) 
+                      : t("call.voiceInitializing")}
               </ThemedText>
             </View>
 
             <View style={styles.usersContainer}>
               <UserAvatar 
-                label="You" 
+                label={t("call.you")} 
                 isYou 
                 isSpeaking={youSpeaking} 
                 isMuted={isMuted}
@@ -1259,7 +1265,7 @@ export default function ActiveCallScreen() {
               </View>
 
               <UserAvatar 
-                label="Stranger" 
+                label={t("call.them")} 
                 isSpeaking={themSpeaking} 
               />
             </View>
@@ -1298,7 +1304,7 @@ export default function ActiveCallScreen() {
                       : theme.textSecondary,
                 }}
               >
-                {hasExtended ? "Extended Session" : "Time Remaining"}
+                {hasExtended ? t("call.extendedSession") : t("call.timeRemainingLabel")}
               </ThemedText>
             </Animated.View>
 
@@ -1314,7 +1320,7 @@ export default function ActiveCallScreen() {
             >
               <Feather name="plus-circle" size={18} color="#FFFFFF" />
               <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
-                Extend Call
+                {t("call.extendCall")}
               </ThemedText>
             </Pressable>
 
@@ -1322,7 +1328,7 @@ export default function ActiveCallScreen() {
               <View style={[styles.extendedBadge, { backgroundColor: `${theme.success}20` }]}>
                 <Feather name="check-circle" size={14} color={theme.success} />
                 <ThemedText type="small" style={{ color: theme.success }}>
-                  Call Extended - Enjoy your conversation!
+                  {t("call.callExtendedMessage")}
                 </ThemedText>
               </View>
             ) : null}
@@ -1333,7 +1339,7 @@ export default function ActiveCallScreen() {
       <View style={styles.disclaimerContainer}>
         <Feather name="alert-triangle" size={12} color={theme.textSecondary} />
         <ThemedText type="small" style={styles.disclaimerText}>
-          Stay safe: Never share personal info, money, or account details. EmoCall is not responsible for any scam, fraud, or risks during calls.
+          {t("call.safetyDisclaimer")}
         </ThemedText>
       </View>
 
@@ -1346,13 +1352,13 @@ export default function ActiveCallScreen() {
       >
         <ControlButton
           icon={isSpeakerOn ? "volume-2" : "phone-call"}
-          label={isSpeakerOn ? "Speaker" : "Earpiece"}
+          label={isSpeakerOn ? t("call.speaker") : t("call.earpiece")}
           onPress={handleSpeakerToggle}
           isActive={isSpeakerOn}
         />
         <ControlButton
           icon={isMuted ? "mic-off" : "mic"}
-          label={isMuted ? "Unmute" : "Mute"}
+          label={isMuted ? t("call.unmute") : t("call.mute")}
           onPress={handleMuteToggle}
           isActive={isMuted}
         />
@@ -1370,12 +1376,12 @@ export default function ActiveCallScreen() {
             type="small" 
             style={styles.panicButtonLabel}
           >
-            Report
+            {t("call.report")}
           </ThemedText>
         </Pressable>
         <ControlButton
           icon="phone-off"
-          label="End Call"
+          label={t("call.endCall")}
           onPress={() => setShowEndCallConfirm(true)}
           isDestructive
         />
