@@ -23,7 +23,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [colorScheme, setColorSchemeState] = useState<ColorScheme>("light");
-  const [appTheme, setAppThemeState] = useState<AppTheme>("sunny");
+  const [appTheme, setAppThemeState] = useState<AppTheme>("rainbow");
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -40,7 +40,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       if (storedColorScheme === "dark" || storedColorScheme === "light") {
         setColorSchemeState(storedColorScheme);
       }
-      if (storedAppTheme === "sunny" || storedAppTheme === "coral") {
+      if (storedAppTheme === "sunny" || storedAppTheme === "coral" || storedAppTheme === "rainbow") {
         setAppThemeState(storedAppTheme);
       }
     } catch (error) {
