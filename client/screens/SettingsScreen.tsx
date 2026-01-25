@@ -16,6 +16,7 @@ import { BackupRestoreModal } from "@/components/BackupRestoreModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
 import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius, AppTheme, AppThemes } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -114,6 +115,7 @@ export default function SettingsScreen() {
   const { theme, isDark, appTheme } = useTheme();
   const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
   const { credits, isPremium, setPremium } = useCredits();
+  const { getCurrentLanguageInfo, t } = useLanguage();
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
@@ -206,6 +208,13 @@ export default function SettingsScreen() {
     );
   };
 
+  const handleOpenLanguage = async () => {
+    await Haptics.selectionAsync();
+    navigation.navigate("Language");
+  };
+
+  const currentLang = getCurrentLanguageInfo();
+
   return (
     <ThemedView style={styles.container}>
       <KeyboardAwareScrollViewCompat
@@ -235,7 +244,17 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
-        <SettingsSection title="APPEARANCE" delay={200}>
+        <SettingsSection title="LANGUAGE" delay={200}>
+          <SettingsItem
+            icon="globe"
+            title={t("settings.language")}
+            subtitle={currentLang?.nativeName || "English"}
+            onPress={handleOpenLanguage}
+            delay={250}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="APPEARANCE" delay={300}>
           <Animated.View entering={FadeInUp.delay(320).duration(400)}>
             <View style={styles.themePickerContainer}>
               <ThemedText type="body" style={[styles.themePickerLabel, { color: theme.text }]}>

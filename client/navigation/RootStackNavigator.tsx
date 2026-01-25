@@ -12,6 +12,7 @@ import ActiveCallScreen from "@/screens/ActiveCallScreen";
 import CallEndedScreen from "@/screens/CallEndedScreen";
 import VibeCheckScreen from "@/screens/VibeCheckScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
+import LanguageScreen from "@/screens/LanguageScreen";
 import { PrivacyPolicyScreen } from "@/screens/PrivacyPolicyScreen";
 import { TermsOfServiceScreen } from "@/screens/TermsOfServiceScreen";
 import DataCollectionScreen from "@/screens/DataCollectionScreen";
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   VibeCheck: { callDuration?: number; callId?: string };
   CallEnded: { reason: "timeout" | "ended" | "reported" | "disconnected" | "partner_ended" | "partner_left" | "max_duration"; callId?: string };
   Settings: undefined;
+  Language: undefined;
   PrivacyPolicy: undefined;
   TermsOfService: undefined;
   DataCollection: undefined;
@@ -94,6 +96,14 @@ export default function RootStackNavigator() {
           headerTitle: "Settings",
           headerBackTitle: "Back",
           presentation: "modal",
+        }}
+      />
+      <Stack.Screen
+        name="Language"
+        component={LanguageScreen}
+        options={{
+          headerTitle: "Language",
+          headerBackTitle: "Back",
         }}
       />
       <Stack.Screen

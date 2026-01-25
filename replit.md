@@ -131,3 +131,51 @@ The matchmaking system uses a robust architecture to prevent race conditions and
 - **Persistent WebSocket**: Single connection persists across screen navigations
 - **State Machine**: idle → in_queue → matched → call_started flow
 - **Automatic Reconnection**: Reconnects on close/error with exponential backoff
+
+## Internationalization (i18n)
+
+### Overview
+EmoCall supports 50 languages with automatic device language detection and RTL (right-to-left) support for Arabic, Hebrew, Urdu, and Persian.
+
+### Architecture
+- **Library:** `i18n-js` for translation management
+- **Device Detection:** `expo-localization` for automatic language detection
+- **Persistence:** Language preference stored in AsyncStorage
+- **Context:** `LanguageProvider` wraps the entire app providing `t()` function
+
+### Key Files
+- `client/i18n/index.ts` - i18n setup, language list, storage helpers
+- `client/i18n/locales/*.ts` - Translation files for 50 languages
+- `client/contexts/LanguageContext.tsx` - React context with useLanguage hook
+- `client/screens/LanguageScreen.tsx` - Language selector UI
+
+### Supported Languages (50)
+English, Chinese (Simplified/Traditional), Hindi, Spanish, French, Arabic*, Bengali, Portuguese, Russian, Indonesian, German, Japanese, Malay, Vietnamese, Italian, Korean, Turkish, Tamil, Thai, Persian*, Polish, Ukrainian, Dutch, Greek, Czech, Swedish, Hungarian, Romanian, Hebrew*, Filipino, Swahili, Danish, Finnish, Norwegian, Slovak, Croatian, Bulgarian, Serbian, Slovenian, Lithuanian, Latvian, Estonian, Catalan, Urdu*, Marathi, Telugu, Kannada, Gujarati, Punjabi
+
+*RTL languages (Arabic, Hebrew, Persian, Urdu)
+
+### Translation Keys
+Translation files use nested object structure:
+- `common.*` - General UI strings (cancel, confirm, save, etc.)
+- `terms.*` - Onboarding/legal screen strings
+- `mood.*` - Mood selection screen strings
+- `call.*` - Active call screen strings
+- `callEnded.*` - Post-call screen strings
+- `settings.*` - Settings screen strings
+- `errors.*` - Error messages
+
+### Usage Pattern
+```tsx
+import { useLanguage } from "@/contexts/LanguageContext";
+
+function MyComponent() {
+  const { t, isRTL } = useLanguage();
+  return <Text>{t("mood.headline")}</Text>;
+}
+```
+
+### Interpolation
+```tsx
+t("refillModal.refillButton", { cost: 10 })
+// Translation: "Refill for %{cost} credits" → "Refill for 10 credits"
+```

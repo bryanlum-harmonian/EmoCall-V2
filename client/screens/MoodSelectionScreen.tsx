@@ -29,6 +29,7 @@ import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useSession } from "@/contexts/SessionContext";
 import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext";
 import { useAura } from "@/contexts/AuraContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 import { getApiUrl, apiRequest } from "@/lib/query-client";
@@ -145,6 +146,7 @@ interface RefillModalProps {
 
 function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
   const { theme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <Modal visible={visible} transparent animationType="fade">
@@ -158,14 +160,14 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
           </View>
 
           <ThemedText type="h3" style={styles.refillTitle}>
-            Daily Matches Used Up
+            {t("refillModal.title")}
           </ThemedText>
 
           <ThemedText
             type="body"
             style={[styles.refillDescription, { color: theme.textSecondary }]}
           >
-            You've used all your free matches for today. Refill now to keep connecting!
+            {t("refillModal.description")}
           </ThemedText>
 
           <Pressable
@@ -176,7 +178,7 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
             ]}
           >
             <ThemedText style={styles.refillButtonText}>
-              Refill for {DAILY_MATCHES_REFILL_COST} credits
+              {t("refillModal.refillButton", { cost: DAILY_MATCHES_REFILL_COST })}
             </ThemedText>
           </Pressable>
 
@@ -188,7 +190,7 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
             ]}
           >
             <ThemedText type="body" style={{ color: theme.textSecondary }}>
-              Wait until tomorrow
+              {t("refillModal.waitButton")}
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -203,6 +205,7 @@ export default function MoodSelectionScreen() {
   const { session } = useSession();
   const { credits, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useCredits();
   const { aura, currentLevel } = useAura();
+  const { t } = useLanguage();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showRefillModal, setShowRefillModal] = useState(false);
@@ -507,7 +510,7 @@ export default function MoodSelectionScreen() {
               <View style={[styles.streakBadge, { backgroundColor: `${theme.warning}20` }]}>
                 <Feather name="zap" size={12} color={theme.warning} />
                 <ThemedText type="caption" style={{ color: theme.warning, fontWeight: "600" }}>
-                  {dailyStreak} day streak
+                  {dailyStreak} {t("mood.dayStreak")}
                 </ThemedText>
               </View>
             ) : null}
@@ -517,7 +520,7 @@ export default function MoodSelectionScreen() {
         {/* Headline */}
         <Animated.View entering={FadeInUp.delay(300).duration(400)}>
           <ThemedText type="h3" style={styles.headline}>
-            How are you feeling?
+            {t("mood.headline")}
           </ThemedText>
         </Animated.View>
 
@@ -530,7 +533,7 @@ export default function MoodSelectionScreen() {
             <View style={styles.vibeHeader}>
               <Feather name="message-square" size={14} color={theme.primary} />
               <ThemedText type="caption" style={{ color: theme.primary, fontWeight: "600" }}>
-                Today's Vibe
+                {t("mood.todaysVibe")}
               </ThemedText>
             </View>
             <ThemedText type="small" style={[styles.vibePrompt, { color: theme.text }]}>
@@ -550,10 +553,10 @@ export default function MoodSelectionScreen() {
             </View>
             <View style={styles.missionContent}>
               <ThemedText type="caption" style={{ color: theme.success, fontWeight: "700" }}>
-                First Mission
+                {t("mood.firstMission")}
               </ThemedText>
               <ThemedText type="caption" style={{ color: theme.textSecondary, fontSize: 11 }}>
-                Complete 1 call for +50 Aura
+                {t("mood.firstMissionDesc")}
               </ThemedText>
             </View>
           </Animated.View>
@@ -583,7 +586,7 @@ export default function MoodSelectionScreen() {
                 fontWeight: "600",
               }}
             >
-              Matches Left: {dailyMatchesLeft}/{MAX_DAILY_MATCHES}
+              {t("mood.matchesLeft")}: {dailyMatchesLeft}/{MAX_DAILY_MATCHES}
             </ThemedText>
             {noMatchesLeft ? (
               <Pressable
@@ -594,7 +597,7 @@ export default function MoodSelectionScreen() {
                 ]}
               >
                 <ThemedText type="caption" style={{ color: "#FFFFFF", fontWeight: "600", fontSize: 10 }}>
-                  Refill
+                  {t("mood.refill")}
                 </ThemedText>
               </Pressable>
             ) : null}
@@ -606,7 +609,7 @@ export default function MoodSelectionScreen() {
           <MoodCard
             type="vent"
             icon="message-circle"
-            title="I Need to Vent"
+            title={t("mood.ventTitle")}
             onPress={() => handleMoodSelect("vent")}
             delay={450}
             disabled={noMatchesLeft}
@@ -614,7 +617,7 @@ export default function MoodSelectionScreen() {
           <MoodCard
             type="listen"
             icon="headphones"
-            title="I Can Listen"
+            title={t("mood.listenTitle")}
             onPress={() => handleMoodSelect("listen")}
             delay={550}
             disabled={noMatchesLeft}
@@ -628,8 +631,8 @@ export default function MoodSelectionScreen() {
             style={[styles.subtitle, { color: theme.textSecondary }]}
           >
             {noMatchesLeft 
-              ? "Refill your matches to continue connecting"
-              : "Pick your mood. You'll connect in 15 seconds."
+              ? t("mood.noMatchesSubtitle")
+              : t("mood.subtitle")
             }
           </ThemedText>
         </Animated.View>
@@ -640,7 +643,7 @@ export default function MoodSelectionScreen() {
             type="caption"
             style={[styles.footerText, { color: theme.textDisabled }]}
           >
-            Anonymous voice calls for emotional relief
+            {t("mood.anonymousCalls")}
           </ThemedText>
         </Animated.View>
 

@@ -23,6 +23,7 @@ import { SessionProvider } from "@/contexts/SessionContext";
 import { CreditsProvider } from "@/contexts/CreditsContext";
 import { AuraProvider } from "@/contexts/AuraContext";
 import { MatchmakingProvider } from "@/contexts/MatchmakingContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { useColorScheme } from "@/hooks/useColorScheme";
 
 SplashScreen.preventAutoHideAsync();
@@ -82,17 +83,19 @@ export default function App() {
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
-          <ThemeProvider>
-            <SessionProvider>
-              <CreditsProvider>
-                <AuraProvider>
-                  <MatchmakingProvider>
-                    <AppContent />
-                  </MatchmakingProvider>
-                </AuraProvider>
-              </CreditsProvider>
-            </SessionProvider>
-          </ThemeProvider>
+          <LanguageProvider>
+            <ThemeProvider>
+              <SessionProvider>
+                <CreditsProvider>
+                  <AuraProvider>
+                    <MatchmakingProvider>
+                      <AppContent />
+                    </MatchmakingProvider>
+                  </AuraProvider>
+                </CreditsProvider>
+              </SessionProvider>
+            </ThemeProvider>
+          </LanguageProvider>
         </SafeAreaProvider>
       </QueryClientProvider>
     </ErrorBoundary>
