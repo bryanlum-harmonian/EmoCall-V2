@@ -1428,7 +1428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Decrypt with the PIN
       const key = scryptSync(pin, salt, 32);
-      const decipher = createDecipheriv("aes-256-gcm", key, iv);
+      const decipher = createDecipheriv("aes-256-gcm", key, iv, { authTagLength: 16 });
       decipher.setAuthTag(authTag);
       
       let decrypted;
