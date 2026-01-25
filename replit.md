@@ -117,8 +117,19 @@ The matchmaking system uses a robust architecture to prevent race conditions and
 - `join_queue`: Client -> Server, joins matchmaking with mood/cardId
 - `leave_queue`: Client -> Server, exits matchmaking
 - `match_found`: Server -> Client, match created with callId/partnerId
-- `call_ready`: Client -> Server, signals user has joined Agora voice channel
-- `call_started`: Server -> Client, both users ready, call timer begins
+- `call_ready`: Client -> Server, signals user is on ActiveCallScreen (sent BEFORE joining Agora)
+- `call_started`: Server -> Client, both users on call screen, Agora voice now connects
+
+#### Voice Connection Flow
+The voice channel only connects after both users are confirmed on the call screen:
+1. **Match Found** → Both users navigate to ActiveCallScreen
+2. **Signal Ready** → Each user sends `call_ready` immediately on screen mount (before Agora)
+3. **Server Waits** → Server waits for both `call_ready` signals (30s timeout)
+4. **Call Started** → Server sends `call_started` to both users simultaneously
+5. **Join Agora** → Only NOW do users join the Agora voice channel
+6. **Voice Connected** → "Connecting..." disappears, call timer starts
+
+This prevents one-sided audio where one user hears the other before they've arrived on the screen.
 
 #### Reconnection Handling
 - **Graceful Disconnects**: Queue entries are NOT deleted immediately on WebSocket disconnect
