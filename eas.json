@@ -16,17 +16,39 @@
     },
     "preview": {
       "distribution": "internal",
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "YOUR_PRODUCTION_URL"
+        "EXPO_PUBLIC_DOMAIN": "https://emocall.replit.app"
       }
     },
     "production": {
+      "ios": {
+        "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "YOUR_PRODUCTION_URL"
-      }
+        "EXPO_PUBLIC_DOMAIN": "https://emocall.replit.app"
+      },
+      "autoIncrement": true
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "YOUR_APPLE_ID",
+        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-services.json",
+        "track": "internal"
+      }
+    }
   }
 }
