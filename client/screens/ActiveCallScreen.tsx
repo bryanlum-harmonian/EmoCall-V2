@@ -707,10 +707,10 @@ export default function ActiveCallScreen() {
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       leaveVoice().then(() => {
-        navigation.replace("CallEnded", { reason: "partner_left" });
+        navigation.replace("CallEnded", { reason: "partner_left", callId });
       });
     }
-  }, [remoteUserLeft, leaveVoice, navigation]);
+  }, [remoteUserLeft, leaveVoice, navigation, callId]);
 
   const [timeRemaining, setTimeRemaining] = useState(() => getInitialTimeRemaining());
   const [totalCallTime, setTotalCallTime] = useState(() => {
@@ -773,10 +773,10 @@ export default function ActiveCallScreen() {
       setShowReminderModal(false);
       clearCallEnded();
       leaveVoice().then(() => {
-        navigation.replace("CallEnded", { reason: "partner_ended" });
+        navigation.replace("CallEnded", { reason: "partner_ended", callId });
       });
     }
-  }, [callEndedByPartner, clearCallEnded, leaveVoice, navigation]);
+  }, [callEndedByPartner, clearCallEnded, leaveVoice, navigation, callId]);
 
   const isWarningTime = timeRemaining <= WARNING_TIME && !hasExtended;
   const isUrgent = timeRemaining <= WARNING_TIME;
@@ -796,10 +796,10 @@ export default function ActiveCallScreen() {
       
       endCallWs("max_duration", 0);
       leaveVoice().then(() => {
-        navigation.replace("CallEnded", { reason: "max_duration" });
+        navigation.replace("CallEnded", { reason: "max_duration", callId });
       });
     }
-  }, [reachedMaxDuration, leaveVoice, navigation, endCallWs]);
+  }, [reachedMaxDuration, leaveVoice, navigation, endCallWs, callId]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -1048,8 +1048,8 @@ export default function ActiveCallScreen() {
       }
     }
 
-    navigation.replace("VibeCheck", {});
-  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation, leaveVoice, endCallWs, timeRemaining]);
+    navigation.replace("CallEnded", { reason: "ended", callId });
+  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation, leaveVoice, endCallWs, timeRemaining, callId]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1072,7 +1072,7 @@ export default function ActiveCallScreen() {
       }
       
       setShowReportModal(false);
-      navigation.replace("CallEnded", { reason: "reported" });
+      navigation.replace("CallEnded", { reason: "reported", callId });
     } catch (error) {
       console.error("Error submitting report:", error);
     } finally {
