@@ -261,6 +261,8 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.lg,
     borderRadius: BorderRadius.xl,
     maxHeight: "80%",
+    minHeight: 400,
+    flex: 0,
     overflow: "hidden",
   },
   header: {
