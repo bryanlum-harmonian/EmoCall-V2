@@ -217,9 +217,7 @@ export default function MoodSelectionScreen() {
   const [isSearching, setIsSearching] = useState(false);
   
   // Habit Loop state
-  const [dailyVibe, setDailyVibe] = useState<string>("");
   const [dailyStreak, setDailyStreak] = useState(0);
-  const [showFirstMission, setShowFirstMission] = useState(false);
   const [checkedInToday, setCheckedInToday] = useState(false);
 
   const pulseScale = useSharedValue(1);
@@ -230,14 +228,6 @@ export default function MoodSelectionScreen() {
   useEffect(() => {
     const fetchHabitData = async () => {
       try {
-        // Fetch daily vibe prompt
-        const vibeUrl = new URL("/api/daily-vibe", getApiUrl());
-        const vibeRes = await fetch(vibeUrl.toString());
-        if (vibeRes.ok) {
-          const vibeData = await vibeRes.json();
-          setDailyVibe(vibeData.prompt);
-        }
-        
         // Fetch habit status if session exists
         if (session?.id) {
           const statusUrl = new URL(`/api/sessions/${session.id}/habit-status`, getApiUrl());
@@ -245,7 +235,6 @@ export default function MoodSelectionScreen() {
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             setDailyStreak(statusData.dailyStreak || 0);
-            setShowFirstMission(statusData.showFirstMission || false);
             setCheckedInToday(statusData.checkedInToday || false);
           }
           
@@ -526,44 +515,6 @@ export default function MoodSelectionScreen() {
           </ThemedText>
         </Animated.View>
 
-        {/* Daily Vibe Card */}
-        {dailyVibe ? (
-          <Animated.View 
-            entering={FadeInUp.delay(350).duration(400)}
-            style={[styles.vibeCard, { backgroundColor: `${theme.primary}10`, borderColor: `${theme.primary}30` }]}
-          >
-            <View style={styles.vibeHeader}>
-              <Feather name="message-square" size={14} color={theme.primary} />
-              <ThemedText type="caption" style={{ color: theme.primary, fontWeight: "600" }}>
-                {t("mood.todaysVibe")}
-              </ThemedText>
-            </View>
-            <ThemedText type="small" style={[styles.vibePrompt, { color: theme.text }]}>
-              "{dailyVibe}"
-            </ThemedText>
-          </Animated.View>
-        ) : null}
-
-        {/* First Mission Badge */}
-        {showFirstMission ? (
-          <Animated.View 
-            entering={FadeInUp.delay(380).duration(400)}
-            style={[styles.missionCard, { backgroundColor: `${theme.success}15`, borderColor: `${theme.success}40` }]}
-          >
-            <View style={styles.missionIcon}>
-              <Feather name="target" size={16} color={theme.success} />
-            </View>
-            <View style={styles.missionContent}>
-              <ThemedText type="caption" style={{ color: theme.success, fontWeight: "700" }}>
-                {t("mood.firstMission")}
-              </ThemedText>
-              <ThemedText type="caption" style={{ color: theme.textSecondary, fontSize: 11 }}>
-                {t("mood.firstMissionDesc")}
-              </ThemedText>
-            </View>
-          </Animated.View>
-        ) : null}
-
         {/* Matches Counter */}
         <View style={styles.matchesCounter}>
           <Animated.View 
@@ -842,43 +793,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
     borderRadius: BorderRadius.full,
-  },
-  vibeCard: {
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    marginBottom: Spacing.sm,
-  },
-  vibeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 2,
-  },
-  vibePrompt: {
-    fontStyle: "italic",
-    textAlign: "center",
-    lineHeight: 18,
-  },
-  missionCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: Spacing.sm,
-    borderRadius: BorderRadius.md,
-    borderWidth: 1,
-    marginBottom: Spacing.md,
-    gap: Spacing.sm,
-  },
-  missionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  missionContent: {
-    flex: 1,
   },
   headline: {
     textAlign: "center",
