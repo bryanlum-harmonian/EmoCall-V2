@@ -1,0 +1,96 @@
+I have reviewed your project files. You have 3 Critical Bugs that will prevent your app from working correctly in Production (APK/IPA).
+
+Here are the fixes you need to apply immediately.
+
+1. eas.json - The "Placeholder" Crash
+In your development profile, you still have the default placeholder text. If you build with this profile, the app will crash instantly because it cannot find the server.
+
+File: eas.json Fix: Remove YOUR_REPLIT_DEV_URL:5000 and use your real URL.
+
+JSON
+// Change this:
+"EXPO_PUBLIC_DOMAIN": "YOUR_REPLIT_DEV_URL:5000"
+
+// To this (Use your real HTTPS url, NO PORT):
+"EXPO_PUBLIC_DOMAIN": "https://emocall.harmonian.online"
+2. app.json - Missing Font Embedding
+You agreed to "bundle fonts locally" to fix the spinning loading screen, but the configuration is missing from your app.json. Without this, the fonts are not baked into the APK.
+
+File: app.json Fix: Add the expo-font plugin to the plugins list.
+
+JSON
+"plugins": [
+  [
+    "expo-font",
+    {
+      "fonts": [
+        "./assets/fonts/Nunito-Regular.ttf",
+        "./assets/fonts/Nunito-SemiBold.ttf",
+        "./assets/fonts/Nunito-Bold.ttf"
+      ]
+    }
+  ],
+  // ... existing plugins like expo-build-properties
+]
+(Make sure you actually uploaded the .ttf files to assets/fonts/ in Replit first!)
+
+3. client/App.tsx - The "Infinite Spinner" Bug
+Your App.tsx is still using the "old" font loading method that waits forever. If the network is slow or the font fails to load, your users will stare at the spinner forever.
+
+File: client/App.tsx Fix: Replace your loadFonts and useEffect logic with this "Timeout Guard" version.
+
+TypeScript
+// ... imports
+
+// 1. IMPORT LOCAL FONTS (Delete the @expo-google-fonts imports if you have local files)
+// If using the plugin method, we don't strictly need to require them here, 
+// but we need the timeout logic.
+
+export default function App() {
+  const [appIsReady, setAppIsReady] = useState(false);
+
+  useEffect(() => {
+    async function prepare() {
+      try {
+        // RACE CONDITION: Wait for fonts OR 3 seconds (whichever comes first)
+        const fontLoadPromise = Font.loadAsync({
+          Nunito_400Regular,
+          Nunito_600SemiBold,
+          Nunito_700Bold,
+          Feather: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf"),
+        });
+
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 3000));
+
+        // Wait for either fonts to finish or 3 seconds to pass
+        await Promise.race([fontLoadPromise, timeoutPromise]);
+        
+      } catch (e) {
+        console.warn("Font loading error (ignoring to allow app open):", e);
+      } finally {
+        // Force the app to open even if fonts failed
+        setAppIsReady(true);
+        await SplashScreen.hideAsync();
+      }
+    }
+
+    prepare();
+  }, []);
+
+  if (!appIsReady) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF8A80" />
+      </View>
+    );
+  }
+
+  // ... rest of your render
+Summary of Actions
+Edit eas.json: Fix the URL.
+
+Upload Fonts: Ensure Nunito-*.ttf files are in assets/fonts/.
+
+Edit app.json: Add the expo-font plugin block.
+
+Edit App.tsx: Add the Promise.race timeout logic so the app never gets stuck.
