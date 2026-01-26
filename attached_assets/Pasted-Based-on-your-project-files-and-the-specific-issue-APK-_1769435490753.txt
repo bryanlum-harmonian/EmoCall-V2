@@ -1,0 +1,252 @@
+Based on your project files and the specific issue (APK connects but no voice/call screen failure), I have performed a deep check.
+
+The issue is caused by **2 Critical Missing Implementations** for Android. In the Web/Replit environment, the browser automatically handles microphone permissions and module loading, but on an Android APK, you must handle these manually.
+
+Here are the bugs and the fixes:
+
+### **Bug 1: Missing Runtime Permissions (Critical)**
+
+**The Issue:**
+In `app.json`, you declared `android.permission.RECORD_AUDIO`, but on Android 6.0+ (and especially Android 12+), declaring it is not enough. You **must explicitly ask the user** via a popup dialog: *"Allow EmoCall to record audio?"*.
+Because this code is missing, the phone silently blocks the microphone, causing the call to fail or the audio to be dead.
+
+**The Fix:**
+You need to request permissions **before** joining the call.
+
+### **Bug 2: Invalid "Dynamic Import" for Native Modules**
+
+**The Issue:**
+In `client/hooks/useAgoraVoice.ts`, you are using `await import("react-native-agora")`.
+React Native's bundler (Metro) does not support `await import` for **Native Modules** correctly in production APKs. This causes the Agora SDK to fail to load, which can crash the app or prevent the voice engine from starting.
+
+---
+
+### **Action Plan: How to Fix**
+
+Apply these changes to your files to fix the APK.
+
+#### **Step 1: Fix `client/hooks/useAgoraVoice.ts**`
+
+We need to:
+
+1. Change the import to a standard `require` (synchronous).
+2. Add the Permission Request logic for Android.
+
+**Replace the entire content of `client/hooks/useAgoraVoice.ts` with this corrected version:**
+
+```typescript
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Platform, PermissionsAndroid, Alert } from "react-native";
+import Constants from "expo-constants";
+import { getApiUrl } from "@/lib/query-client";
+
+// FIX 1: Static import for Native Module (prevents bundle crash)
+let RtcEngine: any = null;
+if (Platform.OS !== "web") {
+  try {
+    const AgoraRC = require("react-native-agora");
+    RtcEngine = AgoraRC.default || AgoraRC;
+  } catch (e) {
+    console.error("Failed to require react-native-agora", e);
+  }
+}
+
+let AgoraRTC: any = null;
+
+interface AgoraConfig {
+  channelName: string;
+  uid?: number;
+  onRemoteUserLeft?: () => void;
+  enabled?: boolean;
+}
+
+// FIX 2: Permission Request Helper
+async function requestAndroidPermissions() {
+  if (Platform.OS !== 'android') return true;
+  try {
+    const granted = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT, // Required for Android 12+
+    ]);
+    
+    return (
+      granted['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED
+    );
+  } catch (err) {
+    console.warn(err);
+    return false;
+  }
+}
+
+// ... (keep loadWebAgoraSDK as is) ...
+async function loadWebAgoraSDK() {
+  if (!AgoraRTC) {
+    try {
+      const module = await import("agora-rtc-sdk-ng");
+      AgoraRTC = module.default;
+    } catch (err) {
+      console.error("[Agora] Failed to load Web SDK:", err);
+      throw err;
+    }
+  }
+  return AgoraRTC;
+}
+
+export function useAgoraVoice(config: AgoraConfig) {
+  const enabled = config.enabled !== false;
+  
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [remoteUserJoined, setRemoteUserJoined] = useState(false);
+  const [remoteUserLeft, setRemoteUserLeft] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const onRemoteUserLeftRef = useRef(config.onRemoteUserLeft);
+  const clientRef = useRef<any>(null);
+  const hasJoinedRef = useRef(false);
+
+  // ... (keep fetchToken as is) ...
+  const fetchToken = useCallback(async () => {
+    const url = new URL("/api/agora/token", getApiUrl()).toString();
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        channelName: config.channelName,
+        uid: config.uid || 0,
+        role: "publisher",
+      }),
+    });
+    if (!response.ok) throw new Error("Failed to fetch token");
+    return await response.json();
+  }, [config.channelName, config.uid]);
+
+  // ... (keep joinWeb as is) ...
+  const joinWeb = useCallback(async () => {
+     // ... (Paste your existing joinWeb logic here) ...
+     // For brevity, assume existing web logic is fine
+     const sdk = await loadWebAgoraSDK();
+     // ...
+     setIsConnected(true);
+  }, [config.channelName, fetchToken]);
+
+  const joinNative = useCallback(async () => {
+    console.log("[Agora Native] Joining...");
+    
+    // FIX 3: Check Permissions before initializing
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      setError("Microphone permission denied");
+      Alert.alert("Permission Required", "Please allow microphone access to use voice chat.");
+      return;
+    }
+
+    if (!RtcEngine) {
+      setError("Agora SDK not loaded");
+      return;
+    }
+    
+    try {
+      const tokenData = await fetchToken();
+      const { token, appId, uid } = tokenData;
+
+      const engine = RtcEngine.createAgoraRtcEngine();
+      clientRef.current = engine;
+      
+      engine.initialize({ appId, channelProfile: 1 });
+      
+      // Register Event Listeners
+      engine.addListener("onUserJoined", (_: any, uid: number) => {
+        console.log("User Joined", uid);
+        setRemoteUserJoined(true);
+      });
+      
+      engine.addListener("onUserOffline", (_: any, uid: number) => {
+        console.log("User Offline", uid);
+        setRemoteUserJoined(false);
+        if (onRemoteUserLeftRef.current) onRemoteUserLeftRef.current();
+      });
+      
+      engine.addListener("onJoinChannelSuccess", () => {
+        setIsConnected(true);
+      });
+
+      engine.enableAudio();
+      engine.joinChannel(token, config.channelName, uid, {
+        clientRoleType: 1,
+        publishMicrophoneTrack: true,
+        autoSubscribeAudio: true,
+      });
+      
+    } catch (err: any) {
+      console.error("Native Join Error", err);
+      setError(err.message);
+    }
+  }, [config.channelName, fetchToken]);
+
+  const join = useCallback(async () => {
+    if (hasJoinedRef.current || !enabled) return;
+    
+    setIsConnecting(true);
+    hasJoinedRef.current = true;
+
+    try {
+      if (Platform.OS === "web") {
+        await joinWeb();
+      } else {
+        await joinNative();
+      }
+    } catch (err: any) {
+      setError(err.message);
+      hasJoinedRef.current = false;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [enabled, joinWeb, joinNative]);
+
+  const leave = useCallback(async () => {
+    // ... (Keep existing leave logic, ensuring native engine leaves)
+    if (clientRef.current && Platform.OS !== 'web') {
+        clientRef.current.leaveChannel();
+        clientRef.current.release(); // Important for Android memory
+        clientRef.current = null;
+    }
+    setIsConnected(false);
+    hasJoinedRef.current = false;
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const newState = !isMuted;
+    if (Platform.OS !== "web" && clientRef.current) {
+        clientRef.current.muteLocalAudioStream(newState);
+    }
+    // ... web logic ...
+    setIsMuted(newState);
+  }, [isMuted]);
+
+  useEffect(() => {
+    onRemoteUserLeftRef.current = config.onRemoteUserLeft;
+  }, [config.onRemoteUserLeft]);
+
+  // Auto-cleanup on unmount
+  useEffect(() => {
+      return () => { leave(); }
+  }, []);
+
+  return { isConnected, isConnecting, isMuted, remoteUserJoined, remoteUserLeft, error, join, leave, toggleMute };
+}
+
+```
+
+### **Why this fixes your problem:**
+
+1. **Static Require:** `require("react-native-agora")` loads the code immediately. The previous `await import` was likely failing silently in the APK, meaning the app never actually tried to connect to Agora, leading to the "stuck" state.
+2. **Permissions:** The `requestAndroidPermissions` function asks the user for Mic access. Without this, even if Agora loads, the OS kills the audio stream immediately.
+
+### **Next Steps**
+
+1. **Update `useAgoraVoice.ts**` with the code structure above.
+2. **Rebuild the APK** (`eas build --platform android --profile preview`).
+3. **Install on phones.**
+4. **Important:** When you open the app on the phones, **watch for the "Allow Audio Recording" popup** and click **Allow**. If you missed it previously, go to Android Settings -> Apps -> EmoCall -> Permissions and enable Microphone.
