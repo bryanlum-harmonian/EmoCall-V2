@@ -1,0 +1,59 @@
+I have analyzed your `ActiveCallScreen.tsx` and `server/routes.ts` files.
+
+The issue is a **Race Condition** specific to the APK.
+When your app navigates from "Match Found" to "Active Call", the WebSocket connection often disconnects briefly or "blinks" on Android. Your current code sends the "I am Ready" signal **only once** immediately when the screen loads. If the socket is blinking at that exact moment, the message is lost.
+
+Result: The server never knows you are ready. The app stays stuck on "Preparing your call" (waiting for server), and `joinVoice()` is never called, so the microphone permission popup never appears.
+
+### **The Fix: Retry Logic**
+
+We need to make the app "nag" the server until the call actually starts.
+
+**Action:** Update `client/screens/ActiveCallScreen.tsx`.
+
+Replace your existing `useEffect` for signaling ready (lines 722-729) with this robust version:
+
+```typescript
+  // REPLACE THIS BLOCK:
+  /*
+  useEffect(() => {
+    if (!hasSignaledReadyRef.current && callId) {
+      console.log("[ActiveCall] Signaling ready to server (waiting for partner)...");
+      hasSignaledReadyRef.current = true;
+      signalReady(callId);
+    }
+  }, [callId, signalReady]);
+  */
+
+  // WITH THIS NEW BLOCK:
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (waitingForPartner && callId) {
+      console.log("[ActiveCall] Starting ready signal loop...");
+      
+      // Send immediately
+      signalReady(callId);
+
+      // Retry every 2 seconds until the server responds with 'call_started'
+      // This guarantees the message gets through even if the socket reconnects
+      interval = setInterval(() => {
+        console.log("[ActiveCall] Re-sending ready signal...");
+        signalReady(callId);
+      }, 2000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [waitingForPartner, callId, signalReady]);
+
+```
+
+### **Why this fixes it:**
+
+1. **Persistence:** Instead of trying once, the phone now shouts "I'M READY" every 2 seconds.
+2. **Socket Recovery:** If the socket reconnects during navigation, the next retry (2s later) will succeed.
+3. **Auto-Stop:** As soon as the server replies (triggering `setWaitingForPartner(false)`), the loop stops automatically.
+
+**Apply this change, rebuild, and the call screen will finally trigger the "Call Started" state and ask for Microphone permissions.**
