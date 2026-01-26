@@ -11,7 +11,11 @@ export function getApiUrl(): string {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
-  let url = new URL(`https://${host}`);
+  if (!host.startsWith("http")) {
+    host = `https://${host}`;
+  }
+  
+  let url = new URL(host);
 
   // Remove trailing slash to avoid double slashes when concatenating paths
   return url.href.replace(/\/$/, "");

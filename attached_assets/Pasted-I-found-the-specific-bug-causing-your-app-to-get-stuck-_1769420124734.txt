@@ -1,0 +1,68 @@
+I found the specific bug causing your app to get stuck. It is a "Double HTTPS" error hidden in your code.
+
+The Problem
+In your eas.json, you set the domain as: https://emocall.harmonian.online.
+
+In your client/lib/query-client.ts, your code manually adds https:// again.
+
+Result: Your app is trying to connect to: https://https://emocall.harmonian.online This is an invalid URL, so the connection fails immediately. The app catches the error but doesn't show it, leaving you with an infinite loading spinner.
+
+The Fix (Apply these 2 Changes)
+Step 1: Fix client/lib/query-client.ts
+Replace the getApiUrl function with this smarter version that detects if https is already there.
+
+File: client/lib/query-client.ts
+
+TypeScript
+// ... imports
+
+export function getApiUrl(): string {
+  let host = process.env.EXPO_PUBLIC_DOMAIN;
+
+  if (!host) {
+    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+  }
+
+  // FIX: Only add https:// if it is missing
+  if (!host.startsWith("http")) {
+    host = `https://${host}`;
+  }
+
+  let url = new URL(host);
+
+  // Remove trailing slash to avoid double slashes
+  return url.href.replace(/\/$/, "");
+}
+
+// ... rest of file
+Step 2: Show Error Messages (Stop the "Silent" Crash)
+Right now, if the server is down, your app just spins forever. Let's make it tell you why it failed.
+
+File: client/navigation/RootStackNavigator.tsx Update this section:
+
+TypeScript
+// 1. Update the destructuring to include 'error' and 'refreshSession'
+const { session, isLoading, hasAcceptedTerms, acceptTerms, error, refreshSession } = useSession();
+const { theme } = useTheme();
+
+// 2. Change the loading check to display errors
+if (isLoading || !session) {
+  // If there is an error, show it with a Retry button
+  if (error) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot, padding: 20 }]}>
+        <ThemedText style={{ color: 'red', textAlign: 'center', marginBottom: 10 }}>
+          Connection Error: {error}
+        </ThemedText>
+        <Button title="Retry Connection" onPress={refreshSession} />
+      </View>
+    );
+  }
+
+  // Otherwise show the spinner
+  return (
+    <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
+      <ActivityIndicator size="large" color={theme.primary} />
+    </View>
+  );
+}
