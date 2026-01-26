@@ -66,7 +66,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshSession = async () => {
-    if (!session?.id) return;
+    if (!session?.id) {
+      await initializeSession();
+      return;
+    }
 
     try {
       const response = await apiRequest("GET", `/api/sessions/${session.id}`, undefined);

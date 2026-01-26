@@ -1,10 +1,11 @@
-import React from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import { View, ActivityIndicator, StyleSheet, Pressable } from "react-native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useSession } from "@/contexts/SessionContext";
 import { useTheme } from "@/hooks/useTheme";
+import { ThemedText } from "@/components/ThemedText";
 
 import TermsGateScreen from "@/screens/TermsGateScreen";
 import MoodSelectionScreen from "@/screens/MoodSelectionScreen";
@@ -40,10 +41,41 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
-  const { session, isLoading, hasAcceptedTerms, acceptTerms } = useSession();
+  const { session, isLoading, hasAcceptedTerms, acceptTerms, error, refreshSession } = useSession();
   const { theme } = useTheme();
+  const [isRetrying, setIsRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    await refreshSession();
+    setIsRetrying(false);
+  };
 
   if (isLoading || !session) {
+    if (error) {
+      return (
+        <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot, padding: 20 }]}>
+          <ThemedText style={[styles.errorText, { color: theme.error }]}>
+            Connection Error
+          </ThemedText>
+          <ThemedText style={[styles.errorDetail, { color: theme.textSecondary }]}>
+            {error}
+          </ThemedText>
+          <Pressable
+            style={[styles.retryButton, { backgroundColor: theme.primary }]}
+            onPress={handleRetry}
+            disabled={isRetrying}
+          >
+            {isRetrying ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <ThemedText style={styles.retryText}>Retry Connection</ThemedText>
+            )}
+          </Pressable>
+        </View>
+      );
+    }
+
     return (
       <View style={[styles.loadingContainer, { backgroundColor: theme.backgroundRoot }]}>
         <ActivityIndicator size="large" color={theme.primary} />
@@ -140,5 +172,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  errorText: {
+    fontSize: 20,
+    fontFamily: "Nunito_700Bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorDetail: {
+    fontSize: 14,
+    fontFamily: "Nunito_400Regular",
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  retryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+    minWidth: 180,
+    alignItems: "center",
+  },
+  retryText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontFamily: "Nunito_600SemiBold",
   },
 });
