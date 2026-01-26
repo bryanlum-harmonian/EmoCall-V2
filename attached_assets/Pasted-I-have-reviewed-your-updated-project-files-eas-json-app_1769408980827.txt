@@ -1,0 +1,67 @@
+I have reviewed your updated project files (eas.json, app.json, and client/App.tsx).
+
+Great news: You have successfully applied the 3 most critical fixes.
+
+✅ No Port 5000: Your eas.json now correctly points to https://emocall.harmonian.online.
+
+✅ Timeout Guard: Your App.tsx now uses Promise.race, so the app will force open after 3 seconds even if fonts fail.
+
+✅ Native Font Config: You added the expo-font plugin to app.json.
+
+However, I spot one path error that might cause the build to fail or the fonts to be ignored.
+
+The Issue: File Path Mismatch in app.json
+Where your files are: Your font files seem to be located in client/assets/fonts/ (based on your App.tsx and file structure).
+
+Where app.json is looking: Your configuration tells Expo to look in ./assets/fonts/ (the root assets folder, not the client folder).
+
+If your folder structure is:
+
+Plaintext
+/ (Root)
+  ├── app.json
+  ├── client/
+      ├── App.tsx
+      └── assets/
+          └── fonts/
+              └── Nunito-Bold.ttf
+Then your app.json will fail to find the fonts because it is looking in Root/assets/fonts instead of Root/client/assets/fonts.
+
+The Fix
+You have two options. Option A is safer for your current setup.
+
+Option A: Update app.json paths
+Change the paths in app.json to include the client/ folder.
+
+JSON
+// In app.json
+"plugins": [
+  [
+    "expo-font",
+    {
+      "fonts": [
+        "./client/assets/fonts/Nunito-Regular.ttf",
+        "./client/assets/fonts/Nunito-SemiBold.ttf",
+        "./client/assets/fonts/Nunito-Bold.ttf"
+      ]
+    }
+  ],
+  // ...
+]
+Option B: Move the files
+Move the fonts folder from client/assets/ to a new assets/ folder in the main root directory. If you do this, you must also update the require() paths in your App.tsx to ../../assets/fonts/.... (This is messier, so stick to Option A).
+
+Final Check Before You Build
+Once you fix that path in app.json:
+
+Commit the change:
+
+Bash
+git add .
+git commit -m "Fix font paths in app.json"
+git push
+Run the Build:
+
+Bash
+eas build --platform android --profile preview
+You are very close to a working APK!
