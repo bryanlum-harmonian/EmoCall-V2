@@ -24,16 +24,24 @@ interface UseAgoraVoiceReturn {
 
 let AgoraRTC: any = null;
 let nativeEngineInstance: any = null;
-
-// Static require for Native Module (prevents bundle crash on APK)
-// Metro bundler doesn't handle dynamic import() for native modules correctly in production
 let RtcEngineModule: any = null;
-if (Platform.OS !== "web") {
+
+// Load Native SDK lazily (called only on native platforms)
+// Uses indirect require to prevent Metro from bundling for web
+async function getNativeAgoraModule() {
+  if (RtcEngineModule) return RtcEngineModule;
+  if (Platform.OS === "web") return null;
+  
   try {
-    RtcEngineModule = require("react-native-agora");
-    console.log("[Agora] Native SDK loaded via static require");
+    // Dynamic import for native - works in production APKs
+    // Metro won't process this for web platform
+    const module = await import("react-native-agora");
+    RtcEngineModule = module.default || module;
+    console.log("[Agora] Native SDK loaded via dynamic import");
+    return RtcEngineModule;
   } catch (e) {
-    console.error("[Agora] Failed to require react-native-agora:", e);
+    console.error("[Agora] Failed to load react-native-agora:", e);
+    return null;
   }
 }
 
@@ -197,7 +205,9 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       throw new Error(errorMsg);
     }
     
-    if (!RtcEngineModule) {
+    // Load native SDK lazily
+    const AgoraModule = await getNativeAgoraModule();
+    if (!AgoraModule) {
       const errorMsg = "Agora SDK not loaded. Please restart the app.";
       console.error("[Agora Native]", errorMsg);
       setError(errorMsg);
@@ -211,7 +221,7 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       console.log("[Agora Native] Creating engine with appId");
       
       // Use the v4 SDK API - createAgoraRtcEngine
-      const { createAgoraRtcEngine, ChannelProfileType, ClientRoleType } = RtcEngineModule;
+      const { createAgoraRtcEngine, ChannelProfileType, ClientRoleType } = AgoraModule;
       
       const engine = createAgoraRtcEngine();
       nativeEngineInstance = engine;
