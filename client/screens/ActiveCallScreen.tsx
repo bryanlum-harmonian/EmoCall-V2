@@ -754,8 +754,6 @@ export default function ActiveCallScreen() {
     sessionId: session?.id || null,
   });
   
-  // Track if we've signaled ready to the server
-  const hasSignaledReadyRef = useRef(false);
   // Track if we're waiting for partner to be ready
   const [waitingForPartner, setWaitingForPartner] = useState(true);
 
@@ -807,15 +805,29 @@ export default function ActiveCallScreen() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Signal ready to server immediately on mount (before Agora connects)
-  // This tells the server "I'm on the call screen"
+  // Signal ready to server with retry logic (fixes Android race condition)
+  // Android WebSocket can "blink" during navigation, so we retry until call_started
   useEffect(() => {
-    if (!hasSignaledReadyRef.current && callId) {
-      console.log("[ActiveCall] Signaling ready to server (waiting for partner)...");
-      hasSignaledReadyRef.current = true;
+    let interval: NodeJS.Timeout;
+
+    if (waitingForPartner && callId) {
+      console.log("[ActiveCall] Starting ready signal loop...");
+      
+      // Send immediately
       signalReady(callId);
+
+      // Retry every 2 seconds until the server responds with 'call_started'
+      // This guarantees the message gets through even if the socket reconnects
+      interval = setInterval(() => {
+        console.log("[ActiveCall] Re-sending ready signal...");
+        signalReady(callId);
+      }, 2000);
     }
-  }, [callId, signalReady]);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [waitingForPartner, callId, signalReady]);
   
   // When call_started is received (both users on screen), join Agora voice
   useEffect(() => {
