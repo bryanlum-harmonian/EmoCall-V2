@@ -1,0 +1,52 @@
+I have performed a deep check of your latest files. You are 95% there, but you have 2 Critical Bugs remaining that will stop your app from working or building.
+Bug 1: The "Double HTTPS" Crash (Critical)
+Status: ❌ Active in your code
+File: client/lib/query-client.ts
+Reason: Your eas.json sets the domain as https://.... Your code manually adds https:// again. This creates an invalid URL: https://https://emocall.harmonian.online, causing the app to hang on the spinner forever.
+The Fix:
+Open client/lib/query-client.ts and update the getApiUrl function:
+export function getApiUrl(): string {
+  let host = process.env.EXPO_PUBLIC_DOMAIN;
+
+  if (!host) {
+    throw new Error("EXPO_PUBLIC_DOMAIN is not set");
+  }
+
+  // FIX: Check if https is already there before adding it
+  if (!host.startsWith("http")) {
+    host = `https://${host}`;
+  }
+
+  let url = new URL(host);
+
+  return url.href.replace(/\/$/, "");
+}
+
+Bug 2: The "Owner" Mismatch (Build Blocker)
+Status: ❌ Active in your code
+File: app.json
+Reason: You set "owner": "emocall", but your EAS Project ID (949b...) belongs to your personal account (bryanlum). This will cause the build to fail immediately with an authentication error.
+The Fix:
+Delete the owner line entirely.
+ * Remove: "owner": "emocall",
+ * Result: EAS will automatically default to you (bryanlum), which matches the ID.
+Bug 3: The Icon Dimensions (Warning)
+Status: ⚠️ Potential Issue
+File: app.json -> ./assets/images/logo.png
+Reason: You previously had a build error because your logo was rectangular (2000x1161).
+The Check: If you haven't resized logo.png to be a square (e.g., 1024x1024), the build might fail or look stretched on phones.
+The Fix: Ensure assets/images/logo.png is a perfect square image.
+Final Action Plan
+ * Edit client/lib/query-client.ts: Apply the code fix above.
+ * Edit app.json: Delete the "owner": "emocall" line.
+ * Run these commands:
+<!-- end list -->
+# 1. Sync fixes to GitHub
+git add .
+git commit -m "Fix double https and remove owner field"
+git push
+
+# 2. Build the working APK
+eas build --platform android --profile preview
+
+Do this, and you will have your 0 Bug build.
