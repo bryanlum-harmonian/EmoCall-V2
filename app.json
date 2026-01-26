@@ -51,6 +51,16 @@
     },
     "plugins": [
       [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/Nunito-Regular.ttf",
+            "./assets/fonts/Nunito-SemiBold.ttf",
+            "./assets/fonts/Nunito-Bold.ttf"
+          ]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

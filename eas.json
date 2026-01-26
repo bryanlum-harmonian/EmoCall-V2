@@ -11,7 +11,7 @@
         "simulator": false
       },
       "env": {
-        "EXPO_PUBLIC_DOMAIN": "YOUR_REPLIT_DEV_URL:5000"
+        "EXPO_PUBLIC_DOMAIN": "https://emocall.harmonian.online"
       }
     },
     "preview": {
