@@ -25,13 +25,12 @@ interface UseAgoraVoiceReturn {
 let AgoraRTC: any = null;
 let nativeEngineInstance: any = null;
 
-// FIX: Static require for Native Module (prevents bundle crash on APK)
+// Static require for Native Module (prevents bundle crash on APK)
 // Metro bundler doesn't handle dynamic import() for native modules correctly in production
-let RtcEngine: any = null;
+let RtcEngineModule: any = null;
 if (Platform.OS !== "web") {
   try {
-    const AgoraModule = require("react-native-agora");
-    RtcEngine = AgoraModule.default || AgoraModule;
+    RtcEngineModule = require("react-native-agora");
     console.log("[Agora] Native SDK loaded via static require");
   } catch (e) {
     console.error("[Agora] Failed to require react-native-agora:", e);
@@ -42,26 +41,21 @@ function isExpoGo(): boolean {
   return Constants.appOwnership === "expo";
 }
 
-// Request Android runtime permissions for microphone
-async function requestAndroidAudioPermission(): Promise<boolean> {
+// Request Android runtime permissions for microphone and Bluetooth (Android 12+)
+async function requestAndroidPermissions(): Promise<boolean> {
   if (Platform.OS !== "android") return true;
   
   try {
-    console.log("[Agora] Requesting Android audio permissions...");
-    const granted = await PermissionsAndroid.request(
+    console.log("[Agora] Requesting Android permissions...");
+    // Request multiple permissions including Bluetooth for Android 12+
+    const granted = await PermissionsAndroid.requestMultiple([
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      {
-        title: "Microphone Permission",
-        message: "EmoCall needs access to your microphone for voice calls.",
-        buttonNeutral: "Ask Me Later",
-        buttonNegative: "Cancel",
-        buttonPositive: "OK",
-      }
-    );
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+    ]);
     
-    const isGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
-    console.log("[Agora] Audio permission result:", granted, "isGranted:", isGranted);
-    return isGranted;
+    const audioGranted = granted[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+    console.log("[Agora] Permissions result:", granted, "audioGranted:", audioGranted);
+    return audioGranted;
   } catch (err) {
     console.error("[Agora] Permission request error:", err);
     return false;
@@ -189,8 +183,8 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const joinNative = useCallback(async () => {
     console.log("[Agora Native] Joining...");
     
-    // Request microphone permission on Android before joining
-    const hasPermission = await requestAndroidAudioPermission();
+    // Request microphone and Bluetooth permissions on Android before joining
+    const hasPermission = await requestAndroidPermissions();
     if (!hasPermission) {
       const errorMsg = "Microphone permission denied. Please allow microphone access in Settings.";
       console.error("[Agora Native]", errorMsg);
@@ -203,7 +197,7 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       throw new Error(errorMsg);
     }
     
-    if (!RtcEngine) {
+    if (!RtcEngineModule) {
       const errorMsg = "Agora SDK not loaded. Please restart the app.";
       console.error("[Agora Native]", errorMsg);
       setError(errorMsg);
@@ -216,44 +210,50 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
 
       console.log("[Agora Native] Creating engine with appId");
       
-      const engine = RtcEngine.createAgoraRtcEngine();
+      // Use the v4 SDK API - createAgoraRtcEngine
+      const { createAgoraRtcEngine, ChannelProfileType, ClientRoleType } = RtcEngineModule;
+      
+      const engine = createAgoraRtcEngine();
       nativeEngineInstance = engine;
       clientRef.current = engine;
       
+      // Initialize with v4 API
       engine.initialize({
         appId: appId,
-        channelProfile: 1,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
       });
 
-      engine.addListener("onUserJoined", (connection: any, remoteUid: number) => {
-        console.log("[Agora Native] Remote user joined:", remoteUid);
-        setRemoteUserJoined(true);
+      // CRITICAL FIX: Use registerEventHandler (v4 API) instead of addListener (deprecated)
+      engine.registerEventHandler({
+        onJoinChannelSuccess: (connection: any, elapsed: number) => {
+          console.log("[Agora Native] Joined channel successfully, elapsed:", elapsed);
+          setIsConnected(true);
+        },
+        onUserJoined: (connection: any, remoteUid: number, elapsed: number) => {
+          console.log("[Agora Native] Remote user joined:", remoteUid);
+          setRemoteUserJoined(true);
+        },
+        onUserOffline: (connection: any, remoteUid: number, reason: number) => {
+          console.log("[Agora Native] Remote user offline:", remoteUid, "reason:", reason);
+          setRemoteUserJoined(false);
+          setRemoteUserLeft(true);
+          if (onRemoteUserLeftRef.current) {
+            onRemoteUserLeftRef.current();
+          }
+        },
+        onError: (err: number, msg: string) => {
+          console.error("[Agora Native] Error:", err, msg);
+          setError(`Agora error: ${msg}`);
+        },
       });
 
-      engine.addListener("onUserOffline", (connection: any, remoteUid: number, reason: number) => {
-        console.log("[Agora Native] Remote user offline:", remoteUid, "reason:", reason);
-        setRemoteUserJoined(false);
-        setRemoteUserLeft(true);
-        if (onRemoteUserLeftRef.current) {
-          onRemoteUserLeftRef.current();
-        }
-      });
-
-      engine.addListener("onJoinChannelSuccess", (connection: any, elapsed: number) => {
-        console.log("[Agora Native] Joined channel successfully, elapsed:", elapsed);
-        setIsConnected(true);
-      });
-
-      engine.addListener("onError", (err: number, msg: string) => {
-        console.error("[Agora Native] Error:", err, msg);
-        setError(`Agora error: ${msg}`);
-      });
-
+      // Set client role and enable audio
+      engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
       engine.enableAudio();
       
       console.log("[Agora Native] Joining channel:", config.channelName);
       engine.joinChannel(token, config.channelName, uid, {
-        clientRoleType: 1,
+        clientRoleType: ClientRoleType.ClientRoleBroadcaster,
         publishMicrophoneTrack: true,
         autoSubscribeAudio: true,
       });
