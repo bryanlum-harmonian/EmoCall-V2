@@ -27,17 +27,17 @@ let nativeEngineInstance: any = null;
 let RtcEngineModule: any = null;
 
 // Load Native SDK lazily (called only on native platforms)
-// Uses indirect require to prevent Metro from bundling for web
-async function getNativeAgoraModule() {
+// FIX: Use standard require instead of await import for Native Modules
+// This ensures the linker finds the module correctly in the APK bundle
+function getNativeAgoraModule() {
   if (RtcEngineModule) return RtcEngineModule;
   if (Platform.OS === "web") return null;
   
   try {
-    // Dynamic import for native - works in production APKs
-    // Metro won't process this for web platform
-    const module = await import("react-native-agora");
-    RtcEngineModule = module.default || module;
-    console.log("[Agora] Native SDK loaded via dynamic import");
+    // Standard require for native modules - battle-tested approach
+    // Metro bundles this correctly for Android/iOS APKs
+    RtcEngineModule = require("react-native-agora");
+    console.log("[Agora] Native SDK loaded via require");
     return RtcEngineModule;
   } catch (e) {
     console.error("[Agora] Failed to load react-native-agora:", e);
@@ -206,7 +206,7 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
     }
     
     // Load native SDK lazily
-    const AgoraModule = await getNativeAgoraModule();
+    const AgoraModule = getNativeAgoraModule();
     if (!AgoraModule) {
       const errorMsg = "Agora SDK not loaded. Please restart the app.";
       console.error("[Agora Native]", errorMsg);
