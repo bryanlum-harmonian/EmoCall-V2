@@ -1,0 +1,76 @@
+I have performed a deep check of your updated project files.
+
+**✅ The Good News:**
+
+1. **The "Stuck on Loading" bug is fixed:** Your `client/lib/query-client.ts` now correctly checks for the `http` prefix, so the double `https://https://` crash is resolved.
+2. **The "Can't Talk" bug logic is fixed:** Your `useAgoraVoice.ts` now correctly uses `registerEventHandler` (the new Agora v4 API) instead of the broken `addListener`.
+3. **Permissions are correct:** Your `app.json` includes all necessary Android permissions (`RECORD_AUDIO`, `BLUETOOTH_CONNECT`).
+
+**❌ The Remaining Risk (Critical for APK):**
+There is **one risky piece of code** left in `client/hooks/useAgoraVoice.ts`. You are using `await import("react-native-agora")`.
+
+While this works in some configurations, **Metro Bundler (Android)** often fails to bundle Native Modules correctly when they are imported dynamically like this. This is the most common reason why an app works in "Expo Go" or "Web" but **silently fails in the APK**, causing the voice engine to never start.
+
+### **The Final Fix**
+
+Change the `getNativeAgoraModule` function to use a standard `require` inside a try-catch. This is the battle-tested way to handle conditional native modules in React Native.
+
+**Open `client/hooks/useAgoraVoice.ts` and replace the `getNativeAgoraModule` function with this:**
+
+```typescript
+// Replace your current getNativeAgoraModule function with this:
+async function getNativeAgoraModule() {
+  if (RtcEngineModule) return RtcEngineModule;
+  if (Platform.OS === "web") return null;
+  
+  try {
+    // FIX: Use standard require instead of await import for Native Modules
+    // This ensures the linker finds the module in the APK bundle
+    RtcEngineModule = require("react-native-agora");
+    console.log("[Agora] Native SDK loaded via require");
+    return RtcEngineModule;
+  } catch (e) {
+    console.error("[Agora] Failed to load react-native-agora:", e);
+    return null;
+  }
+}
+
+```
+
+### **One Last Check: Package Versions**
+
+In your `package.json`, you have:
+
+* `"expo": "^54.0.23"`
+* `"react-native": "0.81.5"`
+
+These versions are **very high** (Expo SDK 54 is not standard stable yet, usually SDK 52 is the latest stable). If you manually changed these numbers, the build might fail.
+**Recommendation:** Before building, run this command to ensure your versions match what is actually installed on the server:
+
+```bash
+npx expo install --fix
+
+```
+
+### **Ready to Build?**
+
+Once you update that one function in `useAgoraVoice.ts`:
+
+1. **Sync to GitHub:**
+```bash
+git add .
+git commit -m "Fix native module import for APK"
+git push
+
+```
+
+
+2. **Build the APK:**
+```bash
+eas build --platform android --profile preview
+
+```
+
+
+
+This APK should finally work for both **Launch** and **Voice Calls**.
