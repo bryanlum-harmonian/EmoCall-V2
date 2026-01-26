@@ -54,9 +54,9 @@
         "expo-font",
         {
           "fonts": [
-            "./assets/fonts/Nunito-Regular.ttf",
-            "./assets/fonts/Nunito-SemiBold.ttf",
-            "./assets/fonts/Nunito-Bold.ttf"
+            "./client/assets/fonts/Nunito-Regular.ttf",
+            "./client/assets/fonts/Nunito-SemiBold.ttf",
+            "./client/assets/fonts/Nunito-Bold.ttf"
           ]
         }
       ],
