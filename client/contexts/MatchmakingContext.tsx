@@ -119,11 +119,19 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         
+        // If we have a pending call_ready, send it
         if (pendingCallReadyRef.current) {
           const callId = pendingCallReadyRef.current;
           console.log("[MatchmakingContext] Sending pending call_ready for:", callId);
           ws.send(JSON.stringify({ type: "call_ready", callId }));
           pendingCallReadyRef.current = null;
+        } 
+        // If we're in matched/waiting_for_partner state and have a currentCallId, re-send call_ready
+        // This handles the case where call_ready was sent but connection dropped before server received it
+        else if ((stateRef.current === "matched" || stateRef.current === "waiting_for_partner") && currentCallIdRef.current) {
+          const callId = currentCallIdRef.current;
+          console.log("[MatchmakingContext] Reconnected in", stateRef.current, "state, re-sending call_ready for:", callId);
+          ws.send(JSON.stringify({ type: "call_ready", callId }));
         }
         
         if (currentQueueRef.current && (stateRef.current === "in_queue" || stateRef.current === "connecting")) {

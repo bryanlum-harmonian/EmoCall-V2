@@ -316,6 +316,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }));
                 pendingMatches.delete(sessionId);
               }
+              
+              // Check if user is in an active call - resend call_started if they reconnected mid-call
+              const activeCall = activeCalls.get(sessionId);
+              if (activeCall) {
+                const remainingMs = activeCall.endTime - Date.now();
+                if (remainingMs > 0) {
+                  console.log("[WS] User reconnected during active call, re-sending call_started:", sessionId);
+                  ws.send(JSON.stringify({
+                    type: "call_started",
+                    callId: activeCall.callId,
+                    startedAt: new Date(activeCall.startTime).toISOString(),
+                    duration: Math.floor(remainingMs / 1000),
+                  }));
+                }
+              }
             }
             break;
             
