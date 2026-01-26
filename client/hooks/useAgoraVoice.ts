@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Platform } from "react-native";
+import { Platform, PermissionsAndroid, Alert } from "react-native";
 import Constants from "expo-constants";
 import { getApiUrl } from "@/lib/query-client";
 
@@ -23,11 +23,49 @@ interface UseAgoraVoiceReturn {
 }
 
 let AgoraRTC: any = null;
-let RtcEngine: any = null;
 let nativeEngineInstance: any = null;
+
+// FIX: Static require for Native Module (prevents bundle crash on APK)
+// Metro bundler doesn't handle dynamic import() for native modules correctly in production
+let RtcEngine: any = null;
+if (Platform.OS !== "web") {
+  try {
+    const AgoraModule = require("react-native-agora");
+    RtcEngine = AgoraModule.default || AgoraModule;
+    console.log("[Agora] Native SDK loaded via static require");
+  } catch (e) {
+    console.error("[Agora] Failed to require react-native-agora:", e);
+  }
+}
 
 function isExpoGo(): boolean {
   return Constants.appOwnership === "expo";
+}
+
+// Request Android runtime permissions for microphone
+async function requestAndroidAudioPermission(): Promise<boolean> {
+  if (Platform.OS !== "android") return true;
+  
+  try {
+    console.log("[Agora] Requesting Android audio permissions...");
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      {
+        title: "Microphone Permission",
+        message: "EmoCall needs access to your microphone for voice calls.",
+        buttonNeutral: "Ask Me Later",
+        buttonNegative: "Cancel",
+        buttonPositive: "OK",
+      }
+    );
+    
+    const isGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
+    console.log("[Agora] Audio permission result:", granted, "isGranted:", isGranted);
+    return isGranted;
+  } catch (err) {
+    console.error("[Agora] Permission request error:", err);
+    return false;
+  }
 }
 
 async function loadWebAgoraSDK() {
@@ -44,21 +82,6 @@ async function loadWebAgoraSDK() {
     }
   }
   return AgoraRTC;
-}
-
-async function loadNativeAgoraSDK() {
-  if (!RtcEngine) {
-    console.log("[Agora] Loading Native Agora SDK...");
-    try {
-      const agoraModule = await import("react-native-agora");
-      RtcEngine = agoraModule.default || agoraModule;
-      console.log("[Agora] Native SDK loaded successfully");
-    } catch (err) {
-      console.error("[Agora] Failed to load Native SDK:", err);
-      throw err;
-    }
-  }
-  return RtcEngine;
 }
 
 export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
@@ -166,14 +189,34 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const joinNative = useCallback(async () => {
     console.log("[Agora Native] Joining...");
     
+    // Request microphone permission on Android before joining
+    const hasPermission = await requestAndroidAudioPermission();
+    if (!hasPermission) {
+      const errorMsg = "Microphone permission denied. Please allow microphone access in Settings.";
+      console.error("[Agora Native]", errorMsg);
+      setError(errorMsg);
+      Alert.alert(
+        "Permission Required",
+        "EmoCall needs microphone access for voice calls. Please enable it in your device settings.",
+        [{ text: "OK" }]
+      );
+      throw new Error(errorMsg);
+    }
+    
+    if (!RtcEngine) {
+      const errorMsg = "Agora SDK not loaded. Please restart the app.";
+      console.error("[Agora Native]", errorMsg);
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     try {
-      const Agora = await loadNativeAgoraSDK();
       const tokenData = await fetchToken();
       const { token, appId, uid } = tokenData;
 
       console.log("[Agora Native] Creating engine with appId");
       
-      const engine = Agora.createAgoraRtcEngine();
+      const engine = RtcEngine.createAgoraRtcEngine();
       nativeEngineInstance = engine;
       clientRef.current = engine;
       
