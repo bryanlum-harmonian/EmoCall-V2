@@ -1,0 +1,347 @@
+I have performed a deep check of your updated files.
+
+You are **95% there**, but you have **1 Critical Logic Error** in `client/hooks/useAgoraVoice.ts` that is causing the app to fail on Android (and iOS).
+
+The library you installed (`react-native-agora` version **4.x**) has a completely different API than the code you wrote. You are using the "old" event listener style (`addListener`), which was **removed** in version 4. This causes the code to crash instantly when it tries to join a call, preventing `isConnected` from ever becoming `true`.
+
+### **The Critical Fixes Required**
+
+1. **Fix Event Handlers:** Replace `engine.addListener` with `engine.registerEventHandler`.
+2. **Fix Android 12 Permissions:** You must request `BLUETOOTH_CONNECT` permissions at runtime, otherwise the app may crash on newer Samsungs (Android 12+) when initializing audio.
+
+---
+
+### **Action: Update `client/hooks/useAgoraVoice.ts**`
+
+Replace your **entire** `client/hooks/useAgoraVoice.ts` file with the corrected code below. I have fixed the API methods to match SDK v4.
+
+```typescript
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Platform, PermissionsAndroid, Alert } from "react-native";
+import Constants from "expo-constants";
+import { getApiUrl } from "@/lib/query-client";
+import { 
+  createAgoraRtcEngine, 
+  ChannelProfileType, 
+  ClientRoleType, 
+  IRtcEngineEx 
+} from "react-native-agora";
+
+interface AgoraConfig {
+  channelName: string;
+  uid?: number;
+  onRemoteUserLeft?: () => void;
+  enabled?: boolean;
+}
+
+interface UseAgoraVoiceReturn {
+  isConnected: boolean;
+  isConnecting: boolean;
+  isMuted: boolean;
+  remoteUserJoined: boolean;
+  remoteUserLeft: boolean;
+  error: string | null;
+  join: () => Promise<void>;
+  leave: () => Promise<void>;
+  toggleMute: () => void;
+}
+
+let AgoraRTC: any = null;
+// Use the interface for the native engine
+let nativeEngineInstance: IRtcEngineEx | null = null;
+
+// FIX 1: Static require is correct, but we used the import above for types.
+// We keep the runtime check to be safe.
+let RtcEngineModule: any = null;
+if (Platform.OS !== "web") {
+  try {
+    RtcEngineModule = require("react-native-agora");
+  } catch (e) {
+    console.error("[Agora] Failed to require react-native-agora:", e);
+  }
+}
+
+function isExpoGo(): boolean {
+  return Constants.appOwnership === "expo";
+}
+
+// FIX 2: Enhanced Android Permissions (Required for Android 12+)
+async function requestAndroidPermissions(): Promise<boolean> {
+  if (Platform.OS !== "android") return true;
+  
+  try {
+    console.log("[Agora] Requesting Android permissions...");
+    // Request multiple permissions including Bluetooth for Android 12+
+    const granted = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT
+    ]);
+    
+    const audioGranted = granted[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] === PermissionsAndroid.RESULTS.GRANTED;
+    // Bluetooth is optional on older phones, but good to check. We mainly care about Audio.
+    
+    console.log("[Agora] Permissions result:", granted);
+    return audioGranted;
+  } catch (err) {
+    console.error("[Agora] Permission request error:", err);
+    return false;
+  }
+}
+
+async function loadWebAgoraSDK() {
+  if (!AgoraRTC) {
+    console.log("[Agora] Loading Web Agora SDK...");
+    try {
+      const module = await import("agora-rtc-sdk-ng");
+      AgoraRTC = module.default;
+      AgoraRTC.setLogLevel(1);
+    } catch (err) {
+      console.error("[Agora] Failed to load Web SDK:", err);
+      throw err;
+    }
+  }
+  return AgoraRTC;
+}
+
+export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
+  const enabled = config.enabled !== false;
+  
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [remoteUserJoined, setRemoteUserJoined] = useState(false);
+  const [remoteUserLeft, setRemoteUserLeft] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const onRemoteUserLeftRef = useRef(config.onRemoteUserLeft);
+  const clientRef = useRef<any>(null);
+  const localAudioTrackRef = useRef<any>(null);
+  const hasJoinedRef = useRef(false);
+  const isLeavingRef = useRef(false);
+
+  // Keep token fetching logic
+  const fetchToken = useCallback(async () => {
+    const url = new URL("/api/agora/token", getApiUrl()).toString();
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelName: config.channelName,
+          uid: config.uid || 0,
+          role: "publisher",
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch voice token: ${response.status}`);
+      }
+      return await response.json();
+    } catch (err) {
+      console.error("[Agora] Token fetch error:", err);
+      throw err;
+    }
+  }, [config.channelName, config.uid]);
+
+  // Keep Web Logic (It was correct)
+  const joinWeb = useCallback(async () => {
+    console.log("[Agora Web] Joining...");
+    try {
+      const sdk = await loadWebAgoraSDK();
+      if (!sdk) throw new Error("Failed to load Agora SDK");
+
+      const tokenData = await fetchToken();
+      const { token, appId, uid } = tokenData;
+
+      const client = sdk.createClient({ mode: "rtc", codec: "vp8" });
+      clientRef.current = client;
+
+      client.on("user-published", async (user: any, mediaType: string) => {
+        await client.subscribe(user, mediaType);
+        if (mediaType === "audio") {
+          user.audioTrack?.play();
+          setRemoteUserJoined(true);
+        }
+      });
+
+      client.on("user-unpublished", (user: any, mediaType: string) => {
+        if (mediaType === "audio") setRemoteUserJoined(false);
+      });
+
+      client.on("user-left", () => {
+        setRemoteUserJoined(false);
+        setRemoteUserLeft(true);
+        if (onRemoteUserLeftRef.current) onRemoteUserLeftRef.current();
+      });
+
+      await client.join(appId, config.channelName, token, uid);
+      const localAudioTrack = await sdk.createMicrophoneAudioTrack();
+      localAudioTrackRef.current = localAudioTrack;
+      await client.publish([localAudioTrack]);
+      
+      setIsConnected(true);
+    } catch (err) {
+      throw err;
+    }
+  }, [config.channelName, fetchToken]);
+
+  // FIX 3: Correct Native Implementation for v4 SDK
+  const joinNative = useCallback(async () => {
+    console.log("[Agora Native] Joining...");
+    
+    const hasPermission = await requestAndroidPermissions();
+    if (!hasPermission) {
+      const errorMsg = "Permission denied. Please allow microphone access.";
+      setError(errorMsg);
+      Alert.alert("Permission Required", errorMsg);
+      throw new Error(errorMsg);
+    }
+    
+    try {
+      const tokenData = await fetchToken();
+      const { token, appId, uid } = tokenData;
+
+      // 1. Create Engine
+      const engine = createAgoraRtcEngine() as IRtcEngineEx;
+      nativeEngineInstance = engine;
+      clientRef.current = engine;
+      
+      // 2. Initialize
+      engine.initialize({
+        appId: appId,
+        channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
+      });
+
+      // 3. Register Event Handlers (THE CRITICAL FIX)
+      // v4 uses registerEventHandler, NOT addListener
+      engine.registerEventHandler({
+        onJoinChannelSuccess: (connection, elapsed) => {
+          console.log("[Agora Native] Successfully joined channel");
+          setIsConnected(true);
+        },
+        onUserJoined: (connection, remoteUid, elapsed) => {
+          console.log("[Agora Native] User joined:", remoteUid);
+          setRemoteUserJoined(true);
+        },
+        onUserOffline: (connection, remoteUid, reason) => {
+          console.log("[Agora Native] User offline:", remoteUid);
+          setRemoteUserJoined(false);
+          setRemoteUserLeft(true);
+          if (onRemoteUserLeftRef.current) onRemoteUserLeftRef.current();
+        },
+        onError: (err, msg) => {
+           console.error("[Agora Native] Engine Error:", err, msg);
+        }
+      });
+
+      // 4. Set Client Role and Enable Audio
+      engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
+      engine.enableAudio();
+      
+      // 5. Join Channel
+      engine.joinChannel(token, config.channelName, uid, {
+        clientRoleType: ClientRoleType.ClientRoleBroadcaster,
+        publishMicrophoneTrack: true,
+        autoSubscribeAudio: true,
+      });
+      
+    } catch (err: any) {
+      console.error("[Agora Native] Init Error:", err);
+      throw err;
+    }
+  }, [config.channelName, fetchToken]);
+
+  const join = useCallback(async () => {
+    if (hasJoinedRef.current) return;
+    
+    if (!enabled) {
+      hasJoinedRef.current = true;
+      setIsConnected(true);
+      return;
+    }
+
+    if (Platform.OS !== "web" && isExpoGo()) {
+      setError("Voice requires development build (APK/IPA). Expo Go not supported.");
+      return;
+    }
+
+    hasJoinedRef.current = true;
+    setIsConnecting(true);
+    setError(null);
+
+    try {
+      if (Platform.OS === "web") {
+        await joinWeb();
+      } else {
+        await joinNative();
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to connect");
+      hasJoinedRef.current = false;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [enabled, joinWeb, joinNative]);
+
+  const leave = useCallback(async () => {
+    if (isLeavingRef.current) return;
+    isLeavingRef.current = true;
+    
+    try {
+      if (Platform.OS === "web") {
+        localAudioTrackRef.current?.close();
+        await clientRef.current?.leave();
+      } else {
+        if (nativeEngineInstance) {
+          nativeEngineInstance.leaveChannel();
+          // Do not release() here if you plan to re-join, but for this app structure:
+          nativeEngineInstance.release(); 
+          nativeEngineInstance = null;
+        }
+      }
+      setIsConnected(false);
+      setRemoteUserJoined(false);
+      hasJoinedRef.current = false;
+    } catch (err) {
+      console.error("Leave error", err);
+    } finally {
+      isLeavingRef.current = false;
+    }
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const newMutedState = !isMuted;
+    if (Platform.OS === "web") {
+      localAudioTrackRef.current?.setEnabled(!newMutedState);
+    } else {
+      nativeEngineInstance?.muteLocalAudioStream(newMutedState);
+    }
+    setIsMuted(newMutedState);
+  }, [isMuted]);
+
+  useEffect(() => {
+    return () => {
+       // Cleanup on unmount
+       leave();
+    };
+  }, []);
+
+  useEffect(() => {
+    onRemoteUserLeftRef.current = config.onRemoteUserLeft;
+  }, [config.onRemoteUserLeft]);
+
+  return { isConnected, isConnecting, isMuted, remoteUserJoined, remoteUserLeft, error, join, leave, toggleMute };
+}
+
+```
+
+### **Why this fixes your issue**
+
+1. **Fixed the Crash:** Your previous code used `engine.addListener`. That function **does not exist** in the `react-native-agora` v4 library you are using. This caused the app to silently crash the moment it tried to join, leaving you "stuck" on the loading screen. The fix uses `engine.registerEventHandler`.
+2. **Fixed Audio Routing:** Added `BLUETOOTH_CONNECT` to the permission request. Without this, on Android 12+ (like your Note 9 if updated, or newer phones), the audio engine often fails to start properly.
+
+**Next Steps:**
+
+1. Copy the code above into `client/hooks/useAgoraVoice.ts`.
+2. Run `eas build --platform android --profile preview` to create a fresh APK.
+3. Install and test.
