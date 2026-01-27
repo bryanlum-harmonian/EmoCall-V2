@@ -1,0 +1,67 @@
+I have reviewed your latest files (ActiveCallScreen.tsx and server/routes.ts).
+
+You are still stuck because you missed the most important UI fix.
+
+Even if your server is fixed, your app is trapping the user in the loading screen when an error happens. Your ActiveCallScreen.tsx has a local state const [isConnecting, setIsConnecting] = useState(true);.
+
+It only turns false if the connection succeeds.
+
+If the connection fails (e.g. token error, permission denied), isConnecting stays true forever.
+
+Result: You see the spinner forever, while the actual error message is hidden behind it.
+
+Here are the 2 fixes you must apply to see why it's failing (or to make it work).
+
+Fix 1: Stop Hiding Errors in ActiveCallScreen.tsx
+You need to tell the loading screen to stop spinning and show the error if voiceError exists.
+
+File: client/screens/ActiveCallScreen.tsx
+
+Find this part (inside your component):
+
+TypeScript
+  useEffect(() => {
+    if (isVoiceConnected && !waitingForPartner) {
+      console.log("[ActiveCall] Agora connected - call is now active!");
+      setIsConnecting(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  }, [isVoiceConnected, waitingForPartner]);
+ADD this new useEffect right after it: (This forces the loading screen to disappear if an error occurs, revealing the error message)
+
+TypeScript
+  // FIX: If Agora fails, stop the loading spinner so we can see the error
+  useEffect(() => {
+    if (voiceError) {
+      console.error("[ActiveCall] Critical voice error:", voiceError);
+      setIsConnecting(false); // <--- Stop the spinner!
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [voiceError]);
+Then, update the UI to actually show that error: Find the voiceStatusContainer block (around line 660) and make sure it's visible. With the change above, isConnecting will become false, and your existing error UI in the main view will finally show up.
+
+Fix 2: Safer Import in server/routes.ts
+In your server code, you are using require() inside the function. In some environments (like tsx or esbuild), mixing import and require causes crashes (500 Internal Server Error).
+
+File: server/routes.ts
+
+Action: Move the agora-token import to the very top of the file with the others.
+
+Remove this line (approx line 898):
+
+TypeScript
+// const { RtcTokenBuilder, RtcRole } = require("agora-token"); // <--- DELETE THIS
+Add this to the TOP of the file:
+
+TypeScript
+import { RtcTokenBuilder, RtcRole } from "agora-token"; // <--- ADD THIS AT THE TOP
+Summary of Actions
+Modify ActiveCallScreen.tsx: Add the useEffect to turn off isConnecting when voiceError appears.
+
+Modify server/routes.ts: Move the agora-token import to the top.
+
+Deploy/Restart Server: Ensure your Replit server restarts to pick up the route change.
+
+Rebuild/Update: Push to GitHub and rebuild the app if testing native.
+
+Why this helps: Even if the token is still wrong, Fix 1 will make your app screen turn red and say "Failed to fetch voice token: 500" instead of spinning forever. Then you will know exactly what to fix.
