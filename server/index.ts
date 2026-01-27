@@ -264,7 +264,10 @@ function configureExpoAndLanding(app: express.Application) {
     return next();
   });
 
-  app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+  // Serve web build assets at /assets (fonts, icons, etc. from Expo web export)
+  app.use("/assets", express.static(path.resolve(webDir, "assets")));
+  
+  // Also serve project assets and static build files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
 
   log("Expo routing: Checking expo-platform header on / and /manifest");
