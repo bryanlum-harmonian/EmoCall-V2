@@ -1611,16 +1611,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Channel name is required" });
       }
 
-      const appId = process.env.AGORA_APP_ID;
-      const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+      // Trim whitespace from keys (prevents crashes from copy-paste errors)
+      const appId = process.env.AGORA_APP_ID?.trim();
+      const appCertificate = process.env.AGORA_APP_CERTIFICATE?.trim();
 
       if (!appId || !appCertificate) {
-        console.error("Agora credentials not configured");
+        console.error("[Agora] Credentials missing or empty");
         return res.status(500).json({ error: "Voice calling not configured" });
       }
 
-      // Ensure uid is a number (Agora requirement for buildTokenWithUid)
-      const userUid = uid ? parseInt(uid) : 0;
+      // Safer UID handling: prevent NaN crash by defaulting to 0
+      let userUid = 0;
+      if (uid) {
+        const parsed = parseInt(uid);
+        if (!isNaN(parsed)) {
+          userUid = parsed;
+        }
+      }
+
       const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
       
       // Token expiration: Unix timestamp (current time + duration)
@@ -1628,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentTimestamp = Math.floor(Date.now() / 1000);
       const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
-      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, expires at: ${privilegeExpiredTs} (now: ${currentTimestamp})`);
+      console.log(`[Agora] Generating token. Channel: ${channelName}, UID: ${userUid}, expires at: ${privilegeExpiredTs}`);
 
       const token = RtcTokenBuilder.buildTokenWithUid(
         appId,
@@ -1647,7 +1655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         uid: userUid,
       });
     } catch (error) {
-      console.error("Error generating Agora token:", error);
+      console.error("[Agora] Critical Token Generation Error:", error);
       res.status(500).json({ error: "Failed to generate voice token" });
     }
   });
