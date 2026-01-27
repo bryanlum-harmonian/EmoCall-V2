@@ -1,0 +1,106 @@
+I have analyzed your `server/routes.ts` file. **The code is now correct**, which means the error is **NOT in the code anymore**.
+
+The error `Failed to generate voice token` (Status 500) is coming from the `catch` block. This means the `RtcTokenBuilder` is crashing because your **Agora Credentials (Secrets) are missing or invalid** in Replit.
+
+If you have not added your Agora keys to Replit's **Secrets Tool**, the server cannot generate a token.
+
+### **Step 1: Verify Replit Secrets**
+
+1. On the left side of Replit, click the **Tools** icon (or look for "Secrets" / "Environment Variables").
+2. Check if you have these **exact** keys (spelling matters):
+* `AGORA_APP_ID`
+* `AGORA_APP_CERTIFICATE`
+
+
+3. **Important:**
+* Ensure there are **no spaces** at the start or end of the values.
+* Ensure the App ID is the ~32 character hex string from Agora Console.
+* Ensure the Certificate is the longer string from Agora Console.
+
+
+
+### **Step 2: Add Debug Logging (To Find the Culprit)**
+
+Modify `server/routes.ts` to tell us exactly *which* value is failing.
+
+**Replace your `/api/agora/token` route (lines 889-930) with this Debug Version:**
+
+```typescript
+  // ===============================
+  // Agora Voice Token API (Debug Version)
+  // ===============================
+
+  app.post("/api/agora/token", async (req: Request, res: Response) => {
+    try {
+      const { channelName, uid, role } = req.body;
+
+      // DEBUG LOGS - Check the Shell/Console to see these!
+      console.log("[Agora Debug] Request received for channel:", channelName);
+      console.log("[Agora Debug] App ID Length:", process.env.AGORA_APP_ID?.length || "MISSING");
+      console.log("[Agora Debug] Certificate Length:", process.env.AGORA_APP_CERTIFICATE?.length || "MISSING");
+
+      if (!channelName) {
+        return res.status(400).json({ error: "Channel name is required" });
+      }
+
+      const appId = process.env.AGORA_APP_ID?.trim();
+      const appCertificate = process.env.AGORA_APP_CERTIFICATE?.trim();
+
+      if (!appId || !appCertificate) {
+        console.error("[Agora Error] Credentials missing. App ID or Certificate is empty.");
+        return res.status(500).json({ error: "Server configuration error: Missing Agora credentials" });
+      }
+
+      let userUid = 0;
+      if (uid) {
+        const parsed = parseInt(uid);
+        if (!isNaN(parsed)) {
+          userUid = parsed;
+        }
+      }
+      
+      console.log("[Agora Debug] Parsed UID:", userUid);
+
+      const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+      const expirationTimeInSeconds = 3600;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+      const token = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channelName,
+        userUid,
+        userRole,
+        privilegeExpiredTs,
+        privilegeExpiredTs
+      );
+
+      console.log("[Agora Debug] Token generated successfully!");
+
+      res.json({
+        token,
+        appId,
+        channelName,
+        uid: userUid,
+      });
+    } catch (error) {
+      // This prints the REAL error message to your Replit Console
+      console.error("[Agora CRITICAL FAILURE]:", error);
+      res.status(500).json({ error: "Failed to generate voice token. Check server logs." });
+    }
+  });
+
+```
+
+### **Step 3: Test and Read the Logs**
+
+1. **Restart** the Replit server.
+2. Try to connect on the app/web.
+3. **Look at the Replit Console/Shell.**
+* If you see `[Agora Debug] App ID Length: MISSING`, you forgot to add the Secret.
+* If you see `[Agora CRITICAL FAILURE]: Error: appCertificate is required`, your certificate is invalid.
+
+
+
+**Once you add the Secrets, the 500 error will disappear.**
