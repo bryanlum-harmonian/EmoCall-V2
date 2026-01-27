@@ -1,0 +1,89 @@
+I have analyzed the log file emocall.harmonian.online-1769486858162.txt and your server code.
+
+The log confirms the issue is a 500 Internal Server Error on the backend when generating the token:
+
+POST https://emocall.harmonian.online/api/agora/token 500 (Internal Server Error) {"error":"Failed to generate voice token"}
+
+The Critical Bug: Token Time Travel
+I found the exact bug in your server/routes.ts. You are sending 3600 as the expiration timestamp.
+
+What you meant: "Expire in 3600 seconds (1 hour)."
+
+What the code sees: "Expire at timestamp 3600 (1:00 AM, Jan 1st, 1970)."
+
+Because the expiration time is in the past, the Agora library likely throws an error or generates an invalid token, causing the crash.
+
+The Fix
+You need to calculate the future timestamp (Current Time + 3600).
+
+File: server/routes.ts Action: Replace the entire app.post("/api/agora/token", ...) block with this corrected version:
+
+TypeScript
+  // ===============================
+  // Agora Voice Token API
+  // ===============================
+
+  app.post("/api/agora/token", async (req: Request, res: Response) => {
+    try {
+      const { channelName, uid, role } = req.body;
+
+      if (!channelName) {
+        return res.status(400).json({ error: "Channel name is required" });
+      }
+
+      const appId = process.env.AGORA_APP_ID;
+      const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+      if (!appId || !appCertificate) {
+        console.error("Agora credentials not configured");
+        return res.status(500).json({ error: "Voice calling not configured" });
+      }
+
+      // Use require for CommonJS compatibility
+      const { RtcTokenBuilder, RtcRole } = require("agora-token");
+
+      // FIX 1: Ensure uid is a number (Agora requirement for buildTokenWithUid)
+      // If you want to use string IDs (UUIDs), you must use buildTokenWithAccount instead
+      const userUid = uid ? parseInt(uid) : 0;
+      
+      const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+      
+      // FIX 2: Calculate correct expiration timestamp (Current Time + Duration)
+      const expirationTimeInSeconds = 3600;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, expires: ${privilegeExpiredTs}`);
+
+      const token = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channelName,
+        userUid,
+        userRole,
+        privilegeExpiredTs // <--- This was the crash cause
+      );
+
+      res.json({
+        token,
+        appId,
+        channelName,
+        uid: userUid,
+      });
+    } catch (error) {
+      console.error("Error generating Agora token:", error);
+      res.status(500).json({ error: "Failed to generate voice token" });
+    }
+  });
+Why this fixes both Web and Native
+Web Failed: As your log showed, the web client hit the server, the server crashed due to the bad timestamp logic, and returned 500.
+
+Native Failed: The native app hits the exact same endpoint. It was getting the same 500 error, staying "Connecting..." forever.
+
+Next Steps:
+
+Update server/routes.ts with the code above.
+
+Restart your Server (Replit usually auto-restarts, but check the console).
+
+Test on Web first (it's faster). If Web connects, Native will connect too.
