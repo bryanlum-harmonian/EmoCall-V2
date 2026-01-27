@@ -1,0 +1,154 @@
+{
+  "id": "0b4e38ab-fea3-4ae7-9c31-14224ea7a9a5",
+  "createdAt": "2026-01-27T01:24:15.269Z",
+  "runtimeVersion": "1.1.0",
+  "launchAsset": {
+    "key": "bundle-1769477055269-1954",
+    "contentType": "application/javascript",
+    "url": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/1769477055269-1954/_expo/static/js/ios/bundle.js"
+  },
+  "assets": [],
+  "metadata": {},
+  "extra": {
+    "eas": {
+      "projectId": "949b4ec8-35b9-4abb-9c48-b04220d6fc2b"
+    },
+    "expoClient": {
+      "name": "EmoCall",
+      "slug": "emocall",
+      "version": "1.1.0",
+      "runtimeVersion": "1.1.0",
+      "orientation": "portrait",
+      "icon": "./assets/images/logo.png",
+      "scheme": "emocall",
+      "userInterfaceStyle": "automatic",
+      "newArchEnabled": true,
+      "extra": {
+        "eas": {
+          "projectId": "949b4ec8-35b9-4abb-9c48-b04220d6fc2b"
+        }
+      },
+      "ios": {
+        "supportsTablet": true,
+        "bundleIdentifier": "com.emocall.app",
+        "buildNumber": "2",
+        "infoPlist": {
+          "NSMicrophoneUsageDescription": "EmoCall needs access to your microphone for voice calls with other users.",
+          "UIBackgroundModes": [
+            "audio"
+          ],
+          "ITSAppUsesNonExemptEncryption": false
+        }
+      },
+      "android": {
+        "adaptiveIcon": {
+          "foregroundImage": "./assets/images/android-icon-foreground.png",
+          "backgroundImage": "./assets/images/android-icon-background.png",
+          "monochromeImage": "./assets/images/android-icon-monochrome.png",
+          "foregroundImageUrl": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/assets/./assets/images/android-icon-foreground.png",
+          "monochromeImageUrl": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/assets/./assets/images/android-icon-monochrome.png",
+          "backgroundImageUrl": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/assets/./assets/images/android-icon-background.png"
+        },
+        "edgeToEdgeEnabled": true,
+        "predictiveBackGestureEnabled": false,
+        "package": "com.emocall.app",
+        "versionCode": 2,
+        "permissions": [
+          "android.permission.CAMERA",
+          "android.permission.RECORD_AUDIO",
+          "android.permission.MODIFY_AUDIO_SETTINGS",
+          "android.permission.INTERNET",
+          "android.permission.ACCESS_NETWORK_STATE",
+          "android.permission.BLUETOOTH_CONNECT"
+        ]
+      },
+      "web": {
+        "output": "single",
+        "favicon": "./assets/images/logo.png"
+      },
+      "plugins": [
+        [
+          "expo-font",
+          {
+            "fonts": [
+              "./client/assets/fonts/Nunito-Regular.ttf",
+              "./client/assets/fonts/Nunito-SemiBold.ttf",
+              "./client/assets/fonts/Nunito-Bold.ttf"
+            ]
+          }
+        ],
+        [
+          "expo-build-properties",
+          {
+            "android": {
+              "usesCleartextTraffic": true
+            },
+            "ios": {
+              "useFrameworks": "static"
+            }
+          }
+        ],
+        [
+          "expo-splash-screen",
+          {
+            "image": "./assets/images/logo.png",
+            "imageWidth": 200,
+            "resizeMode": "contain",
+            "backgroundColor": "#FAFAFA",
+            "dark": {
+              "backgroundColor": "#1A1A1A"
+            }
+          }
+        ],
+        "expo-web-browser"
+      ],
+      "experiments": {
+        "reactCompiler": true
+      },
+      "_internal": {
+        "isDebug": false,
+        "projectRoot": "/home/runner/workspace",
+        "dynamicConfigPath": {},
+        "staticConfigPath": "/home/runner/workspace/app.json",
+        "packageJsonPath": "/home/runner/workspace/package.json",
+        "pluginHistory": {
+          "expo-font": {
+            "name": "expo-font",
+            "version": "14.0.9"
+          },
+          "expo-splash-screen": {
+            "name": "expo-splash-screen",
+            "version": "31.0.11"
+          },
+          "expo-web-browser": {
+            "name": "expo-web-browser",
+            "version": "15.0.9"
+          }
+        }
+      },
+      "sdkVersion": "54.0.0",
+      "platforms": [
+        "ios",
+        "android",
+        "web"
+      ],
+      "androidStatusBar": {
+        "backgroundColor": "#FAFAFA"
+      },
+      "iconUrl": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/assets/./assets/images/logo.png",
+      "hostUri": "34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/ios"
+    },
+    "expoGo": {
+      "debuggerHost": "34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/ios",
+      "developer": {
+        "tool": "expo-cli",
+        "projectRoot": "/home/runner/workspace"
+      },
+      "packagerOpts": {
+        "dev": false
+      },
+      "mainModuleName": "client/index"
+    },
+    "scopeKey": "@anonymous/emocall-175f6c05-0b70-4da2-bb52-3ff30cfb39b4"
+  }
+}
