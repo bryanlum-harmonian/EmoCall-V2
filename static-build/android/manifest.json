@@ -1,11 +1,11 @@
 {
-  "id": "5d97ecb8-4d93-456d-b69a-0dde711473eb",
-  "createdAt": "2026-01-27T01:24:15.269Z",
+  "id": "b0b796af-e37c-4c9d-b0a8-e924df78e6f5",
+  "createdAt": "2026-01-27T04:12:18.424Z",
   "runtimeVersion": "1.1.0",
   "launchAsset": {
-    "key": "bundle-1769477055269-1954",
+    "key": "bundle-1769487138424-14489",
     "contentType": "application/javascript",
-    "url": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/1769477055269-1954/_expo/static/js/android/bundle.js"
+    "url": "https://34436ea9-7926-42fa-89fa-0315439d014b-00-udgc8inpr4rw.picard.replit.dev/1769487138424-14489/_expo/static/js/android/bundle.js"
   },
   "assets": [],
   "metadata": {},
@@ -149,6 +149,6 @@
       },
       "mainModuleName": "client/index"
     },
-    "scopeKey": "@anonymous/emocall-175f6c05-0b70-4da2-bb52-3ff30cfb39b4"
+    "scopeKey": "@anonymous/emocall-bc74fc56-9f85-4c4f-b190-d1d7827f9b21"
   }
 }
