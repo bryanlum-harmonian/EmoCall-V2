@@ -1,0 +1,84 @@
+The "Voice Error: Failed to fetch voice token: 500" means the server is crashing specifically when generating the Agora token. Even though your server/routes.ts looks correct (the require is gone and the time calculation is fixed), there are two hidden issues likely causing this crash:
+
+The "Ghost" Code: In Replit/Node.js, you MUST restart the server process manually after changing backend code (server/routes.ts). If you just saved the file, the old broken code (with the require error) is likely still running in memory.
+
+The NaN UID Crash: If your app sends a non-numeric ID (like a UUID string) or null as the uid, parseInt(uid) becomes NaN (Not a Number). Passing NaN to Agora's token builder causes it to crash immediately.
+
+The Fix: Apply this Robust Code & Restart
+Replace your /api/agora/token route in server/routes.ts with this "bulletproof" version. It handles invalid UIDs and trims whitespace from your keys (a common copy-paste error).
+
+File: server/routes.ts (Lines ~890 to ~930)
+
+TypeScript
+  // ===============================
+  // Agora Voice Token API (Fixed & Robust)
+  // ===============================
+
+  app.post("/api/agora/token", async (req: Request, res: Response) => {
+    try {
+      const { channelName, uid, role } = req.body;
+
+      if (!channelName) {
+        return res.status(400).json({ error: "Channel name is required" });
+      }
+
+      // FIX 1: Trim whitespace from keys (prevents crashes from copy-paste errors)
+      const appId = process.env.AGORA_APP_ID?.trim();
+      const appCertificate = process.env.AGORA_APP_CERTIFICATE?.trim();
+
+      if (!appId || !appCertificate) {
+        console.error("[Agora] Credentials missing or empty");
+        return res.status(500).json({ error: "Voice calling not configured" });
+      }
+
+      // FIX 2: Safer UID handling (Prevent NaN crash)
+      // If uid is not a valid number, default to 0 (Agora will assign one)
+      let userUid = 0;
+      if (uid) {
+        const parsed = parseInt(uid);
+        if (!isNaN(parsed)) {
+          userUid = parsed;
+        }
+      }
+
+      const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
+      
+      // Calculate expiration
+      const expirationTimeInSeconds = 3600;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+      console.log(`[Agora] Generating token. Channel: ${channelName}, UID: ${userUid}`);
+
+      const token = RtcTokenBuilder.buildTokenWithUid(
+        appId,
+        appCertificate,
+        channelName,
+        userUid,
+        userRole,
+        privilegeExpiredTs,
+        privilegeExpiredTs
+      );
+
+      res.json({
+        token,
+        appId,
+        channelName,
+        uid: userUid,
+      });
+    } catch (error) {
+      // Log the ACTUAL error so you can see it in Replit Console
+      console.error("[Agora] Critical Token Generation Error:", error);
+      res.status(500).json({ error: "Failed to generate voice token" });
+    }
+  });
+Critical Final Step
+After saving this code:
+
+Stop the Replit server (click the Stop button).
+
+Start it again.
+
+Reload your web app or restart the Native app.
+
+This will clear the old code from memory and ensure the new safety checks are active. The error should disappear.
