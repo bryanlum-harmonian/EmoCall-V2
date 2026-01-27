@@ -1618,9 +1618,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use require for CommonJS compatibility
       const { RtcTokenBuilder, RtcRole } = require("agora-token");
 
-      const userUid = uid || 0;
+      // Ensure uid is a number (Agora requirement for buildTokenWithUid)
+      const userUid = uid ? parseInt(uid) : 0;
       const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
-      const tokenExpireSeconds = 3600;
+      
+      // Calculate correct expiration timestamp (Current Time + Duration)
+      // The Agora API expects a Unix timestamp of WHEN the token expires, not a duration
+      const expirationTimeInSeconds = 3600;
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, expires: ${privilegeExpiredTs}`);
 
       const token = RtcTokenBuilder.buildTokenWithUid(
         appId,
@@ -1628,7 +1636,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         channelName,
         userUid,
         userRole,
-        tokenExpireSeconds
+        privilegeExpiredTs
       );
 
       res.json({
