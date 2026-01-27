@@ -1,26 +1,59 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 /**
+ * Check if we're in a browser environment on a production/custom domain
+ */
+function isProductionWebBuild(): boolean {
+  if (typeof window === "undefined" || !window.location) {
+    return false;
+  }
+  
+  const origin = window.location.origin;
+  const hostname = window.location.hostname;
+  
+  // Development patterns to exclude
+  const devPatterns = [
+    "localhost",
+    "127.0.0.1",
+    "picard.replit.dev",
+    ".replit.dev",
+    ":8081",
+    ":3000"
+  ];
+  
+  // Check if any dev pattern matches
+  for (const pattern of devPatterns) {
+    if (origin.includes(pattern) || hostname.includes(pattern)) {
+      return false;
+    }
+  }
+  
+  // If we get here, we're on a production domain
+  return true;
+}
+
+/**
  * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
  * @returns {string} The API base URL
  */
 export function getApiUrl(): string {
-  let host = process.env.EXPO_PUBLIC_DOMAIN;
-
-  // For production web builds, use window.location.origin if EXPO_PUBLIC_DOMAIN
-  // points to a development domain or is not set
-  if (typeof window !== "undefined" && window.location) {
-    const currentOrigin = window.location.origin;
-    // If we're on a production domain (not localhost, not replit dev), use current origin
-    if (!currentOrigin.includes("localhost") && 
-        !currentOrigin.includes("picard.replit.dev") &&
-        !currentOrigin.includes(":8081")) {
-      // We're on a production deployment - use the current origin
-      return currentOrigin;
-    }
+  // For production web builds, always use window.location.origin
+  // This ensures API calls go to the correct server regardless of build-time config
+  if (isProductionWebBuild()) {
+    const origin = window.location.origin;
+    console.log("[getApiUrl] Production detected, using origin:", origin);
+    return origin;
   }
 
+  let host = process.env.EXPO_PUBLIC_DOMAIN;
+  console.log("[getApiUrl] Development mode, EXPO_PUBLIC_DOMAIN:", host);
+
   if (!host) {
+    // Last resort fallback for web
+    if (typeof window !== "undefined" && window.location) {
+      console.log("[getApiUrl] No EXPO_PUBLIC_DOMAIN, falling back to origin:", window.location.origin);
+      return window.location.origin;
+    }
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
 
