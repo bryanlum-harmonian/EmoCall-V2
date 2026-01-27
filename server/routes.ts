@@ -6,6 +6,7 @@ import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:
 import path from "node:path";
 import fs from "node:fs";
 import multer from "multer";
+import { RtcTokenBuilder, RtcRole } from "agora-token";
 
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
@@ -1615,20 +1616,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: "Voice calling not configured" });
       }
 
-      // Use require for CommonJS compatibility
-      const { RtcTokenBuilder, RtcRole } = require("agora-token");
-
       // Ensure uid is a number (Agora requirement for buildTokenWithUid)
       const userUid = uid ? parseInt(uid) : 0;
       const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
       
-      // Calculate correct expiration timestamp (Current Time + Duration)
-      // The Agora API expects a Unix timestamp of WHEN the token expires, not a duration
-      const expirationTimeInSeconds = 3600;
-      const currentTimestamp = Math.floor(Date.now() / 1000);
-      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+      // Token expiration in seconds from now (agora-token v2.x API)
+      const tokenExpireSeconds = 3600; // Token valid for 1 hour
+      const privilegeExpireSeconds = 3600; // Privileges valid for 1 hour
 
-      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, expires: ${privilegeExpiredTs}`);
+      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, tokenExpire: ${tokenExpireSeconds}s, privilegeExpire: ${privilegeExpireSeconds}s`);
 
       const token = RtcTokenBuilder.buildTokenWithUid(
         appId,
@@ -1636,7 +1632,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         channelName,
         userUid,
         userRole,
-        privilegeExpiredTs
+        tokenExpireSeconds,
+        privilegeExpireSeconds
       );
 
       res.json({
