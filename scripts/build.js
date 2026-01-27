@@ -495,8 +495,8 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
-async function buildWebApp() {
-  console.log("Building web app...");
+async function buildWebApp(domain) {
+  console.log("Building web app with domain:", domain);
   
   return new Promise((resolve, reject) => {
     const webBuildProcess = spawn("npx", [
@@ -505,7 +505,10 @@ async function buildWebApp() {
       "--output-dir", "static-build/web"
     ], {
       stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env }
+      env: { 
+        ...process.env,
+        EXPO_PUBLIC_DOMAIN: domain
+      }
     });
     
     let output = "";
@@ -549,10 +552,9 @@ async function main() {
 
   // Build web app first (doesn't need Metro running)
   try {
-    await buildWebApp();
+    await buildWebApp(domain);
   } catch (err) {
-    console.error("Web build failed:", err.message);
-    console.log("Continuing with native builds...");
+    exitWithError(`Web build failed: ${err.message}`);
   }
 
   await startMetro(domain);
