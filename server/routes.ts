@@ -6,9 +6,8 @@ import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:
 import path from "node:path";
 import fs from "node:fs";
 import multer from "multer";
+import * as agoraToken from "agora-token";
 
-// Use require for CommonJS module compatibility with esbuild
-const agoraToken = require("agora-token");
 const RtcTokenBuilder = agoraToken.RtcTokenBuilder;
 const RtcRole = agoraToken.RtcRole;
 
