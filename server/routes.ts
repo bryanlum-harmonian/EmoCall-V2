@@ -1620,11 +1620,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userUid = uid ? parseInt(uid) : 0;
       const userRole = role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER;
       
-      // Token expiration in seconds from now (agora-token v2.x API)
-      const tokenExpireSeconds = 3600; // Token valid for 1 hour
-      const privilegeExpireSeconds = 3600; // Privileges valid for 1 hour
+      // Token expiration: Unix timestamp (current time + duration)
+      const expirationTimeInSeconds = 3600; // 1 hour
+      const currentTimestamp = Math.floor(Date.now() / 1000);
+      const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
-      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, tokenExpire: ${tokenExpireSeconds}s, privilegeExpire: ${privilegeExpireSeconds}s`);
+      console.log(`[Agora] Generating token for channel: ${channelName}, uid: ${userUid}, expires at: ${privilegeExpiredTs} (now: ${currentTimestamp})`);
 
       const token = RtcTokenBuilder.buildTokenWithUid(
         appId,
@@ -1632,8 +1633,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         channelName,
         userUid,
         userRole,
-        tokenExpireSeconds,
-        privilegeExpireSeconds
+        privilegeExpiredTs,
+        privilegeExpiredTs
       );
 
       res.json({
