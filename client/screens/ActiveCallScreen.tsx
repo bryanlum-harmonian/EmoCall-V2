@@ -857,6 +857,15 @@ export default function ActiveCallScreen() {
     }
   }, [isVoiceConnected, waitingForPartner]);
   
+  // If Agora fails, stop the loading spinner so we can see the error
+  useEffect(() => {
+    if (voiceError) {
+      console.error("[ActiveCall] Critical voice error:", voiceError);
+      setIsConnecting(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  }, [voiceError]);
+  
   // Also handle matchmaking state changes for waiting_for_partner
   useEffect(() => {
     if (matchmakingState === "waiting_for_partner") {
