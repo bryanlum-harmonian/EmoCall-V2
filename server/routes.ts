@@ -6,7 +6,8 @@ import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "node:
 import path from "node:path";
 import fs from "node:fs";
 import multer from "multer";
-import { RtcTokenBuilder, RtcRole } from "agora-token";
+import agoraToken from "agora-token";
+const { RtcTokenBuilder, RtcRole } = agoraToken;
 
 // Type for routes with :id parameter
 interface SessionRequest extends Request {
