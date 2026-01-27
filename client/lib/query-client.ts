@@ -7,6 +7,19 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 export function getApiUrl(): string {
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
+  // For production web builds, use window.location.origin if EXPO_PUBLIC_DOMAIN
+  // points to a development domain or is not set
+  if (typeof window !== "undefined" && window.location) {
+    const currentOrigin = window.location.origin;
+    // If we're on a production domain (not localhost, not replit dev), use current origin
+    if (!currentOrigin.includes("localhost") && 
+        !currentOrigin.includes("picard.replit.dev") &&
+        !currentOrigin.includes(":8081")) {
+      // We're on a production deployment - use the current origin
+      return currentOrigin;
+    }
+  }
+
   if (!host) {
     throw new Error("EXPO_PUBLIC_DOMAIN is not set");
   }
