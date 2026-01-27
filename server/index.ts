@@ -245,6 +245,16 @@ function configureExpoAndLanding(app: express.Application) {
   const webDir = path.resolve(process.cwd(), "static-build", "web");
   app.use("/app", express.static(webDir));
   
+  // Serve web app assets at root level (/_expo, /favicon.ico) - required because web build uses absolute paths
+  app.use("/_expo", express.static(path.resolve(webDir, "_expo")));
+  app.get("/favicon.ico", (_req: Request, res: Response) => {
+    const faviconPath = path.resolve(webDir, "favicon.ico");
+    if (fs.existsSync(faviconPath)) {
+      return res.sendFile(faviconPath);
+    }
+    return res.status(404).send("Not found");
+  });
+  
   // Fallback for SPA routing under /app
   app.use("/app", (req: Request, res: Response, next: NextFunction) => {
     const webIndexPath = path.resolve(webDir, "index.html");
