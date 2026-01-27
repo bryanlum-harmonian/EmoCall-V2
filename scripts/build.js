@@ -495,6 +495,46 @@ function updateManifests(manifests, timestamp, baseUrl, assetsByHash) {
   console.log("Manifests updated");
 }
 
+async function buildWebApp() {
+  console.log("Building web app...");
+  
+  return new Promise((resolve, reject) => {
+    const webBuildProcess = spawn("npx", [
+      "expo", "export", 
+      "--platform", "web",
+      "--output-dir", "static-build/web"
+    ], {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env }
+    });
+    
+    let output = "";
+    
+    webBuildProcess.stdout.on("data", (data) => {
+      output += data.toString();
+      process.stdout.write(data);
+    });
+    
+    webBuildProcess.stderr.on("data", (data) => {
+      output += data.toString();
+      process.stderr.write(data);
+    });
+    
+    webBuildProcess.on("close", (code) => {
+      if (code === 0) {
+        console.log("Web build complete!");
+        resolve();
+      } else {
+        reject(new Error(`Web build failed with code ${code}`));
+      }
+    });
+    
+    webBuildProcess.on("error", (err) => {
+      reject(new Error(`Failed to start web build: ${err.message}`));
+    });
+  });
+}
+
 async function main() {
   console.log("Building static Expo Go deployment...");
 
@@ -506,6 +546,14 @@ async function main() {
 
   prepareDirectories(timestamp);
   clearMetroCache();
+
+  // Build web app first (doesn't need Metro running)
+  try {
+    await buildWebApp();
+  } catch (err) {
+    console.error("Web build failed:", err.message);
+    console.log("Continuing with native builds...");
+  }
 
   await startMetro(domain);
 

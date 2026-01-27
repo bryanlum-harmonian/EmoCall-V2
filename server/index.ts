@@ -224,6 +224,12 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     if (req.path === "/") {
+      // Check if web build exists and redirect to it
+      const webIndexPath = path.resolve(process.cwd(), "static-build", "web", "index.html");
+      if (fs.existsSync(webIndexPath)) {
+        return res.redirect("/app");
+      }
+      // Fall back to landing page if no web build
       return serveLandingPage({
         req,
         res,
@@ -233,6 +239,19 @@ function configureExpoAndLanding(app: express.Application) {
     }
 
     next();
+  });
+
+  // Serve web app at /app
+  const webDir = path.resolve(process.cwd(), "static-build", "web");
+  app.use("/app", express.static(webDir));
+  
+  // Fallback for SPA routing under /app
+  app.use("/app", (req: Request, res: Response, next: NextFunction) => {
+    const webIndexPath = path.resolve(webDir, "index.html");
+    if (fs.existsSync(webIndexPath)) {
+      return res.sendFile(webIndexPath);
+    }
+    return next();
   });
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
