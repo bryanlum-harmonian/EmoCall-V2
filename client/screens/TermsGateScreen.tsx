@@ -1,12 +1,20 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Image, ScrollView, Pressable, Modal } from "react-native";
+import React, { useState, useRef } from "react";
+import {
+  View,
+  StyleSheet,
+  Image,
+  ScrollView,
+  Pressable,
+  Modal,
+  Dimensions,
+  FlatList,
+  ViewToken,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
+  FadeInDown,
   FadeIn,
-  FadeInUp,
-  useAnimatedStyle,
-  useSharedValue,
 } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
@@ -14,8 +22,65 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
-import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+
+interface OnboardingStep {
+  id: string;
+  title: string;
+  description: string;
+  image: any;
+  icon?: string;
+  color: string;
+  textColor: string;
+  isFinal?: boolean;
+}
+
+const ONBOARDING_STEPS: OnboardingStep[] = [
+  {
+    id: "anonymous",
+    title: "Skip the\nAwkwardness",
+    description: "Walking up to strangers is weird. EmoCall is different: No faces, no names, just real talk.",
+    image: require("@/assets/images/splash_1_weird.png"),
+    color: "#E0C3FC",
+    textColor: "#4A148C",
+  },
+  {
+    id: "match",
+    title: "Find Your\nMood Match",
+    description: "Feeling down? Find a listener.\nFeeling kind? Be a listener.\nConnect based on vibes, not looks.",
+    image: require("@/assets/images/splash_2_hug.png"),
+    color: "#FFDEE9",
+    textColor: "#880E4F",
+  },
+  {
+    id: "timebank",
+    title: "Minutes & Aura",
+    description: "Spend Minutes when you need to vent.\nEarn Aura when you listen.\nBuild your reputation as a Top Listener.",
+    image: require("@/assets/images/splash_3_coin.png"),
+    color: "#FFF4C1",
+    textColor: "#F57F17",
+  },
+  {
+    id: "safespace",
+    title: "Your Cozy\nSafe Space",
+    description: "No judgment allowed in this fort. Just kindness, respect, and real conversations.",
+    image: require("@/assets/images/splash_4_bubble.png"),
+    color: "#D1FAE5",
+    textColor: "#064E3B",
+  },
+  {
+    id: "terms",
+    title: "One Last Thing...",
+    description: "By entering, you agree to our Terms of Service. Be kind, keep it anonymous, and stay safe.",
+    image: null,
+    icon: "shield",
+    color: "#FFFFFF",
+    textColor: "#000000",
+    isFinal: true,
+  },
+];
 
 interface TermsGateScreenProps {
   onAccept: () => void;
@@ -24,11 +89,22 @@ interface TermsGateScreenProps {
 export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { t, currentLanguage } = useLanguage();
-  void currentLanguage; // Trigger re-render on language change
-  const scale = useSharedValue(1);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+
+  const currentStep = ONBOARDING_STEPS[currentIndex];
+
+  const handleNext = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (currentIndex < ONBOARDING_STEPS.length - 1) {
+      flatListRef.current?.scrollToIndex({
+        index: currentIndex + 1,
+        animated: true,
+      });
+    }
+  };
 
   const handleAccept = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -45,153 +121,171 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
     setShowPrivacy(true);
   };
 
-  const animatedIconStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index !== null) {
+        setCurrentIndex(viewableItems[0].index);
+      }
+    }
+  ).current;
+
+  const viewabilityConfig = useRef({
+    viewAreaCoveragePercentThreshold: 50,
+  }).current;
+
+  const renderStep = ({ item, index }: { item: OnboardingStep; index: number }) => {
+    const isActive = index === currentIndex;
+
+    return (
+      <View style={[styles.stepContainer, { backgroundColor: item.color }]}>
+        <View style={styles.imageSection}>
+          {item.image ? (
+            <Image
+              source={item.image}
+              style={styles.stepImage}
+              resizeMode="cover"
+            />
+          ) : item.icon ? (
+            <View style={[styles.iconCircle, { backgroundColor: theme.primary }]}>
+              <Feather name={item.icon as any} size={60} color="#FFFFFF" />
+            </View>
+          ) : null}
+        </View>
+
+        <View style={[styles.textSection, { backgroundColor: item.color }]}>
+          <View style={styles.paginationContainer}>
+            {ONBOARDING_STEPS.map((_, dotIndex) => (
+              <View
+                key={dotIndex}
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor: dotIndex === currentIndex
+                      ? item.textColor
+                      : `${item.textColor}40`,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+
+          {isActive ? (
+            <Animated.View entering={FadeInDown.duration(400)} key={`title-${index}-${currentIndex}`}>
+              <ThemedText
+                type="h1"
+                style={[styles.stepTitle, { color: item.textColor }]}
+              >
+                {item.title}
+              </ThemedText>
+            </Animated.View>
+          ) : (
+            <ThemedText
+              type="h1"
+              style={[styles.stepTitle, { color: item.textColor }]}
+            >
+              {item.title}
+            </ThemedText>
+          )}
+
+          {isActive ? (
+            <Animated.View entering={FadeInDown.delay(100).duration(400)} key={`desc-${index}-${currentIndex}`}>
+              <ThemedText
+                type="body"
+                style={[styles.stepDescription, { color: item.textColor }]}
+              >
+                {item.description}
+              </ThemedText>
+            </Animated.View>
+          ) : (
+            <ThemedText
+              type="body"
+              style={[styles.stepDescription, { color: item.textColor }]}
+            >
+              {item.description}
+            </ThemedText>
+          )}
+
+          {item.isFinal ? (
+            <View style={[styles.linksContainer, { paddingBottom: insets.bottom + Spacing.md }]}>
+              <Pressable
+                onPress={handleTermsPress}
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="file-text" size={16} color={item.textColor} />
+                <ThemedText
+                  type="small"
+                  style={[styles.linkText, { color: item.textColor }]}
+                >
+                  Terms of Service
+                </ThemedText>
+              </Pressable>
+
+              <View style={[styles.linkDivider, { backgroundColor: `${item.textColor}40` }]} />
+
+              <Pressable
+                onPress={handlePrivacyPress}
+                style={({ pressed }) => [
+                  styles.linkButton,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Feather name="lock" size={16} color={item.textColor} />
+                <ThemedText
+                  type="small"
+                  style={[styles.linkText, { color: item.textColor }]}
+                >
+                  Privacy Policy
+                </ThemedText>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    );
+  };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: insets.top + Spacing["4xl"],
-            paddingBottom: insets.bottom + Spacing["6xl"] + Spacing.buttonHeight,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View
-          entering={FadeIn.delay(200).duration(600)}
-          style={[styles.iconContainer, animatedIconStyle]}
-        >
-          <Image
-            source={require("../../assets/images/shield-checkmark.png")}
-            style={styles.shieldIcon}
-            resizeMode="contain"
-          />
-        </Animated.View>
-
-        <Animated.View entering={FadeInUp.delay(400).duration(500)}>
-          <ThemedText type="h1" style={styles.headline}>
-            {t("terms.headline")}
-          </ThemedText>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(600).duration(500)}
-          style={styles.termsContainer}
-        >
-          <View style={styles.termItem}>
-            <View
-              style={[styles.termBullet, { backgroundColor: theme.primary }]}
-            >
-              <Feather name="check" size={14} color="#FFFFFF" />
-            </View>
-            <ThemedText type="body" style={styles.termText}>
-              {t("terms.feature1")}
-            </ThemedText>
-          </View>
-
-          <View style={styles.termItem}>
-            <View
-              style={[styles.termBullet, { backgroundColor: theme.primary }]}
-            >
-              <Feather name="check" size={14} color="#FFFFFF" />
-            </View>
-            <ThemedText type="body" style={styles.termText}>
-              {t("terms.feature2")}
-            </ThemedText>
-          </View>
-
-          <View style={styles.termItem}>
-            <View
-              style={[styles.termBullet, { backgroundColor: theme.primary }]}
-            >
-              <Feather name="check" size={14} color="#FFFFFF" />
-            </View>
-            <ThemedText type="body" style={styles.termText}>
-              {t("terms.feature3")}
-            </ThemedText>
-          </View>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(800).duration(500)}
-          style={[styles.legalContainer, { backgroundColor: theme.backgroundSecondary }]}
-        >
-          <Feather
-            name="shield"
-            size={20}
-            color={theme.textSecondary}
-            style={styles.legalIcon}
-          />
-          <View style={styles.legalContent}>
-            <ThemedText
-              type="small"
-              style={[styles.legalText, { color: theme.textSecondary }]}
-            >
-              {t("terms.ageWarning")}
-            </ThemedText>
-          </View>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(900).duration(500)}
-          style={styles.linksContainer}
-        >
-          <Pressable
-            onPress={handleTermsPress}
-            style={({ pressed }) => [
-              styles.linkButton,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Feather name="file-text" size={16} color={theme.primary} />
-            <ThemedText
-              type="small"
-              style={[styles.linkText, { color: theme.primary }]}
-            >
-              {t("terms.termsOfService")}
-            </ThemedText>
-          </Pressable>
-
-          <View style={[styles.linkDivider, { backgroundColor: theme.border }]} />
-
-          <Pressable
-            onPress={handlePrivacyPress}
-            style={({ pressed }) => [
-              styles.linkButton,
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            <Feather name="lock" size={16} color={theme.primary} />
-            <ThemedText
-              type="small"
-              style={[styles.linkText, { color: theme.primary }]}
-            >
-              {t("terms.privacyPolicy")}
-            </ThemedText>
-          </Pressable>
-        </Animated.View>
-      </ScrollView>
+    <View style={styles.container}>
+      <FlatList
+        ref={flatListRef}
+        data={ONBOARDING_STEPS}
+        renderItem={renderStep}
+        keyExtractor={(item) => item.id}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        getItemLayout={(_, index) => ({
+          length: SCREEN_WIDTH,
+          offset: SCREEN_WIDTH * index,
+          index,
+        })}
+        bounces={false}
+      />
 
       <Animated.View
-        entering={FadeInUp.delay(1000).duration(500)}
+        entering={FadeIn.delay(300).duration(500)}
         style={[
           styles.buttonContainer,
           {
             paddingBottom: insets.bottom + Spacing.xl,
-            backgroundColor: theme.backgroundRoot,
           },
         ]}
       >
         <Button
-          onPress={handleAccept}
-          style={[styles.button, { backgroundColor: theme.primary }]}
+          onPress={currentStep.isFinal ? handleAccept : handleNext}
+          style={[
+            styles.button,
+            {
+              backgroundColor: currentStep.textColor,
+            },
+          ]}
         >
-          {t("terms.acceptButton")}
+          {currentStep.isFinal ? "Let's Talk!" : "Next"}
         </Button>
       </Animated.View>
 
@@ -212,7 +306,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
             >
               <Feather name="x" size={20} color={theme.text} />
             </Pressable>
-            <ThemedText type="h3">{t("terms.termsOfService")}</ThemedText>
+            <ThemedText type="h3">Terms of Service</ThemedText>
             <View style={styles.modalPlaceholder} />
           </View>
           <ScrollView
@@ -242,7 +336,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
             >
               <Feather name="x" size={20} color={theme.text} />
             </Pressable>
-            <ThemedText type="h3">{t("terms.privacyPolicy")}</ThemedText>
+            <ThemedText type="h3">Privacy Policy</ThemedText>
             <View style={styles.modalPlaceholder} />
           </View>
           <ScrollView
@@ -254,7 +348,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
           </ScrollView>
         </ThemedView>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
@@ -288,9 +382,9 @@ function TermsContent({ theme }: { theme: any }) {
         You agree NOT to: harass or abuse other users, share explicit content without consent, discriminate against others, record conversations, or use the service for commercial purposes.
       </ThemedText>
 
-      <ThemedText type="h4" style={styles.legalSectionTitle}>4. Credits and Payments</ThemedText>
+      <ThemedText type="h4" style={styles.legalSectionTitle}>4. Time Bank and Payments</ThemedText>
       <ThemedText type="body" style={[styles.legalParagraph, { color: theme.text }]}>
-        All purchases are final. Credits and premium subscriptions are non-refundable except as required by law.
+        All purchases are final. Minutes purchased for your Time Bank are non-refundable except as required by law.
       </ThemedText>
 
       <ThemedText type="h4" style={styles.legalSectionTitle}>5. Disclaimer</ThemedText>
@@ -328,7 +422,7 @@ function PrivacyContent({ theme }: { theme: any }) {
 
       <ThemedText type="h4" style={styles.legalSectionTitle}>1. Information We Collect</ThemedText>
       <ThemedText type="body" style={[styles.legalParagraph, { color: theme.text }]}>
-        We collect only: a random device identifier, session data (credits, aura points), and basic usage statistics. We do NOT store payment details.
+        We collect only: a random device identifier, session data (time bank minutes, aura points), and basic usage statistics. We do NOT store payment details.
       </ThemedText>
 
       <ThemedText type="h4" style={styles.legalSectionTitle}>2. Information We Do NOT Collect</ThemedText>
@@ -366,71 +460,66 @@ function PrivacyContent({ theme }: { theme: any }) {
   );
 }
 
+const IMAGE_SECTION_HEIGHT = SCREEN_HEIGHT * 0.65;
+const TEXT_SECTION_HEIGHT = SCREEN_HEIGHT * 0.35;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  scrollView: {
-    flex: 1,
+  stepContainer: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
-  content: {
-    paddingHorizontal: Spacing.xl,
-    alignItems: "center",
-  },
-  iconContainer: {
-    marginBottom: Spacing["3xl"],
-  },
-  shieldIcon: {
-    width: 100,
-    height: 100,
-  },
-  headline: {
-    textAlign: "center",
-    marginBottom: Spacing["3xl"],
-  },
-  termsContainer: {
+  imageSection: {
+    height: IMAGE_SECTION_HEIGHT,
     width: "100%",
-    gap: Spacing.lg,
-    marginBottom: Spacing["2xl"],
-  },
-  termItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: Spacing.md,
-  },
-  termBullet: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
+    alignItems: "center",
   },
-  termText: {
-    flex: 1,
+  stepImage: {
+    width: "100%",
+    height: "100%",
   },
-  legalContainer: {
+  iconCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  textSection: {
+    height: TEXT_SECTION_HEIGHT,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.lg,
+  },
+  paginationContainer: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.md,
-    gap: Spacing.md,
-    marginBottom: Spacing.xl,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: Spacing.lg,
   },
-  legalIcon: {
-    marginTop: 2,
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  legalContent: {
-    flex: 1,
+  stepTitle: {
+    textAlign: "center",
+    marginBottom: Spacing.md,
+    lineHeight: 38,
   },
-  legalText: {
-    flex: 1,
+  stepDescription: {
+    textAlign: "center",
+    lineHeight: 24,
   },
   linksContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.lg,
+    marginTop: Spacing.lg,
   },
   linkButton: {
     flexDirection: "row",
