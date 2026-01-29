@@ -9,9 +9,9 @@ export const sessions = pgTable("sessions", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
   deviceId: text("device_id").notNull().unique(),
-  credits: integer("credits").notNull().default(0),
+  credits: integer("credits").notNull().default(0), // Legacy - keeping for backwards compatibility
   auraPoints: integer("aura_points").notNull().default(0),
-  timeBankMinutes: real("time_bank_minutes").notNull().default(0),
+  timeBankMinutes: real("time_bank_minutes").notNull().default(5), // Default 5 minutes for new users
   dailyMatchesLeft: integer("daily_matches_left").notNull().default(10),
   dailyMatchesResetAt: timestamp("daily_matches_reset_at").notNull().default(sql`NOW()`),
   isPremium: boolean("is_premium").notNull().default(false),
@@ -29,6 +29,10 @@ export const sessions = pgTable("sessions", {
   transferredToSessionId: text("transferred_to_session_id"), // Session ID it was transferred to
   // Country tracking for global rankings
   countryCode: text("country_code"), // ISO 3166-1 alpha-2 country code (e.g., "MY", "US")
+  // Referral Program fields
+  referralCode: text("referral_code").unique(), // Unique 6-char code for sharing
+  referredByCode: text("referred_by_code"), // The code this user used to sign up
+  referralCount: integer("referral_count").notNull().default(0), // Number of successful referrals
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`NOW()`),
 });
@@ -184,19 +188,22 @@ export const insertMatchmakingQueueSchema = createInsertSchema(matchmakingQueue)
 export type InsertMatchmakingQueue = z.infer<typeof insertMatchmakingQueueSchema>;
 export type MatchmakingQueue = typeof matchmakingQueue.$inferSelect;
 
-// Credit packages configuration
-export const CREDIT_PACKAGES = [
-  { id: "starter", name: "Starter Pack", credits: 250, priceUsd: 0.99 },
-  { id: "weekender", name: "Weekender Pack", credits: 1500, priceUsd: 4.99 },
-  { id: "power_user", name: "Power User Pack", credits: 3500, priceUsd: 9.99 },
+// Time packages configuration (RevenueCat Product IDs)
+export const TIME_PACKAGES = [
+  { id: "emocall_starter_25", name: "Starter Pack", minutes: 25, priceUsd: 0.99 },
+  { id: "emocall_weekender_150", name: "Weekender Pack", minutes: 150, priceUsd: 4.99 },
+  { id: "emocall_power_350", name: "Power User Pack", minutes: 350, priceUsd: 9.99 },
 ] as const;
 
-// Extension options configuration
+// Legacy credit packages (for backwards compatibility)
+export const CREDIT_PACKAGES = TIME_PACKAGES;
+
+// Extension options configuration (minute-based)
 export const EXTENSION_OPTIONS = [
-  { minutes: 10, credits: 100 },
-  { minutes: 20, credits: 180 },
-  { minutes: 30, credits: 250 },
-  { minutes: 60, credits: 450 },
+  { minutes: 10, cost: 10 }, // 10 minutes costs 10 minutes from time bank
+  { minutes: 20, cost: 20 },
+  { minutes: 30, cost: 30 },
+  { minutes: 60, cost: 60 },
 ] as const;
 
 // Aura levels configuration (renamed from Karma for 2026 Gen Z appeal)
@@ -237,13 +244,16 @@ export const DAILY_VIBE_PROMPTS = [
   "What's something you wish people understood about you?",
 ] as const;
 
-// Cost constants
+// Cost constants (minute-based)
 export const COSTS = {
-  SHUFFLE_DECK: 100,
-  DAILY_MATCHES_REFILL: 99, // $0.99 in cents
+  SHUFFLE_DECK: 5, // 5 minutes to shuffle deck
+  DAILY_MATCHES_REFILL: 99, // $0.99 in cents (for IAP)
   PREMIUM_MONTHLY: 1000, // $10.00 in cents
-  PREMIUM_BONUS_CREDITS: 200,
+  PREMIUM_BONUS_MINUTES: 30, // 30 minutes bonus for premium
 } as const;
+
+// Referral program constants
+export const REFERRAL_REWARD_MINUTES = 60; // "Give 60, Get 60" campaign
 
 export const MAX_DAILY_MATCHES = 10;
 export const DEFAULT_CALL_DURATION_SECONDS = 300; // 5 minutes
