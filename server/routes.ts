@@ -54,9 +54,13 @@ import {
   updateQueueHeartbeat,
   cleanupStaleQueueEntries,
   markQueueEntryMatched,
+  redeemReferralCode,
+  purchaseTimePackage,
+  deductTimeBank,
+  addTimeBank,
 } from "./storage";
 import {
-  CREDIT_PACKAGES,
+  TIME_PACKAGES,
   EXTENSION_OPTIONS,
   AURA_LEVELS,
   AURA_REWARDS,
@@ -64,6 +68,7 @@ import {
   MAX_DAILY_MATCHES,
   DEFAULT_CALL_DURATION_SECONDS,
   DAILY_VIBE_PROMPTS,
+  REFERRAL_REWARD_MINUTES,
 } from "@shared/schema";
 
 // Active WebSocket connections for matchmaking
@@ -601,8 +606,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   
                   const session = await getSession(sessionId);
-                  if (session && session.credits >= extension.credits) {
-                    await spendCredits(sessionId, extension.credits, "extension", `${extension.minutes} minute extension`, activeCall.callId);
+                  if (session && (session.timeBankMinutes || 0) >= extension.minutes) {
+                    await deductTimeBank(sessionId, extension.minutes, `${extension.minutes} minute extension`);
                     await addAura(sessionId, AURA_REWARDS.CALL_EXTEND, "call_extend", activeCall.callId);
                     
                     // Update call end time
@@ -818,37 +823,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ===============================
-  // Credits APIs
+  // Time Bank APIs
   // ===============================
   
-  // Get credit packages
-  app.get("/api/credits/packages", async (_req: Request, res: Response) => {
-    res.json(CREDIT_PACKAGES);
+  // Get time packages
+  app.get("/api/time/packages", async (_req: Request, res: Response) => {
+    res.json(TIME_PACKAGES);
+  });
+  
+  // Redeem referral code
+  app.post("/api/sessions/:id/referral/redeem", async (req: SessionRequest, res: Response) => {
+    try {
+      const { code } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "Referral code is required" });
+      }
+      
+      const result = await redeemReferralCode(req.params.id, code);
+      
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+      
+      // Get updated session to return
+      const session = await getSession(req.params.id);
+      res.json({ message: result.message, session });
+    } catch (error) {
+      console.error("Error redeeming referral code:", error);
+      res.status(500).json({ error: "Failed to redeem referral code" });
+    }
   });
   
   // Purchase credits (mock for now, would integrate with Stripe)
   app.post("/api/sessions/:id/credits/purchase", async (req: SessionRequest, res: Response) => {
     try {
       const { packageId } = req.body;
-      const pkg = CREDIT_PACKAGES.find(p => p.id === packageId);
+      const pkg = TIME_PACKAGES.find(p => p.id === packageId);
       if (!pkg) {
         return res.status(400).json({ error: "Invalid package" });
       }
       
-      // In production, this would verify Stripe payment
-      const session = await addCredits(
-        req.params.id,
-        pkg.credits,
-        "purchase",
-        `${pkg.name} purchase`
-      );
+      // Use new time bank system - in production, verify RevenueCat receipt
+      const result = await purchaseTimePackage(req.params.id, packageId);
       
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+      
+      const session = await getSession(req.params.id);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
       res.json(session);
     } catch (error) {
-      console.error("Error purchasing credits:", error);
+      console.error("Error purchasing time:", error);
       res.status(500).json({ error: "Failed to purchase credits" });
     }
   });
@@ -1157,7 +1185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const session = await activatePremium(
         req.params.id,
         30, // 30 days
-        COSTS.PREMIUM_BONUS_CREDITS
+        COSTS.PREMIUM_BONUS_MINUTES
       );
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
