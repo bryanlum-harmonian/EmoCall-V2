@@ -1,0 +1,61 @@
+I need to perform a major refactor of the app to switch from a "Credit" system to a "Time Bank" system and add a "Referral Program". Please implement the following changes step-by-step.
+
+### PHASE 1: Database & Schema Refactor
+Modify `shared/schema.ts` to replace the abstract 'credits' with concrete 'minutes'.
+
+1.  **Update `sessions` table:**
+    * Remove `credits` column.
+    * Add `timeBankMinutes` (integer, default 5).
+    * Add Referral fields:
+        * `referralCode` (text, unique).
+        * `referredByCode` (text).
+        * `referralCount` (integer, default 0).
+
+2.  **Update Constants:**
+    * Replace `CREDIT_PACKAGES` with `TIME_PACKAGES`. Use these exact definitions (matching RevenueCat Product IDs):
+        * Starter: id="emocall_starter_25", 25 mins, $0.99
+        * Weekender: id="emocall_weekender_150", 150 mins, $4.99
+        * Power User: id="emocall_power_350", 350 mins, $9.99
+    * Update `COSTS` to be minute-based (e.g., Shuffle = 5 mins).
+    * Add `REFERRAL_REWARD_MINUTES = 60` (The "Give 60, Get 60" campaign).
+
+### PHASE 2: Backend Logic Updates
+Update `server/routes.ts` and `server/storage.ts`:
+
+1.  **Session Creation:** When a new session is created, generate a unique 6-character `referralCode` (using nanoid or similar) and save it.
+2.  **New Referral Endpoint:** Create `POST /api/sessions/:id/referral/redeem`.
+    * Body: `{ code: string }`
+    * Logic:
+        * Validate code exists.
+        * Prevent self-referral (can't redeem own code).
+        * Prevent double-dipping (check `referredByCode` is null).
+        * **Reward:** Add 60 minutes to the Current User AND 60 minutes to the Referrer.
+3.  **New Purchase Endpoint:** Create `POST /api/sessions/:id/time/purchase`.
+    * Body: `{ packageId: string }`
+    * Logic: Look up the package in `TIME_PACKAGES` and add the corresponding minutes to `timeBankMinutes`.
+4.  **Update Call Extensions:** Ensure extending a call deducts minutes from `timeBankMinutes`.
+
+### PHASE 3: The "Purchase Bridge" (Mobile vs Web)
+I need to support RevenueCat (Mobile) and Stripe (Web) simultaneously. Create a unified service interface.
+
+1.  Create `client/services/purchases.types.ts` defining the `PurchaseServiceType` interface.
+2.  Create `client/services/purchases.ts`: Implement the interface using `react-native-purchases` (RevenueCat SDK) for Android/iOS.
+3.  Create `client/services/purchases.web.ts`: Implement the interface using `@revenuecat/purchases-js` (Stripe SDK) for Web.
+    * *Note: React Native will automatically load the .web.ts file when running on the browser.*
+
+### PHASE 4: Frontend Context Update
+Refactor `client/contexts/CreditsContext.tsx`:
+
+1.  Rename state `credits` to `timeBank`.
+2.  Use the new `PurchaseService` bridge to fetch packages and handle purchases.
+3.  Add a `redeemReferral(code)` function that calls the backend API.
+4.  Update `purchasePackage` to call the new `/api/sessions/:id/time/purchase` endpoint upon success.
+
+### PHASE 5: UI Updates
+1.  Update `CreditsStoreModal.tsx` to display "Minutes" instead of Credits.
+2.  Add a simple "Refer & Earn" section in the Settings or Store modal:
+    * Display the user's `referralCode`.
+    * Show an input field to redeem a code.
+    * Show "Give 60 min, Get 60 min" messaging.
+
+Please proceed with these changes.
