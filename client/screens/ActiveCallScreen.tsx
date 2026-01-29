@@ -23,13 +23,13 @@ import * as Haptics from "expo-haptics";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { CreditsStoreModal } from "@/components/CreditsStoreModal";
+import { TimeBankStoreModal } from "@/components/TimeBankStoreModal";
 import { ReportModal, ReportReasonId } from "@/components/ReportModal";
 import { AuraInfoModal } from "@/components/AuraInfoModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useAgoraVoice } from "@/hooks/useAgoraVoice";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
-import { useCredits, CALL_EXTENSIONS } from "@/contexts/CreditsContext";
+import { useTimeBank, CALL_EXTENSIONS } from "@/contexts/TimeBankContext";
 import { useAura } from "@/contexts/AuraContext";
 import { useSession } from "@/contexts/SessionContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -438,7 +438,7 @@ interface ExtensionModalProps {
   onEndCall: () => void;
   onOpenStore: () => void;
   timeLeft: number;
-  credits: number;
+  timeBankMinutes: number;
   isFinalWarning?: boolean;
 }
 
@@ -448,7 +448,7 @@ function ExtensionModal({
   onEndCall,
   onOpenStore,
   timeLeft,
-  credits,
+  timeBankMinutes,
   isFinalWarning = false,
 }: ExtensionModalProps) {
   const { theme } = useTheme();
@@ -494,9 +494,9 @@ function ExtensionModal({
               }
             ]}
           >
-            <Feather name="zap" size={16} color={theme.primary} />
+            <Feather name="clock" size={16} color={theme.primary} />
             <ThemedText type="body" style={{ color: theme.primary, fontWeight: "600" }}>
-              {credits} {t("call.credits")}
+              {Math.round(timeBankMinutes)}m
             </ThemedText>
             <Feather name="plus" size={14} color={theme.primary} />
           </Pressable>
@@ -506,7 +506,7 @@ function ExtensionModal({
             showsVerticalScrollIndicator={false}
           >
             {CALL_EXTENSIONS.map((ext) => {
-              const canAfford = credits >= ext.cost;
+              const canAfford = timeBankMinutes >= ext.cost;
               return (
                 <Pressable
                   key={ext.id}
@@ -531,7 +531,7 @@ function ExtensionModal({
                       type="small" 
                       style={{ color: canAfford ? theme.textSecondary : theme.textDisabled }}
                     >
-                      {ext.cost} {t("call.credits")}
+                      {ext.cost}m
                     </ThemedText>
                   </View>
                   {canAfford ? (
@@ -652,7 +652,7 @@ export default function ActiveCallScreen() {
   const { theme } = useTheme();
   const { t, currentLanguage } = useLanguage();
   void currentLanguage; // Trigger re-render on language change
-  const { credits, purchaseCallExtension, refundUnusedMinutes } = useCredits();
+  const { timeBankMinutes, purchaseCallExtension } = useTimeBank();
   const { awardCallCompletion, awardCallExtension, awardCallMinute, aura } = useAura();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -1062,19 +1062,8 @@ export default function ActiveCallScreen() {
     await leaveVoice();
     console.log("[ActiveCall] Voice left, navigating to VibeCheck...");
 
-    if (currentExtension && extensionStartTime !== null) {
-      const ext = CALL_EXTENSIONS.find((e) => e.id === currentExtension);
-      if (ext) {
-        const elapsedMinutes = (Date.now() - extensionStartTime) / 60000;
-        const unusedMinutes = Math.max(0, ext.minutes - elapsedMinutes);
-        if (unusedMinutes > 1) {
-          refundUnusedMinutes(unusedMinutes, currentExtension);
-        }
-      }
-    }
-
     navigation.replace("CallEnded", { reason: "ended", callId });
-  }, [currentExtension, extensionStartTime, refundUnusedMinutes, navigation, leaveVoice, endCallWs, timeRemaining, callId]);
+  }, [currentExtension, extensionStartTime, navigation, leaveVoice, endCallWs, timeRemaining, callId]);
 
   const handleReport = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -1175,7 +1164,7 @@ export default function ActiveCallScreen() {
                 fontWeight: "600",
               }}
             >
-              {credits}
+              {Math.round(timeBankMinutes)}m
             </ThemedText>
           </Pressable>
         </Animated.View>
@@ -1431,11 +1420,11 @@ export default function ActiveCallScreen() {
         onEndCall={handleEndCall}
         onOpenStore={handleOpenCreditsStore}
         timeLeft={timeRemaining}
-        credits={credits}
+        timeBankMinutes={timeBankMinutes}
         isFinalWarning={isWarningTime}
       />
 
-      <CreditsStoreModal
+      <TimeBankStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
       />

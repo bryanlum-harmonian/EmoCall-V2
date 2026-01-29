@@ -11,12 +11,12 @@ import * as Haptics from "expo-haptics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
-import { CreditsStoreModal } from "@/components/CreditsStoreModal";
+import { TimeBankStoreModal } from "@/components/TimeBankStoreModal";
 import { BackupRestoreModal } from "@/components/BackupRestoreModal";
 import { BugReportModal } from "@/components/BugReportModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
-import { useCredits, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_CREDITS } from "@/contexts/CreditsContext";
+import { useTimeBank, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_MINUTES } from "@/contexts/TimeBankContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius, AppTheme, AppThemes } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
@@ -115,7 +115,7 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { theme, isDark, appTheme } = useTheme();
   const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
-  const { credits, isPremium, setPremium } = useCredits();
+  const { timeBankMinutes, isPremium, setPremium } = useTimeBank();
   const { getCurrentLanguageInfo, t, currentLanguage } = useLanguage();
   
   // Force re-render when language changes by using currentLanguage as key dependency
@@ -199,7 +199,7 @@ export default function SettingsScreen() {
     }
     Alert.alert(
       t("settings.subscribeToPremium"),
-      t("settings.subscribeToPremiumMessage", { price: PREMIUM_MONTHLY_PRICE, credits: PREMIUM_BONUS_CREDITS }),
+      t("settings.subscribeToPremiumMessage", { price: PREMIUM_MONTHLY_PRICE, credits: PREMIUM_BONUS_MINUTES }),
       [
         { text: t("common.cancel"), style: "cancel" },
         {
@@ -241,9 +241,9 @@ export default function SettingsScreen() {
           />
           <View style={[styles.divider, { backgroundColor: theme.border }]} />
           <SettingsItem
-            icon="zap"
-            title={t("settings.credits")}
-            subtitle={t("settings.creditsAvailable", { count: credits })}
+            icon="clock"
+            title="Time Bank"
+            subtitle={`${Math.round(timeBankMinutes)} minutes available`}
             onPress={() => setShowCreditsStore(true)}
             delay={150}
           />
@@ -479,7 +479,7 @@ export default function SettingsScreen() {
         </Animated.View>
       </KeyboardAwareScrollViewCompat>
 
-      <CreditsStoreModal
+      <TimeBankStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
       />

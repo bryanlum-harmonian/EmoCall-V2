@@ -1,7 +1,7 @@
 # EmoCall - Replit Development Guide
 
 ## Overview
-EmoCall is an anonymous voice calling mobile application designed for instant emotional relief. Built with React Native (Expo) and Express.js, it connects users for 5-minute anonymous voice calls. The app prioritizes speed and anonymity, allowing users to select a mood ("Vent" or "Listen") and immediately connect with another user without profiles, logins, or judgment. Key features include time-limited calls with optional paid extensions, a credit-based monetization system, and an "Aura" points system for engagement.
+EmoCall is an anonymous voice calling mobile application designed for instant emotional relief. Built with React Native (Expo) and Express.js, it connects users for 5-minute anonymous voice calls. The app prioritizes speed and anonymity, allowing users to select a mood ("Vent" or "Listen") and immediately connect with another user without profiles, logins, or judgment. Key features include time-limited calls with optional paid extensions, a Time Bank monetization system (minutes-based), "Aura" points system for engagement, and a "Give 60, Get 60" referral program.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **Animations:** React Native Reanimated for fluid animations and haptic feedback via `expo-haptics`.
 - **Styling:** Theming system with light/dark mode support, custom design tokens, and a kawaii/cute aesthetic with "Sunny" and "Coral" theme options.
 - **Screen Flow:** Legal compliance gate, mood selection leading directly to matchmaking, active call screen with in-call features, and call ended screen.
-- **Monetization UI:** Integrated CreditsStoreModal for purchasing credit packages and displaying Time Bank.
+- **Monetization UI:** TimeBankStoreModal for purchasing time packages (minutes) and referral code management.
 - **Engagement UI:** Displays daily streaks, vibe cards, and post-call rating system.
 - **Compliance UI:** DataCollectionScreen for transparency and legal pages (`/privacy`, `/terms`).
 - **Community UI:** GlobalRankingsModal for country leaderboards.
@@ -39,7 +39,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Core Features
 - **Anonymous Sessions:** Created automatically with unique device IDs.
-- **Monetization:** Credit packages for call extensions and daily match refills. Premium subscription for additional benefits.
+- **Monetization:** Time Bank system with minute packages for call extensions. New users get 5 minutes free. Referral program: "Give 60, Get 60" where both parties receive 60 minutes.
 - **Aura Points:** Engagement system rewarding users for daily check-ins, call participation, and feedback.
 - **Habit Loop:** Daily check-ins, streak tracking, and daily motivational "vibe cards" for user retention.
 - **Post-Call Rating:** Star-based feedback for call quality and experience.

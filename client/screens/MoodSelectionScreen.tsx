@@ -20,14 +20,14 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { CreditsStoreModal } from "@/components/CreditsStoreModal";
+import { TimeBankStoreModal } from "@/components/TimeBankStoreModal";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { AuraInfoModal } from "@/components/AuraInfoModal";
 import { GlobalRankingsModal } from "@/components/GlobalRankingsModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useMatchmaking } from "@/hooks/useMatchmaking";
 import { useSession } from "@/contexts/SessionContext";
-import { useCredits, DAILY_MATCHES_REFILL_COST } from "@/contexts/CreditsContext";
+import { useTimeBank, SHUFFLE_COST_MINUTES } from "@/contexts/TimeBankContext";
 import { useAura } from "@/contexts/AuraContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
@@ -179,7 +179,7 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
             ]}
           >
             <ThemedText style={styles.refillButtonText}>
-              {t("refillModal.refillButton", { cost: DAILY_MATCHES_REFILL_COST })}
+              {t("refillModal.refillButton", { cost: SHUFFLE_COST_MINUTES })}
             </ThemedText>
           </Pressable>
 
@@ -204,7 +204,7 @@ export default function MoodSelectionScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const { session } = useSession();
-  const { credits, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useCredits();
+  const { timeBankMinutes, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useTimeBank();
   const { aura, currentLevel } = useAura();
   const { t, currentLanguage } = useLanguage();
   void currentLanguage; // Trigger re-render on language change
@@ -379,7 +379,7 @@ export default function MoodSelectionScreen() {
   };
 
   const [showRefillConfirm, setShowRefillConfirm] = useState(false);
-  const canRefillMatches = credits >= DAILY_MATCHES_REFILL_COST;
+  const canRefillMatches = timeBankMinutes >= SHUFFLE_COST_MINUTES;
 
   const handleRefill = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -452,9 +452,9 @@ export default function MoodSelectionScreen() {
                 },
               ]}
             >
-              <Feather name="zap" size={14} color={theme.primary} />
+              <Feather name="clock" size={14} color={theme.primary} />
               <ThemedText type="caption" style={{ color: theme.primary, fontWeight: "600" }}>
-                {credits}
+                {Math.round(timeBankMinutes)}m
               </ThemedText>
             </Pressable>
             <Pressable
@@ -571,7 +571,7 @@ export default function MoodSelectionScreen() {
         </View>
       </ScrollView>
 
-      <CreditsStoreModal
+      <TimeBankStoreModal
         visible={showCreditsStore}
         onClose={() => setShowCreditsStore(false)}
       />
@@ -596,9 +596,9 @@ export default function MoodSelectionScreen() {
         visible={showRefillConfirm}
         title="Refill Matches"
         message={canRefillMatches 
-          ? `Spend ${DAILY_MATCHES_REFILL_COST} credits to refill 10 matches?`
-          : `You need ${DAILY_MATCHES_REFILL_COST} credits to refill matches. You have ${credits} credits.`}
-        confirmText={canRefillMatches ? "Refill" : "Get Credits"}
+          ? `Spend ${SHUFFLE_COST_MINUTES} minutes to refill 10 matches?`
+          : `You need ${SHUFFLE_COST_MINUTES} minutes to refill matches. You have ${Math.round(timeBankMinutes)} minutes.`}
+        confirmText={canRefillMatches ? "Refill" : "Get Time"}
         cancelText="Cancel"
         onConfirm={canRefillMatches ? handleConfirmRefill : () => {
           setShowRefillConfirm(false);
