@@ -22,9 +22,6 @@ import { Spacing, BorderRadius } from "@/constants/theme";
 import {
   useTimeBank,
   TIME_PACKAGES,
-  CALL_EXTENSIONS,
-  PREMIUM_MONTHLY_PRICE,
-  PREMIUM_BONUS_MINUTES,
 } from "@/contexts/TimeBankContext";
 import { REFERRAL_REWARD_MINUTES } from "@shared/schema";
 
@@ -34,7 +31,7 @@ interface TimeBankStoreModalProps {
 }
 
 interface PurchaseConfirmation {
-  type: "time" | "premium" | "premium_active" | "referral_success" | "referral_error";
+  type: "time" | "referral_success" | "referral_error";
   packageId?: string;
   name?: string;
   price?: number;
@@ -51,9 +48,7 @@ export function TimeBankStoreModal({ visible, onClose }: TimeBankStoreModalProps
     referralCode, 
     referredByCode, 
     referralCount, 
-    isPremium, 
     purchasePackage, 
-    setPremium,
     redeemReferral,
     isLoading,
   } = useTimeBank();
@@ -70,20 +65,8 @@ export function TimeBankStoreModal({ visible, onClose }: TimeBankStoreModalProps
     if (confirmation?.type === "time" && confirmation.packageId) {
       await purchasePackage(confirmation.packageId);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else if (confirmation?.type === "premium") {
-      await setPremium(true);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     }
     setConfirmation(null);
-  };
-
-  const handlePremiumSubscribe = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (isPremium) {
-      setConfirmation({ type: "premium_active" });
-      return;
-    }
-    setConfirmation({ type: "premium" });
   };
 
   const handleCopyReferralCode = async () => {
@@ -117,21 +100,9 @@ export function TimeBankStoreModal({ visible, onClose }: TimeBankStoreModalProps
     switch (confirmation.type) {
       case "time":
         return {
-          title: t("credits.purchaseCredits"),
+          title: "Purchase Time",
           message: `Purchase ${confirmation.name} for $${confirmation.price?.toFixed(2)}?`,
           confirmText: t("credits.buyNow"),
-        };
-      case "premium":
-        return {
-          title: t("credits.subscribeToPremium"),
-          message: `$${PREMIUM_MONTHLY_PRICE}/month includes ${PREMIUM_BONUS_MINUTES} bonus minutes and premium features!`,
-          confirmText: t("credits.subscribe"),
-        };
-      case "premium_active":
-        return {
-          title: t("credits.premiumActive"),
-          message: t("credits.premiumAlreadyActive"),
-          confirmText: t("common.ok"),
         };
       case "referral_success":
         return {
@@ -360,93 +331,6 @@ export function TimeBankStoreModal({ visible, onClose }: TimeBankStoreModalProps
             </View>
           </Animated.View>
 
-          <Animated.View entering={FadeInUp.delay(300).duration(400)}>
-            <ThemedText type="h4" style={styles.sectionTitle}>
-              {t("credits.premiumSubscription")}
-            </ThemedText>
-            <Pressable
-              onPress={handlePremiumSubscribe}
-              style={({ pressed }) => [
-                styles.premiumCard,
-                {
-                  backgroundColor: isPremium ? `${theme.success}15` : `${theme.primary}08`,
-                  borderColor: isPremium ? theme.success : theme.primary,
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
-            >
-              <View style={styles.premiumHeader}>
-                <View
-                  style={[
-                    styles.premiumIcon,
-                    { backgroundColor: isPremium ? theme.success : theme.primary },
-                  ]}
-                >
-                  <Feather
-                    name={isPremium ? "check" : "star"}
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                </View>
-                <View style={styles.premiumInfo}>
-                  <ThemedText type="h4">
-                    {isPremium ? t("credits.premiumActive") : t("credits.goPremium")}
-                  </ThemedText>
-                  <ThemedText
-                    type="body"
-                    style={{ color: isPremium ? theme.success : theme.primary }}
-                  >
-                    ${PREMIUM_MONTHLY_PRICE}/month
-                  </ThemedText>
-                </View>
-              </View>
-              <View style={styles.premiumPerks}>
-                <View style={styles.perkItem}>
-                  <Feather name="gift" size={16} color={theme.textSecondary} />
-                  <ThemedText
-                    type="small"
-                    style={{ color: theme.textSecondary }}
-                  >
-                    {PREMIUM_BONUS_MINUTES} bonus minutes/month
-                  </ThemedText>
-                </View>
-                <View style={styles.perkItem}>
-                  <Feather name="users" size={16} color={theme.textSecondary} />
-                  <ThemedText
-                    type="small"
-                    style={{ color: theme.textSecondary }}
-                  >
-                    {t("credits.genderFilter")}
-                  </ThemedText>
-                </View>
-                <View style={styles.perkItem}>
-                  <Feather name="zap" size={16} color={theme.textSecondary} />
-                  <ThemedText
-                    type="small"
-                    style={{ color: theme.textSecondary }}
-                  >
-                    {t("credits.priorityMatching")}
-                  </ThemedText>
-                </View>
-              </View>
-            </Pressable>
-          </Animated.View>
-
-          <Animated.View
-            entering={FadeInUp.delay(400).duration(400)}
-            style={styles.infoSection}
-          >
-            <ThemedText type="small" style={{ color: theme.textSecondary, fontWeight: "600" }}>
-              Extension Costs
-            </ThemedText>
-            <View style={styles.usageList}>
-              {CALL_EXTENSIONS.map((ext) => (
-                <ThemedText key={ext.id} type="small" style={{ color: theme.textSecondary }}>
-                  {ext.label}: {ext.cost} minutes
-                </ThemedText>
-              ))}
-            </View>
-          </Animated.View>
 
           <Animated.View
             entering={FadeInUp.delay(500).duration(400)}
@@ -473,7 +357,7 @@ export function TimeBankStoreModal({ visible, onClose }: TimeBankStoreModalProps
         title={getConfirmationContent().title}
         message={getConfirmationContent().message}
         confirmText={getConfirmationContent().confirmText}
-        cancelText={confirmation?.type === "premium_active" || confirmation?.type === "referral_success" || confirmation?.type === "referral_error" ? undefined : t("common.cancel")}
+        cancelText={confirmation?.type === "referral_success" || confirmation?.type === "referral_error" ? undefined : t("common.cancel")}
         onConfirm={handleConfirmPurchase}
         onCancel={() => setConfirmation(null)}
       />
@@ -616,43 +500,6 @@ const styles = StyleSheet.create({
   },
   packageMinutes: {
     fontWeight: "600",
-  },
-  premiumCard: {
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    borderWidth: 2,
-    marginBottom: Spacing.lg,
-  },
-  premiumHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  premiumIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  premiumInfo: {
-    flex: 1,
-  },
-  premiumPerks: {
-    gap: Spacing.sm,
-  },
-  perkItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  infoSection: {
-    marginBottom: Spacing.lg,
-  },
-  usageList: {
-    marginTop: Spacing.sm,
-    gap: Spacing.xs,
   },
   maxDurationCard: {
     padding: Spacing.lg,
