@@ -24,7 +24,20 @@ import {
   type CallRating,
   type CountryRanking,
   MAX_DAILY_MATCHES,
+  REFERRAL_REWARD_MINUTES,
+  TIME_PACKAGES,
 } from "@shared/schema";
+
+// Generate a unique 6-character referral code
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excludes confusing chars like 0, O, 1, I
+  let code = '';
+  const bytes = randomBytes(6);
+  for (let i = 0; i < 6; i++) {
+    code += chars[bytes[i] % chars.length];
+  }
+  return code;
+}
 
 // Session Management
 export async function getOrCreateSession(deviceId: string): Promise<Session> {
@@ -53,9 +66,25 @@ export async function getOrCreateSession(deviceId: string): Promise<Session> {
     return existing;
   }
 
+  // Generate unique referral code, retry if collision
+  let referralCode = generateReferralCode();
+  let attempts = 0;
+  while (attempts < 5) {
+    const existing = await db.query.sessions.findFirst({
+      where: eq(sessions.referralCode, referralCode),
+    });
+    if (!existing) break;
+    referralCode = generateReferralCode();
+    attempts++;
+  }
+
   const [newSession] = await db
     .insert(sessions)
-    .values({ deviceId })
+    .values({ 
+      deviceId,
+      referralCode,
+      timeBankMinutes: 5, // Default 5 minutes for new users
+    })
     .returning();
   return newSession;
 }
@@ -812,4 +841,183 @@ export async function refreshCountryRankings(): Promise<CountryRanking[]> {
   }
   
   return rankings;
+}
+
+// ==========================================
+// Referral Program Functions
+// ==========================================
+
+// Find a session by referral code
+export async function getSessionByReferralCode(code: string): Promise<Session | undefined> {
+  return db.query.sessions.findFirst({
+    where: eq(sessions.referralCode, code.toUpperCase()),
+  });
+}
+
+// Redeem a referral code - returns success status and message
+export async function redeemReferralCode(
+  sessionId: string,
+  referralCode: string
+): Promise<{ success: boolean; message: string }> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, message: "Session not found" };
+  }
+
+  // Check if already used a referral code
+  if (session.referredByCode) {
+    return { success: false, message: "You have already used a referral code" };
+  }
+
+  // Normalize code to uppercase
+  const code = referralCode.toUpperCase().trim();
+
+  // Check if trying to use own code
+  if (session.referralCode === code) {
+    return { success: false, message: "You cannot use your own referral code" };
+  }
+
+  // Find the referrer
+  const referrer = await getSessionByReferralCode(code);
+  if (!referrer) {
+    return { success: false, message: "Invalid referral code" };
+  }
+
+  // Update current user: set referredByCode and add minutes
+  await db
+    .update(sessions)
+    .set({
+      referredByCode: code,
+      timeBankMinutes: (session.timeBankMinutes || 0) + REFERRAL_REWARD_MINUTES,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+
+  // Update referrer: increment referralCount and add minutes
+  await db
+    .update(sessions)
+    .set({
+      referralCount: (referrer.referralCount || 0) + 1,
+      timeBankMinutes: (referrer.timeBankMinutes || 0) + REFERRAL_REWARD_MINUTES,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, referrer.id));
+
+  return { 
+    success: true, 
+    message: `Success! You and your friend both received ${REFERRAL_REWARD_MINUTES} minutes!` 
+  };
+}
+
+// ==========================================
+// Time Bank Functions
+// ==========================================
+
+// Purchase time package - adds minutes to time bank
+export async function purchaseTimePackage(
+  sessionId: string,
+  packageId: string
+): Promise<{ success: boolean; message: string; minutesAdded?: number }> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, message: "Session not found" };
+  }
+
+  const pkg = TIME_PACKAGES.find(p => p.id === packageId);
+  if (!pkg) {
+    return { success: false, message: "Invalid package" };
+  }
+
+  const newBalance = (session.timeBankMinutes || 0) + pkg.minutes;
+
+  await db
+    .update(sessions)
+    .set({
+      timeBankMinutes: newBalance,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+
+  // Log the transaction
+  await db.insert(creditTransactions).values({
+    sessionId,
+    amount: pkg.minutes,
+    type: "purchase",
+    description: `Purchased ${pkg.name} (${pkg.minutes} minutes)`,
+  });
+
+  return { 
+    success: true, 
+    message: `Added ${pkg.minutes} minutes to your Time Bank!`,
+    minutesAdded: pkg.minutes
+  };
+}
+
+// Deduct minutes from time bank (for call extensions)
+export async function deductTimeBank(
+  sessionId: string,
+  minutes: number,
+  reason: string
+): Promise<{ success: boolean; newBalance: number }> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, newBalance: 0 };
+  }
+
+  const currentBalance = session.timeBankMinutes || 0;
+  if (currentBalance < minutes) {
+    return { success: false, newBalance: currentBalance };
+  }
+
+  const newBalance = currentBalance - minutes;
+
+  await db
+    .update(sessions)
+    .set({
+      timeBankMinutes: newBalance,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+
+  // Log the deduction
+  await db.insert(creditTransactions).values({
+    sessionId,
+    amount: -minutes,
+    type: "extension",
+    description: reason,
+  });
+
+  return { success: true, newBalance };
+}
+
+// Add minutes to time bank (for rewards, bonuses, etc.)
+export async function addTimeBank(
+  sessionId: string,
+  minutes: number,
+  reason: string
+): Promise<{ success: boolean; newBalance: number }> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, newBalance: 0 };
+  }
+
+  const newBalance = (session.timeBankMinutes || 0) + minutes;
+
+  await db
+    .update(sessions)
+    .set({
+      timeBankMinutes: newBalance,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+
+  // Log the addition
+  await db.insert(creditTransactions).values({
+    sessionId,
+    amount: minutes,
+    type: "bonus",
+    description: reason,
+  });
+
+  return { success: true, newBalance };
 }
