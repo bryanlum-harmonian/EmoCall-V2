@@ -304,6 +304,15 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  // Debug: Log environment variable status
+  log("=== Environment Check ===");
+  log(`NODE_ENV: ${process.env.NODE_ENV}`);
+  log(`DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+  log(`DATABASE_URL length: ${process.env.DATABASE_URL?.length || 0}`);
+  log(`AGORA_APP_ID exists: ${!!process.env.AGORA_APP_ID}`);
+  log(`AGORA_APP_CERTIFICATE exists: ${!!process.env.AGORA_APP_CERTIFICATE}`);
+  log("========================");
+
   // Run database migrations on startup
   if (process.env.NODE_ENV === "production") {
     try {
