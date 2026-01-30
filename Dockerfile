@@ -19,9 +19,8 @@ RUN npm run server:build
 # Remove dev dependencies after build to reduce image size
 RUN npm prune --production
 
-# Note: Static web build should be done before Docker build
-# with EXPO_PUBLIC_DOMAIN set to your Cloud Run URL
-# Or you can build it here if EXPO_PUBLIC_DOMAIN is set at build time
+# Note: static-build/web directory must be committed to git
+# or built during Docker build for assets to be available
 
 # Expose port (Cloud Run uses PORT env var)
 ENV PORT=8080
