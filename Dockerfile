@@ -7,14 +7,17 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (use ci for clean install)
-RUN npm ci --only=production
+# Install ALL dependencies (needed for building TypeScript)
+RUN npm ci
 
 # Copy application code
 COPY . .
 
 # Build server (TypeScript to JavaScript)
 RUN npm run server:build
+
+# Remove dev dependencies after build to reduce image size
+RUN npm prune --production
 
 # Note: Static web build should be done before Docker build
 # with EXPO_PUBLIC_DOMAIN set to your Cloud Run URL
