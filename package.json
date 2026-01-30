@@ -71,7 +71,8 @@
     "tsx": "^4.20.6",
     "ws": "^8.18.0",
     "zod": "^3.24.2",
-    "zod-validation-error": "^3.4.0"
+    "zod-validation-error": "^3.4.0",
+    "drizzle-kit": "^0.31.4"
   },
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
