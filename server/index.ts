@@ -253,7 +253,7 @@ function configureExpoAndLanding(app: express.Application) {
   // Serve web app at /app
   const webDir = path.resolve(process.cwd(), "static-build", "web");
   app.use("/app", express.static(webDir));
-  
+
   // Serve web app assets at root level (/_expo, /favicon.ico) - required because web build uses absolute paths
   app.use("/_expo", express.static(path.resolve(webDir, "_expo")));
   app.get("/favicon.ico", (_req: Request, res: Response) => {
@@ -263,8 +263,13 @@ function configureExpoAndLanding(app: express.Application) {
     }
     return res.status(404).send("Not found");
   });
-  
-  // Fallback for SPA routing under /app
+
+  // Serve web build assets at /assets (fonts, icons, etc. from Expo web export)
+  // Serve at root level AND under /app for relative path support
+  app.use("/assets", express.static(path.resolve(webDir, "assets")));
+  app.use("/app/assets", express.static(path.resolve(webDir, "assets")));
+
+  // Fallback for SPA routing under /app (must come after asset routes)
   app.use("/app", (req: Request, res: Response, next: NextFunction) => {
     const webIndexPath = path.resolve(webDir, "index.html");
     if (fs.existsSync(webIndexPath)) {
@@ -272,9 +277,6 @@ function configureExpoAndLanding(app: express.Application) {
     }
     return next();
   });
-
-  // Serve web build assets at /assets (fonts, icons, etc. from Expo web export)
-  app.use("/assets", express.static(path.resolve(webDir, "assets")));
   
   // Also serve project assets and static build files
   app.use(express.static(path.resolve(process.cwd(), "static-build")));
