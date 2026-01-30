@@ -484,10 +484,10 @@ async function findAndLockWaitingUser(
   activeConnections: Map<string, { readyState: number }>,
   excludeSessionId?: string
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  // Step 1: Clean up stale entries (garbage collection)
-  await cleanupStaleQueueEntries();
-  
-  // Step 2: Get all users of this mood with status='waiting'
+  // Skip aggressive cleanup - it causes race conditions with just-joined users
+  // Cleanup now only happens on queue join to remove old entries
+
+  // Get all users of this mood with status='waiting'
   const users = await db.query.matchmakingQueue.findMany({
     where: and(
       eq(matchmakingQueue.mood, mood),

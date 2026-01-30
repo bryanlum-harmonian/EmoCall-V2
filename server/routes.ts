@@ -427,8 +427,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           case "heartbeat":
             // Client sends heartbeat every 5 seconds while in queue
             // This keeps their queue entry fresh and prevents ghost matches
+            console.log(`[WS] heartbeat received from: ${sessionId}`);
             if (sessionId) {
               const updated = await updateQueueHeartbeat(sessionId);
+              console.log(`[WS] heartbeat update result for ${sessionId}:`, updated);
               if (updated) {
                 ws.send(JSON.stringify({ type: "heartbeat_ack" }));
               }

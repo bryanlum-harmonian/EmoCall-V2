@@ -46,14 +46,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
+      // Check for ?newSession URL parameter (for testing)
+      const forceNewSession = typeof window !== "undefined" &&
+        new URLSearchParams(window.location.search).get("newSession") === "true";
+
+      if (forceNewSession) {
+        console.log("[SessionContext] Forcing new session creation (newSession=true)");
+        await AsyncStorage.removeItem(DEVICE_ID_KEY);
+        await AsyncStorage.removeItem(SESSION_ID_KEY);
+      }
+
       let deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
       if (!deviceId) {
         deviceId = generateDeviceId();
         await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
       }
 
+      console.log("[SessionContext] Creating session with deviceId:", deviceId);
       const response = await apiRequest("POST", "/api/sessions", { deviceId });
       const sessionData = await response.json();
+      console.log("[SessionContext] Session created:", sessionData.id);
 
       await AsyncStorage.setItem(SESSION_ID_KEY, sessionData.id);
       setSession(sessionData);

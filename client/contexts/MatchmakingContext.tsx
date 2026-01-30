@@ -367,14 +367,26 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
       }
       return;
     }
-    
+
+    // Send first heartbeat after a brief delay to ensure queue entry is created
+    // This prevents race condition where heartbeat arrives before queue insertion
+    const initialTimeout = setTimeout(() => {
+      if (wsRef.current?.readyState === WebSocket.OPEN && stateRef.current === "in_queue") {
+        console.log("[MatchmakingContext] Sending initial heartbeat");
+        wsRef.current.send(JSON.stringify({ type: "heartbeat" }));
+      }
+    }, 500);
+
+    // Continue sending heartbeats every 5 seconds
     heartbeatIntervalRef.current = setInterval(() => {
       if (wsRef.current?.readyState === WebSocket.OPEN && stateRef.current === "in_queue") {
+        console.log("[MatchmakingContext] Sending heartbeat");
         wsRef.current.send(JSON.stringify({ type: "heartbeat" }));
       }
     }, 5000);
-    
+
     return () => {
+      clearTimeout(initialTimeout);
       if (heartbeatIntervalRef.current) {
         clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = null;

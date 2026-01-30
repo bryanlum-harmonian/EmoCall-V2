@@ -1,0 +1,36 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Development files
+.env
+.env.local
+.replit
+.git
+.gitignore
+
+# Build artifacts (will be rebuilt in container)
+server_dist
+
+# IDE
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.log
+.cache
+.expo
+.expo-shared
+
+# Docker
+Dockerfile
+.dockerignore
