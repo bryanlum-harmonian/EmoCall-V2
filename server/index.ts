@@ -304,6 +304,19 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  // Run database migrations on startup
+  if (process.env.NODE_ENV === "production") {
+    try {
+      log("Running database migrations...");
+      const { execSync } = await import("child_process");
+      execSync("npx drizzle-kit push", { stdio: "inherit" });
+      log("Database migrations completed successfully");
+    } catch (error) {
+      log("Warning: Database migration failed:", error);
+      log("Continuing with server startup...");
+    }
+  }
+
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
