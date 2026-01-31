@@ -16,6 +16,12 @@ interface BanInfo {
   banCount: number;
 }
 
+interface CallExtendedInfo {
+  minutes: number;
+  fromPartner: boolean;
+  extendedBy: string;  // Session ID of who extended
+}
+
 interface MatchmakingContextType {
   state: MatchmakingState;
   isConnected: boolean;
@@ -25,14 +31,17 @@ interface MatchmakingContextType {
   callStartedAt: string | null;
   queuePosition: number | null;
   banInfo: BanInfo | null;
+  callExtended: CallExtendedInfo | null;
 
   connect: (sessionId: string) => void;
   joinQueue: (mood: string, cardId: string) => void;
   leaveQueue: () => void;
   signalReady: (callId: string) => void;
   endCall: (reason?: string, remainingSeconds?: number) => void;
+  extendCall: (minutes: number) => void;
   clearMatchResult: () => void;
   clearCallEnded: () => void;
+  clearCallExtended: () => void;
   clearBanned: () => void;
 }
 
@@ -59,6 +68,8 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
   const [callStartedAt, setCallStartedAt] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
   const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
+  const [callExtended, setCallExtended] = useState<CallExtendedInfo | null>(null);
+  const pendingExtensionRef = useRef<number | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -234,6 +245,27 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
               });
               setState("banned");
               break;
+
+            case "call_extended":
+              console.log("[MatchmakingContext] Call extended by", message.minutes, "minutes");
+              console.log("[MatchmakingContext] extendedBy:", message.extendedBy);
+              console.log("[MatchmakingContext] mySessionId:", sessionIdRef.current);
+              // Determine if extension was from partner by comparing session IDs
+              const isFromPartner = message.extendedBy !== sessionIdRef.current;
+              console.log("[MatchmakingContext] isFromPartner:", isFromPartner);
+              pendingExtensionRef.current = null;
+              setCallExtended({
+                minutes: message.minutes,
+                fromPartner: isFromPartner,
+                extendedBy: message.extendedBy,
+              });
+              break;
+
+            case "extension_rejected":
+              console.log("[MatchmakingContext] Extension rejected:", message.reason);
+              pendingExtensionRef.current = null;
+              setError(message.message || "Extension rejected");
+              break;
           }
         } catch (err) {
           console.error("[MatchmakingContext] Parse error:", err);
@@ -383,6 +415,25 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
     setState("idle");
   }, []);
 
+  const extendCall = useCallback((minutes: number) => {
+    console.log("[MatchmakingContext] Extending call by", minutes, "minutes");
+    pendingExtensionRef.current = minutes;
+
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: "extend_call",
+        minutes,
+      }));
+    } else {
+      console.error("[MatchmakingContext] Cannot extend call - WebSocket not connected");
+      pendingExtensionRef.current = null;
+    }
+  }, []);
+
+  const clearCallExtended = useCallback(() => {
+    setCallExtended(null);
+  }, []);
+
   // Heartbeat while in queue
   useEffect(() => {
     if (state !== "in_queue") {
@@ -464,13 +515,16 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
     callStartedAt,
     queuePosition,
     banInfo,
+    callExtended,
     connect,
     joinQueue,
     leaveQueue,
     signalReady,
     endCall,
+    extendCall,
     clearMatchResult,
     clearCallEnded,
+    clearCallExtended,
     clearBanned,
   };
 

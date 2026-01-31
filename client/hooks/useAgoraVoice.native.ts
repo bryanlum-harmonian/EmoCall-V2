@@ -24,6 +24,8 @@ interface UseAgoraVoiceReturn {
   remoteUserJoined: boolean;
   remoteUserLeft: boolean;
   error: string | null;
+  localAudioLevel: number;
+  remoteAudioLevel: number;
   join: () => Promise<void>;
   leave: () => Promise<void>;
   toggleMute: () => void;
@@ -64,7 +66,9 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const [remoteUserJoined, setRemoteUserJoined] = useState(false);
   const [remoteUserLeft, setRemoteUserLeft] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [localAudioLevel, setLocalAudioLevel] = useState(0);
+  const [remoteAudioLevel, setRemoteAudioLevel] = useState(0);
+
   const onRemoteUserLeftRef = useRef(config.onRemoteUserLeft);
   const clientRef = useRef<any>(null);
   const hasJoinedRef = useRef(false);
@@ -143,11 +147,14 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
         onUserJoined: (connection: any, remoteUid: number, elapsed: number) => {
           console.log("[Agora Native] Remote user joined:", remoteUid);
           setRemoteUserJoined(true);
+          // Reset remoteUserLeft flag - user has (re)joined
+          setRemoteUserLeft(false);
         },
         onUserOffline: (connection: any, remoteUid: number, reason: number) => {
           console.log("[Agora Native] Remote user offline:", remoteUid, "reason:", reason);
           setRemoteUserJoined(false);
           setRemoteUserLeft(true);
+          setRemoteAudioLevel(0);
           if (onRemoteUserLeftRef.current) {
             onRemoteUserLeftRef.current();
           }
@@ -156,7 +163,28 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
           console.error("[Agora Native] Error:", err, msg);
           setError(`Agora error: ${msg}`);
         },
+        // Audio volume indication for real-time voice visualization
+        onAudioVolumeIndication: (
+          connection: any,
+          speakers: Array<{ uid: number; volume: number; vad: number }>,
+          speakerNumber: number,
+          totalVolume: number
+        ) => {
+          for (const speaker of speakers) {
+            // uid 0 = local user, other uids = remote users
+            const normalizedVolume = speaker.volume / 255; // Convert to 0-1 scale
+            if (speaker.uid === 0) {
+              setLocalAudioLevel(normalizedVolume);
+            } else {
+              setRemoteAudioLevel(normalizedVolume);
+            }
+          }
+        },
       });
+
+      // Enable audio volume indication (reports every 100ms)
+      // Parameters: interval (ms), smooth (unused), reportVad (voice activity detection)
+      engine.enableAudioVolumeIndication(100, 3, true);
 
       // Set client role and enable audio
       engine.setClientRole(ClientRoleType.ClientRoleBroadcaster);
@@ -242,6 +270,8 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       setIsConnected(false);
       setRemoteUserJoined(false);
       setIsMuted(false);
+      setLocalAudioLevel(0);
+      setRemoteAudioLevel(0);
       hasJoinedRef.current = false;
       console.log("[Agora Native] Leave completed");
     } catch (err) {
@@ -285,6 +315,8 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
     remoteUserJoined,
     remoteUserLeft,
     error,
+    localAudioLevel,
+    remoteAudioLevel,
     join,
     leave,
     toggleMute,

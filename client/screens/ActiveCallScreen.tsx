@@ -651,7 +651,7 @@ export default function ActiveCallScreen() {
   const { theme } = useTheme();
   const { t, currentLanguage } = useLanguage();
   void currentLanguage; // Trigger re-render on language change
-  const { timeBankMinutes, purchaseCallExtension } = useTimeBank();
+  const { timeBankMinutes, syncWithBackend } = useTimeBank();
   const { awardCallCompletion, awardCallExtension, awardCallSecond, aura } = useAura();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -684,32 +684,19 @@ export default function ActiveCallScreen() {
     remoteUserJoined,
     remoteUserLeft,
     error: voiceError,
+    localAudioLevel,
+    remoteAudioLevel,
     join: joinVoice,
     leave: leaveVoice,
     toggleMute,
-  } = useAgoraVoice({ 
+  } = useAgoraVoice({
     channelName: callId,
     enabled: !isPreview, // Skip Agora in preview mode
   });
 
   const hasEndedRef = useRef(false);
-
-  useEffect(() => {
-    if (remoteUserLeft && !hasEndedRef.current) {
-      console.log("[ActiveCall] Detected partner left Agora channel - ending call");
-      hasEndedRef.current = true;
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
-      if (speakingRef.current) {
-        clearInterval(speakingRef.current);
-      }
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      leaveVoice().then(() => {
-        navigation.replace("CallEnded", { reason: "partner_left", callId });
-      });
-    }
-  }, [remoteUserLeft, leaveVoice, navigation, callId]);
+  const partnerLeftTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const partnerEverJoinedRef = useRef(false);
 
   const [timeRemaining, setTimeRemaining] = useState(() => getInitialTimeRemaining());
   const [totalCallTime, setTotalCallTime] = useState(() => {
@@ -732,9 +719,12 @@ export default function ActiveCallScreen() {
   const [extensionStartTime, setExtensionStartTime] = useState<number | null>(null);
   const [reminderMessage, setReminderMessage] = useState("");
   const [lastReminderTime, setLastReminderTime] = useState(INITIAL_TIME);
-  const [youSpeaking, setYouSpeaking] = useState(false);
-  const [themSpeaking, setThemSpeaking] = useState(true);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true); // Default: loud speaker mode
+
+  // Determine speaking state from real audio levels (threshold: 0.1 = 10%)
+  const SPEAKING_THRESHOLD = 0.1;
+  const youSpeaking = localAudioLevel > SPEAKING_THRESHOLD && !isMuted;
+  const themSpeaking = remoteAudioLevel > SPEAKING_THRESHOLD;
   const [showSafetyCheck, setShowSafetyCheck] = useState(false);
   const [showSafetyFollowUp, setShowSafetyFollowUp] = useState(false);
   const [lastSafetyCheckTime, setLastSafetyCheckTime] = useState(INITIAL_TIME);
@@ -746,16 +736,84 @@ export default function ActiveCallScreen() {
   const timerPulse = useSharedValue(1);
   const connectionPulse = useSharedValue(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const speakingRef = useRef<NodeJS.Timeout | null>(null);
   const awardCallSecondRef = useRef(awardCallSecond);
   awardCallSecondRef.current = awardCallSecond; // Keep ref updated
 
-  const { endCall: endCallWs, callEndedByPartner, clearCallEnded, signalReady, callStartedAt, state: matchmakingState } = useMatchmaking({
+  // Store server timestamp for accurate timer sync across all clients
+  // This ensures both users see the same remaining time by calculating from server timestamp
+  const callStartTimeRef = useRef<number | null>(null);
+  const totalDurationRef = useRef<number>(INITIAL_TIME); // Total duration including extensions
+
+  const {
+    endCall: endCallWs,
+    callEndedByPartner,
+    clearCallEnded,
+    signalReady,
+    callStartedAt,
+    state: matchmakingState,
+    extendCall: extendCallWs,
+    callExtended,
+    clearCallExtended,
+    error: matchmakingError,
+  } = useMatchmaking({
     sessionId: session?.id || null,
   });
   
   // Track if we're waiting for partner to be ready
   const [waitingForPartner, setWaitingForPartner] = useState(true);
+
+  // Track if partner has ever joined Agora (to avoid false positives during initial connection)
+  useEffect(() => {
+    if (remoteUserJoined) {
+      partnerEverJoinedRef.current = true;
+      console.log("[ActiveCall] Partner joined Agora for the first time");
+    }
+  }, [remoteUserJoined]);
+
+  // Handle Agora remoteUserLeft with a grace period to prevent false positives
+  // Network glitches can cause temporary disconnects - wait 5 seconds before acting
+  // Only trigger if partner had actually joined before (not during initial connection)
+  useEffect(() => {
+    if (remoteUserLeft && !hasEndedRef.current && !waitingForPartner && partnerEverJoinedRef.current) {
+      console.log("[ActiveCall] Agora reports partner left - starting 5s grace period");
+
+      // Clear any existing timeout
+      if (partnerLeftTimeoutRef.current) {
+        clearTimeout(partnerLeftTimeoutRef.current);
+      }
+
+      // Wait 5 seconds before ending call - gives time for reconnection
+      partnerLeftTimeoutRef.current = setTimeout(() => {
+        // Double-check they haven't rejoined and call wasn't already ended
+        if (!hasEndedRef.current && !remoteUserJoined) {
+          console.log("[ActiveCall] Grace period expired, partner still gone - ending call");
+          hasEndedRef.current = true;
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          leaveVoice().then(() => {
+            navigation.replace("CallEnded", { reason: "partner_left", callId });
+          });
+        } else {
+          console.log("[ActiveCall] Grace period expired but partner rejoined or call ended - ignoring");
+        }
+      }, 5000);
+    }
+
+    // If partner rejoins, cancel the timeout
+    if (remoteUserJoined && partnerLeftTimeoutRef.current) {
+      console.log("[ActiveCall] Partner rejoined - cancelling partner-left timeout");
+      clearTimeout(partnerLeftTimeoutRef.current);
+      partnerLeftTimeoutRef.current = null;
+    }
+
+    return () => {
+      if (partnerLeftTimeoutRef.current) {
+        clearTimeout(partnerLeftTimeoutRef.current);
+      }
+    };
+  }, [remoteUserLeft, remoteUserJoined, waitingForPartner, leaveVoice, navigation, callId]);
 
   useEffect(() => {
     if (callEndedByPartner && !hasEndedRef.current) {
@@ -763,9 +821,6 @@ export default function ActiveCallScreen() {
       hasEndedRef.current = true;
       if (timerRef.current) {
         clearInterval(timerRef.current);
-      }
-      if (speakingRef.current) {
-        clearInterval(speakingRef.current);
       }
       setShowExtensionModal(false);
       setShowReminderModal(false);
@@ -776,6 +831,79 @@ export default function ActiveCallScreen() {
     }
   }, [callEndedByPartner, clearCallEnded, leaveVoice, navigation, callId]);
 
+  // Track who extended for UI display
+  // We track both whether user extended themselves AND whether partner extended
+  // This handles the case where both users extend - we prioritize showing "You extended"
+  const [extensionSource, setExtensionSource] = useState<"you" | "partner" | null>(null);
+  const [userDidExtend, setUserDidExtend] = useState(false);
+
+  // Handle extension errors (insufficient time bank, max duration, etc.)
+  useEffect(() => {
+    if (matchmakingError && matchmakingError.includes("extension")) {
+      console.log("[ActiveCall] Extension error:", matchmakingError);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // Reopen extension modal so user can try again or see the issue
+      setShowExtensionModal(true);
+    }
+  }, [matchmakingError]);
+
+  // Handle call_extended message - both users receive this and should update their timers
+  useEffect(() => {
+    if (callExtended) {
+      console.log("[ActiveCall] Call extended by", callExtended.minutes, "minutes, fromPartner:", callExtended.fromPartner);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Update local state to reflect extension
+      setHasExtended(true);
+      setShowExtensionModal(false);
+      setShowReminderModal(false);
+
+      // Track who extended for UI display
+      // IMPORTANT: If user extended themselves, always show "you" even if partner also extends
+      // This prevents the case where both extend and both see "partner extended"
+      if (!callExtended.fromPartner) {
+        // I extended - always show "you" and remember it
+        setUserDidExtend(true);
+        setExtensionSource("you");
+      } else if (!userDidExtend) {
+        // Partner extended and I haven't extended - show "partner"
+        setExtensionSource("partner");
+      }
+      // If partner extended but I already extended, keep showing "you"
+
+      // If I'm the one who extended, I need to:
+      // 1. Sync time bank with server (server already deducted)
+      // 2. Award aura (for local display)
+      if (!callExtended.fromPartner) {
+        // Sync time bank state with server since it already deducted
+        syncWithBackend();
+        awardCallExtension();
+      }
+
+      // BOTH users extend their timer by updating the total duration
+      // The timer interval calculates remaining from: totalDuration - elapsed
+      // So we need to increase totalDuration to extend the timer
+      const extensionSeconds = callExtended.minutes * 60;
+      const remainingToMax = MAX_CALL_DURATION - totalCallTime;
+      const cappedExtension = Math.min(extensionSeconds, Math.max(0, remainingToMax - timeRemaining));
+
+      // Update the ref that the timer interval uses for calculation
+      totalDurationRef.current += cappedExtension;
+      console.log("[ActiveCall] Extended total duration to:", totalDurationRef.current, "seconds (added", cappedExtension, "s)");
+
+      // Also update state for immediate UI update (interval will re-sync on next tick)
+      setTimeRemaining((prev) => prev + cappedExtension);
+
+      // Clear the extension notification
+      clearCallExtended();
+
+      // Clear the extension source indicator after 5 seconds
+      setTimeout(() => {
+        setExtensionSource(null);
+      }, 5000);
+    }
+  }, [callExtended, clearCallExtended, totalCallTime, timeRemaining, awardCallExtension, syncWithBackend, userDidExtend]);
+
   const isWarningTime = timeRemaining <= WARNING_TIME && !hasExtended;
   const isUrgent = timeRemaining <= WARNING_TIME;
 
@@ -785,9 +913,6 @@ export default function ActiveCallScreen() {
       hasEndedRef.current = true;
       if (timerRef.current) {
         clearInterval(timerRef.current);
-      }
-      if (speakingRef.current) {
-        clearInterval(speakingRef.current);
       }
       setShowExtensionModal(false);
       setShowReminderModal(false);
@@ -829,18 +954,33 @@ export default function ActiveCallScreen() {
     };
   }, [waitingForPartner, callId, signalReady]);
   
-  // When call_started is received (both users on screen), join Agora voice
+  // When call_started is received (both users on screen), start synchronized timer and join Agora voice
   useEffect(() => {
     if (callStartedAt && waitingForPartner) {
       console.log("[ActiveCall] call_started received! Both users ready, joining voice...");
-      setWaitingForPartner(false);
-      
-      // Reset timer to exactly 5 minutes (ignore any previous elapsed time since we're synchronized now)
-      setTimeRemaining(INITIAL_TIME);
-      setTotalCallTime(0);
+
+      // Store server timestamp for continuous sync
+      // All timer calculations will be based on this to ensure both users see identical times
+      const serverStartTime = new Date(callStartedAt).getTime();
+      callStartTimeRef.current = serverStartTime;
+      totalDurationRef.current = INITIAL_TIME;
+
+      // Calculate initial remaining time
+      const elapsedMs = Date.now() - serverStartTime;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const syncedTimeRemaining = Math.max(0, INITIAL_TIME - elapsedSeconds);
+
+      console.log("[ActiveCall] Timer sync - server started:", callStartedAt, "elapsed:", elapsedSeconds, "s, remaining:", syncedTimeRemaining, "s");
+
+      setTimeRemaining(syncedTimeRemaining);
+      setTotalCallTime(elapsedSeconds);
       setLastReminderTime(INITIAL_TIME);
       setLastSafetyCheckTime(INITIAL_TIME);
-      
+
+      // Set waitingForPartner to false AFTER setting timer values
+      // This triggers the timer interval to start
+      setWaitingForPartner(false);
+
       // Now join Agora voice - both users are confirmed on the call screen
       console.log("[ActiveCall] Joining Agora voice channel now...");
       joinVoice();
@@ -872,91 +1012,87 @@ export default function ActiveCallScreen() {
     }
   }, [matchmakingState]);
 
+
+  // IMPORTANT: Timer starts when call_started is received (both users ready), NOT when Agora connects.
+  // This ensures both venter and listener have perfectly synchronized countdown timers.
+  // The Agora connection is separate - audio may connect slightly after timer starts.
   useEffect(() => {
-    if (isConnecting) return;
+    // Wait for server to confirm both users are ready before starting timer
+    if (waitingForPartner) return;
+    if (!callStartTimeRef.current) return;
 
-    speakingRef.current = setInterval(() => {
-      const rand = Math.random();
-      if (rand < 0.3) {
-        setYouSpeaking(true);
-        setThemSpeaking(false);
-      } else if (rand < 0.6) {
-        setYouSpeaking(false);
-        setThemSpeaking(true);
-      } else if (rand < 0.8) {
-        setYouSpeaking(true);
-        setThemSpeaking(true);
-      } else {
-        setYouSpeaking(false);
-        setThemSpeaking(false);
-      }
-    }, 2000);
+    console.log("[ActiveCall] Starting synchronized timer - both users confirmed ready");
 
-    return () => {
-      if (speakingRef.current) {
-        clearInterval(speakingRef.current);
-      }
-    };
-  }, [isConnecting]);
-
-  useEffect(() => {
-    if (isConnecting) return;
+    // Track the last second we processed to avoid duplicate aura awards
+    let lastProcessedSecond = -1;
 
     timerRef.current = setInterval(() => {
-      // Award +1 aura every second (call this first, outside state callbacks)
-      awardCallSecondRef.current();
+      // Calculate time from server timestamp to ensure perfect sync across devices
+      // This eliminates drift caused by network latency or clock differences
+      const startTime = callStartTimeRef.current!;
+      const totalDuration = totalDurationRef.current;
+      const elapsedMs = Date.now() - startTime;
+      const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      const newTimeRemaining = Math.max(0, totalDuration - elapsedSeconds);
+      const newTotalCallTime = elapsedSeconds;
 
-      // Track total elapsed time
+      // Award aura only once per second (avoid duplicate awards if interval fires multiple times)
+      if (elapsedSeconds > lastProcessedSecond) {
+        awardCallSecondRef.current();
+        lastProcessedSecond = elapsedSeconds;
+      }
+
+      // Update total call time
       setTotalCallTime((prevTotal) => {
-        const newTotal = prevTotal + 1;
-
         // Check if we've reached max duration
-        if (newTotal >= MAX_CALL_DURATION) {
+        if (newTotalCallTime >= MAX_CALL_DURATION) {
           clearInterval(timerRef.current!);
           setReachedMaxDuration(true);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           return MAX_CALL_DURATION;
         }
 
-        // Show warning 5 minutes before max
-        if (newTotal === MAX_CALL_DURATION - MAX_DURATION_WARNING && !showMaxTimeWarning) {
+        // Show warning 5 minutes before max (only trigger once when crossing threshold)
+        if (newTotalCallTime >= MAX_CALL_DURATION - MAX_DURATION_WARNING && prevTotal < MAX_CALL_DURATION - MAX_DURATION_WARNING && !showMaxTimeWarning) {
           setShowMaxTimeWarning(true);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         }
 
-        return newTotal;
+        return newTotalCallTime;
       });
 
       setTimeRemaining((prev) => {
-        if (prev <= 1) {
+        // Timer ran out
+        if (newTimeRemaining <= 0) {
           clearInterval(timerRef.current!);
           navigation.replace("VibeCheck", {});
           return 0;
         }
 
-        if (prev === WARNING_TIME + 1 && !hasExtended) {
+        // Show extension modal when reaching warning threshold (only once)
+        if (newTimeRemaining <= WARNING_TIME && prev > WARNING_TIME && !hasExtended) {
           setShowExtensionModal(true);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
 
         // Only show topup reminders when 10 minutes or less remaining, then every minute
-        if (!hasExtended && prev <= TOPUP_REMINDER_THRESHOLD && prev > WARNING_TIME && (lastReminderTime - prev) >= MINUTE_REMINDER_INTERVAL) {
+        if (!hasExtended && newTimeRemaining <= TOPUP_REMINDER_THRESHOLD && newTimeRemaining > WARNING_TIME && (lastReminderTime - newTimeRemaining) >= MINUTE_REMINDER_INTERVAL) {
           const randomMessage = FATE_MESSAGES[Math.floor(Math.random() * FATE_MESSAGES.length)];
           setReminderMessage(randomMessage);
           setShowReminderModal(true);
-          setLastReminderTime(prev);
+          setLastReminderTime(newTimeRemaining);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
         // Safety check every 2 minutes
-        if ((lastSafetyCheckTime - prev) >= SAFETY_CHECK_INTERVAL && prev > WARNING_TIME) {
+        if ((lastSafetyCheckTime - newTimeRemaining) >= SAFETY_CHECK_INTERVAL && newTimeRemaining > WARNING_TIME) {
           setShowSafetyCheck(true);
           setShowSafetyFollowUp(false);
-          setLastSafetyCheckTime(prev);
+          setLastSafetyCheckTime(newTimeRemaining);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
 
-        return prev - 1;
+        return newTimeRemaining;
       });
     }, 1000);
 
@@ -965,7 +1101,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, showMaxTimeWarning]);
+  }, [waitingForPartner, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, showMaxTimeWarning]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {
@@ -1046,9 +1182,6 @@ export default function ActiveCallScreen() {
     if (timerRef.current) {
       clearInterval(timerRef.current);
     }
-    if (speakingRef.current) {
-      clearInterval(speakingRef.current);
-    }
     setShowExtensionModal(false);
     setShowReminderModal(false);
 
@@ -1091,22 +1224,27 @@ export default function ActiveCallScreen() {
   };
 
   const handleSelectExtension = async (extensionId: string) => {
-    const result = purchaseCallExtension(extensionId);
-    if (result.success) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      awardCallExtension();
-      setShowExtensionModal(false);
-      setShowReminderModal(false);
-      setHasExtended(true);
-      setCurrentExtension(extensionId);
-      setExtensionStartTime(Date.now());
-      
-      // Cap extension time so total doesn't exceed max duration
-      const remainingToMax = MAX_CALL_DURATION - totalCallTime;
-      const extensionSeconds = result.minutes * 60;
-      const cappedExtension = Math.min(extensionSeconds, remainingToMax - timeRemaining);
-      setTimeRemaining((prev) => prev + Math.max(0, cappedExtension));
+    // Find the extension option
+    const ext = CALL_EXTENSIONS.find((e) => e.id === extensionId);
+    if (!ext) return;
+
+    // Check time bank balance (local check for UX - server will also validate)
+    if (timeBankMinutes < ext.cost) {
+      // Not enough time bank - open the store
+      setShowCreditsStore(true);
+      return;
     }
+
+    // Close modals and show pending state
+    setShowExtensionModal(false);
+    setShowReminderModal(false);
+
+    // Send extension request to server - server will:
+    // 1. Deduct time bank
+    // 2. Award aura
+    // 3. Notify BOTH users via call_extended message
+    // The timer update happens when we receive call_extended back
+    extendCallWs(ext.minutes);
   };
   
   // Calculate available extension time
@@ -1343,7 +1481,11 @@ export default function ActiveCallScreen() {
               <View style={[styles.extendedBadge, { backgroundColor: `${theme.success}20` }]}>
                 <Feather name="check-circle" size={14} color={theme.success} />
                 <ThemedText type="small" style={{ color: theme.success }}>
-                  {t("call.callExtendedMessage")}
+                  {extensionSource === "you"
+                    ? t("call.youExtendedCall")
+                    : extensionSource === "partner"
+                    ? t("call.partnerExtendedCall")
+                    : t("call.callExtendedMessage")}
                 </ThemedText>
               </View>
             ) : null}

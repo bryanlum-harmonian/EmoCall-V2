@@ -60,6 +60,12 @@ import {
   addTimeBank,
   checkBanStatus,
   liftBan,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  getLastMatchedSession,
+  updateLastMatchedSession,
+  hasBlockRelationship,
 } from "./storage";
 import {
   TIME_PACKAGES,
@@ -75,8 +81,20 @@ import {
 
 // Active WebSocket connections for matchmaking
 const activeConnections = new Map<string, WebSocket>();
+// Extension tracking for time bank refunds
+interface CallExtension {
+  extenderId: string;  // Session ID of who extended
+  minutes: number;     // Minutes added
+  addedAt: number;     // Timestamp when extension was added
+}
 // Active calls tracking (includes startTime to handle grace period on disconnect)
-const activeCalls = new Map<string, { callId: string; partnerId: string; endTime: number; startTime: number }>();
+const activeCalls = new Map<string, {
+  callId: string;
+  partnerId: string;
+  endTime: number;
+  startTime: number;
+  extensions: CallExtension[];  // Track all extensions for refund calculation
+}>();
 // Pending matches for users who weren't connected when match was found
 const pendingMatches = new Map<string, { callId: string; partnerId: string; duration: number; startedAt: string }>();
 // Track which users are ready for each call (both must signal ready before timer starts)
@@ -153,12 +171,36 @@ async function createMatch(
   listenerWs: WebSocket | undefined
 ): Promise<{ callId: string; success: boolean }> {
   console.log("[Match] Creating match between venter:", venterSessionId, "and listener:", listenerSessionId);
-  
+
   // Clean up any stale state for both users before creating match
   await leaveQueue(venterSessionId);
   await leaveQueue(listenerSessionId);
   pendingMatches.delete(venterSessionId);
   pendingMatches.delete(listenerSessionId);
+
+  // IMPORTANT: Clean up any stale activeCalls entries from previous calls
+  // This prevents the 2nd call from using old startedAt timestamps
+  const staleVenterCall = activeCalls.get(venterSessionId);
+  if (staleVenterCall) {
+    console.log("[Match] Cleaning up stale activeCalls for venter:", venterSessionId);
+    activeCalls.delete(venterSessionId);
+    // Also clear the aura interval if it exists
+    const staleInterval = callAuraIntervals.get(staleVenterCall.callId);
+    if (staleInterval) {
+      clearInterval(staleInterval);
+      callAuraIntervals.delete(staleVenterCall.callId);
+    }
+  }
+  const staleListenerCall = activeCalls.get(listenerSessionId);
+  if (staleListenerCall) {
+    console.log("[Match] Cleaning up stale activeCalls for listener:", listenerSessionId);
+    activeCalls.delete(listenerSessionId);
+    const staleInterval = callAuraIntervals.get(staleListenerCall.callId);
+    if (staleInterval) {
+      clearInterval(staleInterval);
+      callAuraIntervals.delete(staleListenerCall.callId);
+    }
+  }
   
   // Create the call in database (startedAt will be updated when both users are ready)
   const call = await createCall({
@@ -168,6 +210,10 @@ async function createMatch(
     status: "pending", // Status is pending until both users signal ready
     startedAt: new Date(),
   });
+
+  // Track last matched session for both users (for Block Last Match feature)
+  await updateLastMatchedSession(venterSessionId, listenerSessionId);
+  await updateLastMatchedSession(listenerSessionId, venterSessionId);
   
   // Track call participants for ready signaling
   callParticipants.set(call.id, { venter: venterSessionId, listener: listenerSessionId });
@@ -341,6 +387,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     startedAt: new Date(activeCall.startTime).toISOString(),
                     duration: Math.floor(remainingMs / 1000),
                   }));
+                } else {
+                  // Call has expired, clean up stale entry
+                  console.log("[WS] Cleaning up expired activeCalls entry on register:", sessionId);
+                  activeCalls.delete(sessionId);
+                  // Also clean up partner's entry if pointing to same call
+                  const partnerCall = activeCalls.get(activeCall.partnerId);
+                  if (partnerCall && partnerCall.callId === activeCall.callId) {
+                    activeCalls.delete(activeCall.partnerId);
+                  }
+                  // Clean up aura interval if exists
+                  const interval = callAuraIntervals.get(activeCall.callId);
+                  if (interval) {
+                    clearInterval(interval);
+                    callAuraIntervals.delete(activeCall.callId);
+                  }
                 }
               }
             }
@@ -373,15 +434,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Check if session is already in an active call (prevent re-join after match)
               const existingCall = activeCalls.get(sessionId);
               if (existingCall) {
-                console.log("[WS] Session already in call, sending match info instead of joining queue");
-                ws.send(JSON.stringify({
-                  type: "match_found",
-                  callId: existingCall.callId,
-                  partnerId: existingCall.partnerId,
-                  duration: Math.floor((existingCall.endTime - Date.now()) / 1000),
-                  startedAt: new Date(existingCall.startTime).toISOString(),
-                }));
-                break;
+                const remainingMs = existingCall.endTime - Date.now();
+
+                // If call has expired (endTime in the past), clean up the stale entry
+                if (remainingMs <= 0) {
+                  console.log("[WS] Found stale activeCalls entry for session:", sessionId, "- cleaning up");
+                  activeCalls.delete(sessionId);
+                  // Also clean up partner's entry if it exists and points to this call
+                  const partnerCall = activeCalls.get(existingCall.partnerId);
+                  if (partnerCall && partnerCall.callId === existingCall.callId) {
+                    activeCalls.delete(existingCall.partnerId);
+                  }
+                  // Continue with normal matchmaking flow (don't break)
+                } else {
+                  // Call is still active - send the current match info
+                  console.log("[WS] Session already in active call, sending match info instead of joining queue");
+                  ws.send(JSON.stringify({
+                    type: "match_found",
+                    callId: existingCall.callId,
+                    partnerId: existingCall.partnerId,
+                    duration: Math.floor(remainingMs / 1000),
+                    startedAt: new Date(existingCall.startTime).toISOString(),
+                  }));
+                  break;
+                }
               }
               
               // Check for pending match first (in case they reconnected)
@@ -402,16 +478,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // ROBUST BIDIRECTIONAL MATCHMAKING:
               // Both venters and listeners look for opposite mood in queue
               // This ensures matching works regardless of join order
-              
+
               const isVenter = message.mood === "vent";
               const oppositeMood = isVenter ? "listen" : "vent";
-              
+
+              // Get blocked users for Block Last Match feature
+              // We block both: users I've blocked AND users who have blocked me
+              const myBlockedUsers = await getBlockedUsers(sessionId);
+              console.log(`[WS] User ${sessionId} has blocked users:`, myBlockedUsers.length > 0 ? myBlockedUsers.join(", ") : "none");
+
               console.log(`[WS] ${isVenter ? "Venter" : "Listener"} joining, checking for waiting ${oppositeMood}ers. Active connections:`, activeConnections.size);
-              
-              // Look for someone with opposite mood
-              const oppositeUser = isVenter 
-                ? await findWaitingListener(activeConnections)
-                : await findWaitingVenter(activeConnections);
+
+              // Look for someone with opposite mood (excluding blocked users)
+              const oppositeUser = isVenter
+                ? await findWaitingListener(activeConnections, sessionId, myBlockedUsers)
+                : await findWaitingVenter(activeConnections, sessionId, myBlockedUsers);
               
               console.log(`[WS] find${isVenter ? "Listener" : "Venter"} result:`, oppositeUser ? oppositeUser.sessionId : "none");
               
@@ -484,9 +565,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const startedAtISO = new Date(startTime).toISOString();
                   const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
 
-                  // Set active calls for both users
-                  activeCalls.set(participants.venter, { callId, partnerId: participants.listener, endTime, startTime });
-                  activeCalls.set(participants.listener, { callId, partnerId: participants.venter, endTime, startTime });
+                  // Set active calls for both users (with empty extensions array for refund tracking)
+                  activeCalls.set(participants.venter, { callId, partnerId: participants.listener, endTime, startTime, extensions: [] });
+                  activeCalls.set(participants.listener, { callId, partnerId: participants.venter, endTime, startTime, extensions: [] });
 
                   // Update the call status in database
                   await updateCall(callId, {
@@ -614,10 +695,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log(`[Aura] Awarded +${AURA_REWARDS.CALL_COMPLETE_60MIN} 60-min bonus to both users for call ${callId}`);
                 }
 
-                // Calculate unused time for time bank refund
-                if (message.remainingSeconds && message.remainingSeconds > 60) {
-                  const refundMinutes = Math.floor(message.remainingSeconds / 60);
-                  await addToTimeBank(sessionId, refundMinutes);
+                // Calculate unused extension time and refund to the users who extended
+                // Only refund extension time that was paid for (not the initial 5 minutes)
+                const remainingMs = Math.max(0, activeCall.endTime - Date.now());
+                const remainingMinutes = remainingMs / (60 * 1000);
+
+                if (activeCall.extensions.length > 0 && remainingMinutes > 0) {
+                  // Total extension minutes added
+                  const totalExtensionMinutes = activeCall.extensions.reduce((sum, ext) => sum + ext.minutes, 0);
+
+                  // Calculate how much of the remaining time is from extensions (vs initial 5 min)
+                  // Initial time was 5 minutes (300 seconds / 60 = 5 min)
+                  const INITIAL_MINUTES = 5;
+                  const totalScheduledMinutes = INITIAL_MINUTES + totalExtensionMinutes;
+                  const usedMinutes = totalScheduledMinutes - remainingMinutes;
+
+                  // Extension time starts after initial 5 minutes
+                  const extensionTimeUsed = Math.max(0, usedMinutes - INITIAL_MINUTES);
+                  const extensionTimeRemaining = totalExtensionMinutes - extensionTimeUsed;
+
+                  console.log(`[Refund] Call ended with ${remainingMinutes.toFixed(1)} min remaining, ${extensionTimeRemaining.toFixed(1)} min of extensions unused`);
+
+                  if (extensionTimeRemaining > 0) {
+                    // Group extensions by extender to calculate each person's refund
+                    const refundsByExtender = new Map<string, number>();
+
+                    // Process extensions in reverse order (most recent first) to determine refunds
+                    // The most recent extension minutes are the first to be "unused"
+                    let unusedMinutesToAllocate = extensionTimeRemaining;
+
+                    for (let i = activeCall.extensions.length - 1; i >= 0 && unusedMinutesToAllocate > 0; i--) {
+                      const ext = activeCall.extensions[i];
+                      const refundFromThisExt = Math.min(ext.minutes, unusedMinutesToAllocate);
+
+                      const currentRefund = refundsByExtender.get(ext.extenderId) || 0;
+                      refundsByExtender.set(ext.extenderId, currentRefund + refundFromThisExt);
+                      unusedMinutesToAllocate -= refundFromThisExt;
+                    }
+
+                    // Apply refunds to each extender's time bank
+                    for (const [extenderId, refundMinutes] of refundsByExtender) {
+                      const wholeMinutes = Math.floor(refundMinutes);
+                      if (wholeMinutes > 0) {
+                        await addToTimeBank(extenderId, wholeMinutes);
+                        console.log(`[Refund] Refunded ${wholeMinutes} minutes to ${extenderId}'s time bank`);
+                      }
+                    }
+                  }
                 }
 
                 // Notify partner
@@ -648,8 +772,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             break;
             
           case "extend_call":
+            console.log(`[WS] extend_call received from ${sessionId} for ${message.minutes} minutes`);
             if (sessionId && message.minutes) {
               const activeCall = activeCalls.get(sessionId);
+              console.log(`[WS] activeCall found: ${!!activeCall}, partnerId: ${activeCall?.partnerId}`);
               if (activeCall) {
                 const extension = EXTENSION_OPTIONS.find(e => e.minutes === message.minutes);
                 if (extension) {
@@ -688,12 +814,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       partnerCall.endTime = newEndTime;
                     }
 
-                    // Notify both users
-                    ws.send(JSON.stringify({ type: "call_extended", minutes: extension.minutes }));
-                    const partnerWs = activeConnections.get(activeCall.partnerId);
-                    if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
-                      partnerWs.send(JSON.stringify({ type: "call_extended", minutes: extension.minutes }));
+                    // Record extension for refund tracking (only extender gets refund for unused time)
+                    const extensionRecord: CallExtension = {
+                      extenderId: sessionId,
+                      minutes: extension.minutes,
+                      addedAt: Date.now(),
+                    };
+                    activeCall.extensions.push(extensionRecord);
+                    if (partnerCall) {
+                      partnerCall.extensions.push(extensionRecord);
                     }
+                    console.log(`[Extension] Recorded extension: ${sessionId} added ${extension.minutes} minutes`);
+
+                    // Notify both users with who extended
+                    // IMPORTANT: Use activeConnections.get() to get current WebSocket, not 'ws'
+                    // The original 'ws' may have been replaced if client reconnected
+                    console.log(`[WS] Preparing call_extended - extender: ${sessionId}, partner: ${activeCall.partnerId}`);
+
+                    const extendedMessage = JSON.stringify({
+                      type: "call_extended",
+                      minutes: extension.minutes,
+                      extendedBy: sessionId,  // Include who initiated the extension
+                    });
+
+                    // Send to the user who extended (use current connection)
+                    const currentUserWs = activeConnections.get(sessionId);
+                    console.log(`[WS] Extender WS - exists: ${!!currentUserWs}, state: ${currentUserWs?.readyState}`);
+                    if (currentUserWs && currentUserWs.readyState === WebSocket.OPEN) {
+                      try {
+                        currentUserWs.send(extendedMessage);
+                        console.log(`[WS] Sent call_extended to extending user: ${sessionId}`);
+                      } catch (err) {
+                        console.error(`[WS] Failed to send call_extended to extending user:`, err);
+                      }
+                    } else {
+                      console.log(`[WS] WARNING: Extending user ${sessionId} WebSocket not available`);
+                    }
+
+                    // Send to partner (use current connection)
+                    const partnerWs = activeConnections.get(activeCall.partnerId);
+                    console.log(`[WS] Partner WS - exists: ${!!partnerWs}, state: ${partnerWs?.readyState}`);
+                    if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
+                      try {
+                        partnerWs.send(extendedMessage);
+                        console.log(`[WS] Sent call_extended to partner: ${activeCall.partnerId}`);
+                      } catch (err) {
+                        console.error(`[WS] Failed to send call_extended to partner:`, err);
+                      }
+                    } else {
+                      console.log(`[WS] WARNING: Partner ${activeCall.partnerId} WebSocket not available`);
+                    }
+
+                    console.log(`[WS] Call extended by ${sessionId} for ${extension.minutes} minutes`);
+                  } else {
+                    // Time bank check failed - notify user
+                    console.log(`[WS] Extension rejected: insufficient time bank. Has: ${session?.timeBankMinutes || 0}, needs: ${extension.minutes}`);
+                    ws.send(JSON.stringify({
+                      type: "extension_rejected",
+                      reason: "insufficient_balance",
+                      message: "Not enough time in your Time Bank for this extension."
+                    }));
                   }
                 }
               }
@@ -898,6 +1078,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error accepting terms:", error);
       res.status(500).json({ error: "Failed to accept terms" });
+    }
+  });
+
+  // ===============================
+  // Block Last Match APIs
+  // ===============================
+
+  // Get block status (is last match currently blocked)
+  app.get("/api/sessions/:id/block-status", async (req: SessionRequest, res: Response) => {
+    try {
+      const session = await getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const lastMatchedSessionId = session.lastMatchedSessionId;
+      if (!lastMatchedSessionId) {
+        return res.json({
+          hasLastMatch: false,
+          isBlocked: false,
+          lastMatchedSessionId: null,
+        });
+      }
+
+      // Check if user has blocked their last match
+      const blockedList = await getBlockedUsers(req.params.id);
+      const isBlocked = blockedList.includes(lastMatchedSessionId);
+
+      res.json({
+        hasLastMatch: true,
+        isBlocked,
+        lastMatchedSessionId,
+      });
+    } catch (error) {
+      console.error("Error getting block status:", error);
+      res.status(500).json({ error: "Failed to get block status" });
+    }
+  });
+
+  // Block last match
+  app.post("/api/sessions/:id/block-last-match", async (req: SessionRequest, res: Response) => {
+    try {
+      const session = await getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const lastMatchedSessionId = session.lastMatchedSessionId;
+      if (!lastMatchedSessionId) {
+        return res.status(400).json({ error: "No previous match to block" });
+      }
+
+      const result = await blockUser(req.params.id, lastMatchedSessionId);
+      res.json({
+        success: result.success,
+        message: result.message,
+        blockedSessionId: lastMatchedSessionId,
+      });
+    } catch (error) {
+      console.error("Error blocking last match:", error);
+      res.status(500).json({ error: "Failed to block last match" });
+    }
+  });
+
+  // Unblock last match
+  app.delete("/api/sessions/:id/block-last-match", async (req: SessionRequest, res: Response) => {
+    try {
+      const session = await getSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      const lastMatchedSessionId = session.lastMatchedSessionId;
+      if (!lastMatchedSessionId) {
+        return res.status(400).json({ error: "No previous match to unblock" });
+      }
+
+      const result = await unblockUser(req.params.id, lastMatchedSessionId);
+      res.json({
+        success: result.success,
+        message: result.message,
+        unblockedSessionId: lastMatchedSessionId,
+      });
+    } catch (error) {
+      console.error("Error unblocking last match:", error);
+      res.status(500).json({ error: "Failed to unblock last match" });
     }
   });
 

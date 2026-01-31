@@ -8,13 +8,18 @@ export interface AuraLevel {
   minAura: number;
 }
 
+// New users start at 1000 aura, so levels begin there
 export const AURA_LEVELS: AuraLevel[] = [
-  { level: 1, name: "New Soul", minAura: 0 },
-  { level: 2, name: "Kind Listener", minAura: 50 },
-  { level: 3, name: "Empathetic Soul", minAura: 150 },
-  { level: 4, name: "Trusted Companion", minAura: 300 },
-  { level: 5, name: "Guardian Angel", minAura: 500 },
-  { level: 6, name: "Heart of Gold", minAura: 1000 },
+  { level: 1, name: "New Soul", minAura: 1000 },           // Starting level
+  { level: 2, name: "Kind Listener", minAura: 2000 },     // +1000
+  { level: 3, name: "Empathetic Soul", minAura: 3500 },   // +1500
+  { level: 4, name: "Trusted Companion", minAura: 5500 }, // +2000
+  { level: 5, name: "Guardian Angel", minAura: 8000 },    // +2500
+  { level: 6, name: "Heart of Gold", minAura: 12000 },    // +4000
+  { level: 7, name: "Radiant Spirit", minAura: 18000 },   // +6000
+  { level: 8, name: "Celestial Guide", minAura: 26000 },  // +8000
+  { level: 9, name: "Eternal Light", minAura: 36000 },    // +10000
+  { level: 10, name: "Aura Legend", minAura: 50000 },     // +14000 (max level)
 ];
 
 export const AURA_REWARDS = {

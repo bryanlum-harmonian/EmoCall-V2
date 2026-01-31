@@ -15,6 +15,8 @@ interface UseAgoraVoiceReturn {
   remoteUserJoined: boolean;
   remoteUserLeft: boolean;
   error: string | null;
+  localAudioLevel: number;
+  remoteAudioLevel: number;
   join: () => Promise<void>;
   leave: () => Promise<void>;
   toggleMute: () => void;
@@ -47,10 +49,14 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   const [remoteUserJoined, setRemoteUserJoined] = useState(false);
   const [remoteUserLeft, setRemoteUserLeft] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [localAudioLevel, setLocalAudioLevel] = useState(0);
+  const [remoteAudioLevel, setRemoteAudioLevel] = useState(0);
+
   const onRemoteUserLeftRef = useRef(config.onRemoteUserLeft);
   const clientRef = useRef<any>(null);
   const localAudioTrackRef = useRef<any>(null);
+  const remoteAudioTrackRef = useRef<any>(null);
+  const audioLevelIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasJoinedRef = useRef(false);
   const isLeavingRef = useRef(false);
 
@@ -103,13 +109,18 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
         await client.subscribe(user, mediaType);
         if (mediaType === "audio") {
           user.audioTrack?.play();
+          remoteAudioTrackRef.current = user.audioTrack;
           setRemoteUserJoined(true);
+          // Reset remoteUserLeft flag - user has (re)joined
+          setRemoteUserLeft(false);
         }
       });
 
       client.on("user-unpublished", (user: any, mediaType: string) => {
         console.log("[Agora Web] Remote user unpublished:", user.uid, mediaType);
         if (mediaType === "audio") {
+          remoteAudioTrackRef.current = null;
+          setRemoteAudioLevel(0);
           setRemoteUserJoined(false);
         }
       });
@@ -133,6 +144,20 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
 
       await client.publish([localAudioTrack]);
       console.log("[Agora Web] Audio track published - VOICE CONNECTED!");
+
+      // Start polling audio levels for real-time voice visualization
+      audioLevelIntervalRef.current = setInterval(() => {
+        // Get local audio level (0-1 scale)
+        if (localAudioTrackRef.current) {
+          const localLevel = localAudioTrackRef.current.getVolumeLevel();
+          setLocalAudioLevel(localLevel);
+        }
+        // Get remote audio level (0-1 scale)
+        if (remoteAudioTrackRef.current) {
+          const remoteLevel = remoteAudioTrackRef.current.getVolumeLevel();
+          setRemoteAudioLevel(remoteLevel);
+        }
+      }, 100); // Poll every 100ms for smooth visualization
 
       setIsConnected(true);
     } catch (err) {
@@ -182,16 +207,24 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       console.log("[Agora Web] Already leaving, skipping duplicate leave call");
       return;
     }
-    
+
     isLeavingRef.current = true;
     console.log("[Agora Web] Leave called - cleaning up resources");
-    
+
     try {
+      // Stop audio level polling
+      if (audioLevelIntervalRef.current) {
+        clearInterval(audioLevelIntervalRef.current);
+        audioLevelIntervalRef.current = null;
+      }
+
       if (localAudioTrackRef.current) {
         console.log("[Agora Web] Closing local audio track");
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
       }
+
+      remoteAudioTrackRef.current = null;
 
       if (clientRef.current) {
         console.log("[Agora Web] Leaving channel");
@@ -202,6 +235,8 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
       setIsConnected(false);
       setRemoteUserJoined(false);
       setIsMuted(false);
+      setLocalAudioLevel(0);
+      setRemoteAudioLevel(0);
       hasJoinedRef.current = false;
       console.log("[Agora Web] Leave completed");
     } catch (err) {
@@ -224,10 +259,15 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
   useEffect(() => {
     return () => {
       console.log("[Agora Web] Component unmounting - forcing cleanup");
+      if (audioLevelIntervalRef.current) {
+        clearInterval(audioLevelIntervalRef.current);
+        audioLevelIntervalRef.current = null;
+      }
       if (localAudioTrackRef.current) {
         localAudioTrackRef.current.close();
         localAudioTrackRef.current = null;
       }
+      remoteAudioTrackRef.current = null;
       if (clientRef.current) {
         clientRef.current.leave().catch((err: any) => {
           console.error("[Agora Web] Unmount leave error:", err);
@@ -250,6 +290,8 @@ export function useAgoraVoice(config: AgoraConfig): UseAgoraVoiceReturn {
     remoteUserJoined,
     remoteUserLeft,
     error,
+    localAudioLevel,
+    remoteAudioLevel,
     join,
     leave,
     toggleMute,

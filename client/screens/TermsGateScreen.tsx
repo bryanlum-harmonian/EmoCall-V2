@@ -22,14 +22,15 @@ import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { Button } from "@/components/Button";
 import { useTheme } from "@/hooks/useTheme";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Spacing, BorderRadius } from "@/constants/theme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 interface OnboardingStep {
   id: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   image: any;
   icon?: string;
   color: string;
@@ -40,40 +41,40 @@ interface OnboardingStep {
 const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: "anonymous",
-    title: "Skip the\nAwkwardness",
-    description: "Walking up to strangers is weird. EmoCall is different: No faces, no names, just real talk.",
+    titleKey: "onboarding.step1Title",
+    descriptionKey: "onboarding.step1Description",
     image: require("@/assets/images/splash_1_weird.png"),
     color: "#E0C3FC",
     textColor: "#4A148C",
   },
   {
     id: "match",
-    title: "Find Your\nMood Match",
-    description: "Feeling down? Find a listener.\nFeeling kind? Be a listener.\nConnect based on vibes, not looks.",
+    titleKey: "onboarding.step2Title",
+    descriptionKey: "onboarding.step2Description",
     image: require("@/assets/images/splash_2_hug.png"),
     color: "#FFDEE9",
     textColor: "#880E4F",
   },
   {
     id: "timebank",
-    title: "Minutes & Aura",
-    description: "Spend Minutes when you need to vent.\nEarn Aura when you listen.\nBuild your reputation as a Top Listener.",
+    titleKey: "onboarding.step3Title",
+    descriptionKey: "onboarding.step3Description",
     image: require("@/assets/images/splash_3_coin.png"),
     color: "#FFF4C1",
     textColor: "#F57F17",
   },
   {
     id: "safespace",
-    title: "Your Cozy\nSafe Space",
-    description: "No judgment allowed in this fort. Just kindness, respect, and real conversations.",
+    titleKey: "onboarding.step4Title",
+    descriptionKey: "onboarding.step4Description",
     image: require("@/assets/images/splash_4_bubble.png"),
     color: "#D1FAE5",
     textColor: "#064E3B",
   },
   {
     id: "terms",
-    title: "One Last Thing...",
-    description: "By entering, you agree to our Terms of Service. Be kind, keep it anonymous, and stay safe.",
+    titleKey: "onboarding.termsTitle",
+    descriptionKey: "onboarding.termsDescription",
     image: null,
     icon: "shield",
     color: "#FFFFFF",
@@ -89,6 +90,7 @@ interface TermsGateScreenProps {
 export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
+  const { t } = useLanguage();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
@@ -135,6 +137,8 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
 
   const renderStep = ({ item, index }: { item: OnboardingStep; index: number }) => {
     const isActive = index === currentIndex;
+    const title = t(item.titleKey);
+    const description = t(item.descriptionKey);
 
     return (
       <View style={[styles.stepContainer, { backgroundColor: item.color }]}>
@@ -175,7 +179,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
                 type="h1"
                 style={[styles.stepTitle, { color: item.textColor }]}
               >
-                {item.title}
+                {title}
               </ThemedText>
             </Animated.View>
           ) : (
@@ -183,7 +187,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               type="h1"
               style={[styles.stepTitle, { color: item.textColor }]}
             >
-              {item.title}
+              {title}
             </ThemedText>
           )}
 
@@ -193,7 +197,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
                 type="body"
                 style={[styles.stepDescription, { color: item.textColor }]}
               >
-                {item.description}
+                {description}
               </ThemedText>
             </Animated.View>
           ) : (
@@ -201,7 +205,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
               type="body"
               style={[styles.stepDescription, { color: item.textColor }]}
             >
-              {item.description}
+              {description}
             </ThemedText>
           )}
 
@@ -219,7 +223,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
                   type="small"
                   style={[styles.linkText, { color: item.textColor }]}
                 >
-                  Terms of Service
+                  {t("onboarding.termsOfService")}
                 </ThemedText>
               </Pressable>
 
@@ -237,7 +241,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
                   type="small"
                   style={[styles.linkText, { color: item.textColor }]}
                 >
-                  Privacy Policy
+                  {t("onboarding.privacyPolicy")}
                 </ThemedText>
               </Pressable>
             </View>
@@ -285,7 +289,7 @@ export default function TermsGateScreen({ onAccept }: TermsGateScreenProps) {
             },
           ]}
         >
-          {currentStep.isFinal ? "Let's Talk!" : "Next"}
+          {currentStep.isFinal ? t("onboarding.letsGo") : t("common.next")}
         </Button>
       </Animated.View>
 

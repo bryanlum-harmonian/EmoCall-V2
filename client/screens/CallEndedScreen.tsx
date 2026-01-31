@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -96,12 +96,18 @@ export default function CallEndedScreen() {
   void currentLanguage; // Trigger re-render on language change
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "CallEnded">>();
-  const { session } = useSession();
+  const { session, refreshSession } = useSession();
   const { syncWithBackend } = useAura();
 
   const reason = route.params?.reason || "ended";
   const callId = route.params?.callId;
   const content = getEndReasonContent(reason, t);
+
+  // Refresh session on mount to get updated time bank balance (including refunds)
+  useEffect(() => {
+    refreshSession();
+    syncWithBackend();
+  }, [refreshSession, syncWithBackend]);
 
   const [voiceQuality, setVoiceQuality] = useState(0);
   const [strangerQuality, setStrangerQuality] = useState(0);

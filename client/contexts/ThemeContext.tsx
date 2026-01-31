@@ -32,17 +32,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   const loadStoredPreferences = async () => {
     try {
-      const [storedColorScheme, storedAppTheme] = await Promise.all([
-        AsyncStorage.getItem(COLOR_SCHEME_KEY),
-        AsyncStorage.getItem(APP_THEME_KEY),
-      ]);
+      const storedColorScheme = await AsyncStorage.getItem(COLOR_SCHEME_KEY);
 
       if (storedColorScheme === "dark" || storedColorScheme === "light") {
         setColorSchemeState(storedColorScheme);
       }
-      if (storedAppTheme === "sunny" || storedAppTheme === "coral" || storedAppTheme === "rainbow") {
-        setAppThemeState(storedAppTheme);
-      }
+      // Only Rainbow theme is available now - always use rainbow
+      setAppThemeState("rainbow");
     } catch (error) {
       console.error("Failed to load theme preferences:", error);
     } finally {
@@ -59,13 +55,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   };
 
-  const setAppTheme = async (theme: AppTheme) => {
-    try {
-      await AsyncStorage.setItem(APP_THEME_KEY, theme);
-      setAppThemeState(theme);
-    } catch (error) {
-      console.error("Failed to save app theme:", error);
-    }
+  // Only Rainbow theme is supported now
+  const setAppTheme = async (_theme: AppTheme) => {
+    // Always use rainbow theme
+    setAppThemeState("rainbow");
   };
 
   const toggleColorScheme = () => {

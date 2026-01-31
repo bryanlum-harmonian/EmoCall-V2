@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, StyleSheet, Pressable, Image, Modal, ScrollView, Dimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Feather } from "@expo/vector-icons";
 import Animated, {
@@ -203,9 +203,9 @@ function RefillModal({ visible, onClose, onRefill }: RefillModalProps) {
 export default function MoodSelectionScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { session } = useSession();
-  const { timeBankMinutes, isPremium, dailyMatchesLeft, refillMatches, useMatch } = useTimeBank();
-  const { aura, currentLevel } = useAura();
+  const { session, refreshSession } = useSession();
+  const { timeBankMinutes, isPremium, dailyMatchesLeft, refillMatches, useMatch, syncWithBackend } = useTimeBank();
+  const { aura, currentLevel, syncWithBackend: syncAura } = useAura();
   const { t, currentLanguage } = useLanguage();
   void currentLanguage; // Trigger re-render on language change
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -215,10 +215,18 @@ export default function MoodSelectionScreen() {
   const [showRankings, setShowRankings] = useState(false);
   const [selectedMood, setSelectedMood] = useState<MoodType | null>(null);
   const [isSearching, setIsSearching] = useState(false);
-  
+
   // Habit Loop state
   const [dailyStreak, setDailyStreak] = useState(0);
   const [checkedInToday, setCheckedInToday] = useState(false);
+
+  // Refresh session data when screen gains focus (e.g., after call ends with time bank refund)
+  useFocusEffect(
+    useCallback(() => {
+      refreshSession();
+      syncAura();
+    }, [refreshSession, syncAura])
+  );
 
   const pulseScale = useSharedValue(1);
 

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { View, StyleSheet, Pressable, Switch, Alert, Linking, Platform } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -16,8 +17,10 @@ import { BackupRestoreModal } from "@/components/BackupRestoreModal";
 import { BugReportModal } from "@/components/BugReportModal";
 import { useTheme } from "@/hooks/useTheme";
 import { useThemeContext } from "@/contexts/ThemeContext";
-import { useTimeBank, PREMIUM_MONTHLY_PRICE, PREMIUM_BONUS_MINUTES } from "@/contexts/TimeBankContext";
+import { useTimeBank } from "@/contexts/TimeBankContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useSession } from "@/contexts/SessionContext";
+import { getApiUrl } from "@/lib/query-client";
 import { Spacing, BorderRadius, AppTheme, AppThemes } from "@/constants/theme";
 import { RootStackParamList } from "@/navigation/RootStackNavigator";
 
@@ -115,20 +118,72 @@ export default function SettingsScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { theme, isDark, appTheme } = useTheme();
   const { colorScheme, setColorScheme, setAppTheme } = useThemeContext();
-  const { timeBankMinutes, isPremium, setPremium } = useTimeBank();
+  const { timeBankMinutes } = useTimeBank();
   const { getCurrentLanguageInfo, t, currentLanguage } = useLanguage();
-  
+  const { session } = useSession();
+
   // Force re-render when language changes by using currentLanguage as key dependency
   void currentLanguage;
 
   const [blockLastMatch, setBlockLastMatch] = useState(false);
+  const [hasLastMatch, setHasLastMatch] = useState(false);
+  const [isBlockLoading, setIsBlockLoading] = useState(false);
   const [showCreditsStore, setShowCreditsStore] = useState(false);
   const [showBackupRestore, setShowBackupRestore] = useState(false);
   const [showBugReport, setShowBugReport] = useState(false);
 
+  // Fetch block status when screen gains focus
+  const fetchBlockStatus = useCallback(async () => {
+    if (!session?.id) return;
+
+    try {
+      const response = await fetch(
+        new URL(`/api/sessions/${session.id}/block-status`, getApiUrl()).toString()
+      );
+      const data = await response.json();
+
+      if (response.ok) {
+        setHasLastMatch(data.hasLastMatch);
+        setBlockLastMatch(data.isBlocked);
+      }
+    } catch (error) {
+      console.error("Error fetching block status:", error);
+    }
+  }, [session?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchBlockStatus();
+    }, [fetchBlockStatus])
+  );
+
   const handleBlockToggle = async (value: boolean) => {
+    if (!session?.id || !hasLastMatch) return;
+
+    setIsBlockLoading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setBlockLastMatch(value);
+
+    try {
+      const url = new URL(`/api/sessions/${session.id}/block-last-match`, getApiUrl()).toString();
+      const response = await fetch(url, {
+        method: value ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setBlockLastMatch(value);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Alert.alert(t("common.error"), data.error || t("settings.blockFailed"));
+      }
+    } catch (error) {
+      console.error("Error toggling block:", error);
+      Alert.alert(t("common.error"), t("settings.blockFailed"));
+    } finally {
+      setIsBlockLoading(false);
+    }
   };
 
   const handleThemeToggle = async (isDarkMode: boolean) => {
@@ -191,28 +246,6 @@ export default function SettingsScreen() {
     }
   };
 
-  const handlePremiumSubscribe = async () => {
-    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (isPremium) {
-      Alert.alert(t("settings.premiumAlreadyActive"), t("settings.premiumAlreadyActiveMessage"));
-      return;
-    }
-    Alert.alert(
-      t("settings.subscribeToPremium"),
-      t("settings.subscribeToPremiumMessage", { price: PREMIUM_MONTHLY_PRICE, credits: PREMIUM_BONUS_MINUTES }),
-      [
-        { text: t("common.cancel"), style: "cancel" },
-        {
-          text: t("settings.subscribe"),
-          onPress: () => {
-            setPremium(true);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-          },
-        },
-      ]
-    );
-  };
-
   const handleOpenLanguage = async () => {
     await Haptics.selectionAsync();
     navigation.navigate("Language");
@@ -232,20 +265,11 @@ export default function SettingsScreen() {
       >
         <SettingsSection title={t("settings.sections.subscription")} delay={50}>
           <SettingsItem
-            icon="star"
-            title={isPremium ? t("settings.premiumActive") : t("settings.goPremium")}
-            subtitle={isPremium ? t("settings.premiumActiveSubtitle", { price: PREMIUM_MONTHLY_PRICE }) : t("settings.goPremiumSubtitle", { price: PREMIUM_MONTHLY_PRICE })}
-            onPress={handlePremiumSubscribe}
-            isPremium={isPremium}
-            delay={100}
-          />
-          <View style={[styles.divider, { backgroundColor: theme.border }]} />
-          <SettingsItem
             icon="clock"
             title="Time Bank"
             subtitle={`${Math.round(timeBankMinutes)} minutes available`}
             onPress={() => setShowCreditsStore(true)}
-            delay={150}
+            delay={100}
           />
         </SettingsSection>
 
@@ -260,104 +284,6 @@ export default function SettingsScreen() {
         </SettingsSection>
 
         <SettingsSection title={t("settings.sections.appearance")} delay={300}>
-          <Animated.View entering={FadeInUp.delay(320).duration(400)}>
-            <View style={styles.themePickerContainer}>
-              <ThemedText type="body" style={[styles.themePickerLabel, { color: theme.text }]}>
-                {t("settings.appTheme")}
-              </ThemedText>
-              <View style={styles.themePicker}>
-                <Pressable
-                  onPress={() => handleAppThemeChange("sunny")}
-                  style={({ pressed }) => [
-                    styles.themeOption,
-                    {
-                      borderColor: appTheme === "sunny" ? theme.primary : theme.border,
-                      borderWidth: appTheme === "sunny" ? 3 : 1,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.themePreview}>
-                    <View style={[styles.themePreviewTop, { backgroundColor: "#FFF8E7" }]} />
-                    <View style={styles.themePreviewBottom}>
-                      <View style={[styles.themePreviewCard, { backgroundColor: "#FFB3C6" }]} />
-                      <View style={[styles.themePreviewCard, { backgroundColor: "#A8E6CF" }]} />
-                    </View>
-                  </View>
-                  <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "sunny" ? "700" : "400" }}>
-                    {t("settings.themeSunny")}
-                  </ThemedText>
-                  {appTheme === "sunny" ? (
-                    <View style={[styles.checkBadge, { backgroundColor: theme.primary }]}>
-                      <Feather name="check" size={12} color="#5A4A42" />
-                    </View>
-                  ) : null}
-                </Pressable>
-
-                <Pressable
-                  onPress={() => handleAppThemeChange("coral")}
-                  style={({ pressed }) => [
-                    styles.themeOption,
-                    {
-                      borderColor: appTheme === "coral" ? "#FF6B4A" : theme.border,
-                      borderWidth: appTheme === "coral" ? 3 : 1,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.themePreview}>
-                    <View style={[styles.themePreviewTop, { backgroundColor: "#FFB8D0" }]} />
-                    <View style={styles.themePreviewBottom}>
-                      <View style={[styles.themePreviewCard, { backgroundColor: "#FF6B4A" }]} />
-                      <View style={[styles.themePreviewCard, { backgroundColor: "#4CAF50" }]} />
-                    </View>
-                  </View>
-                  <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "coral" ? "700" : "400" }}>
-                    {t("settings.themeCoral")}
-                  </ThemedText>
-                  {appTheme === "coral" ? (
-                    <View style={[styles.checkBadge, { backgroundColor: "#FF6B4A" }]}>
-                      <Feather name="check" size={12} color="#FFFFFF" />
-                    </View>
-                  ) : null}
-                </Pressable>
-
-                <Pressable
-                  onPress={() => handleAppThemeChange("rainbow")}
-                  style={({ pressed }) => [
-                    styles.themeOption,
-                    {
-                      borderColor: appTheme === "rainbow" ? "#FF3366" : theme.border,
-                      borderWidth: appTheme === "rainbow" ? 3 : 1,
-                      opacity: pressed ? 0.8 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.themePreview}>
-                    <View style={styles.themePreviewRainbow}>
-                      <View style={[styles.rainbowStripe, { backgroundColor: "#FF3366" }]} />
-                      <View style={[styles.rainbowStripe, { backgroundColor: "#FFCC00" }]} />
-                      <View style={[styles.rainbowStripe, { backgroundColor: "#33CC99" }]} />
-                      <View style={[styles.rainbowStripe, { backgroundColor: "#3366FF" }]} />
-                    </View>
-                    <View style={styles.themePreviewBottom}>
-                      <View style={[styles.themePreviewCard, { backgroundColor: "#FF3366" }]} />
-                      <View style={[styles.themePreviewCard, { backgroundColor: "#33CC99" }]} />
-                    </View>
-                  </View>
-                  <ThemedText type="small" style={{ color: theme.text, fontWeight: appTheme === "rainbow" ? "700" : "400" }}>
-                    {t("settings.themeRainbow")}
-                  </ThemedText>
-                  {appTheme === "rainbow" ? (
-                    <View style={[styles.checkBadge, { backgroundColor: "#FF3366" }]}>
-                      <Feather name="check" size={12} color="#FFFFFF" />
-                    </View>
-                  ) : null}
-                </Pressable>
-              </View>
-            </View>
-          </Animated.View>
-          <View style={[styles.divider, { backgroundColor: theme.border, marginLeft: 0 }]} />
           <SettingsItem
             icon={isDark ? "moon" : "sun"}
             title={t("settings.darkMode")}
@@ -378,13 +304,14 @@ export default function SettingsScreen() {
           <SettingsItem
             icon="user-x"
             title={t("settings.blockLastMatch")}
-            subtitle={t("settings.blockLastMatchSubtitle")}
+            subtitle={hasLastMatch ? t("settings.blockLastMatchSubtitle") : t("settings.noLastMatch")}
             rightElement={
               <Switch
                 value={blockLastMatch}
                 onValueChange={handleBlockToggle}
                 trackColor={{ false: theme.border, true: theme.primary }}
                 thumbColor="#FFFFFF"
+                disabled={!hasLastMatch || isBlockLoading}
               />
             }
             delay={450}

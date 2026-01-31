@@ -90,9 +90,12 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     joinQueue: context.joinQueue,
     leaveQueue: context.leaveQueue,
     endCall: context.endCall,
+    extendCall: context.extendCall,
     signalReady: context.signalReady,
     callStartedAt: context.callStartedAt,
     banInfo: context.banInfo,
     clearBanned: context.clearBanned,
+    callExtended: context.callExtended,
+    clearCallExtended: context.clearCallExtended,
   };
 }

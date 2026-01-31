@@ -1,11 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { I18nManager } from "react-native";
-import { 
-  i18n, 
-  SUPPORTED_LANGUAGES, 
-  getStoredLanguage, 
-  setStoredLanguage, 
+import {
+  i18n,
+  SUPPORTED_LANGUAGES,
+  getStoredLanguage,
+  setStoredLanguage,
   getDeviceLanguage,
+  hasCompletedLanguageSelection,
+  markLanguageSelectionComplete,
   LanguageOption,
 } from "@/i18n";
 
@@ -16,6 +18,8 @@ interface LanguageContextType {
   isRTL: boolean;
   languages: LanguageOption[];
   getCurrentLanguageInfo: () => LanguageOption | undefined;
+  hasSelectedLanguage: boolean;
+  completeLanguageSelection: () => Promise<void>;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -28,24 +32,32 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   const [currentLanguage, setCurrentLanguage] = useState("en");
   const [isInitialized, setIsInitialized] = useState(false);
   const [isRTL, setIsRTL] = useState(false);
+  const [hasSelectedLanguage, setHasSelectedLanguage] = useState(false);
 
   useEffect(() => {
     const initializeLanguage = async () => {
       const storedLanguage = await getStoredLanguage();
       const language = storedLanguage || getDeviceLanguage();
-      
+      const hasSelected = await hasCompletedLanguageSelection();
+
       i18n.locale = language;
       setCurrentLanguage(language);
-      
+      setHasSelectedLanguage(hasSelected);
+
       const languageInfo = SUPPORTED_LANGUAGES.find(l => l.code === language);
       const rtl = languageInfo?.rtl || false;
       setIsRTL(rtl);
-      
+
       setIsInitialized(true);
     };
-    
+
     initializeLanguage();
   }, []);
+
+  const completeLanguageSelection = async () => {
+    await markLanguageSelectionComplete();
+    setHasSelectedLanguage(true);
+  };
 
   const setLanguage = async (code: string) => {
     const languageInfo = SUPPORTED_LANGUAGES.find(l => l.code === code);
@@ -85,6 +97,8 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
         isRTL,
         languages: SUPPORTED_LANGUAGES,
         getCurrentLanguageInfo,
+        hasSelectedLanguage,
+        completeLanguageSelection,
       }}
     >
       {children}

@@ -8,10 +8,12 @@ import {
   auraTransactions,
   reports,
   bugReports,
+  blockedUsers,
   matchmakingQueue,
   callRatings,
   countryRankings,
   type Session,
+  type BlockedUser,
   type InsertSession,
   type Call,
   type InsertCall,
@@ -86,7 +88,7 @@ export async function getOrCreateSession(deviceId: string): Promise<Session> {
     .values({
       deviceId,
       referralCode,
-      timeBankMinutes: 5, // Default 5 minutes for new users
+      timeBankMinutes: 30, // Default 30 minutes for new users
       auraPoints: AURA_REWARDS.STARTING_AURA, // 1000 aura for new users
     })
     .returning();
@@ -606,7 +608,8 @@ export async function findMatch(
 async function findAndLockWaitingUser(
   mood: "vent" | "listen",
   activeConnections: Map<string, { readyState: number }>,
-  excludeSessionId?: string
+  excludeSessionId?: string,
+  blockedSessionIds?: string[]
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
   // Skip aggressive cleanup - it causes race conditions with just-joined users
   // Cleanup now only happens on queue join to remove old entries
@@ -626,6 +629,9 @@ async function findAndLockWaitingUser(
   if (users.length > 0) {
     console.log(`[Storage] Queue users:`, users.map(u => u.sessionId).join(", "));
   }
+  if (blockedSessionIds && blockedSessionIds.length > 0) {
+    console.log(`[Storage] Excluding blocked users:`, blockedSessionIds.join(", "));
+  }
 
   // Step 3: Try to atomically claim each candidate
   for (const user of users) {
@@ -634,7 +640,23 @@ async function findAndLockWaitingUser(
       console.log(`[Storage] Skipping self:`, user.sessionId);
       continue;
     }
-    
+
+    // Skip blocked users (Block Last Match feature)
+    // Check if I blocked them
+    if (blockedSessionIds && blockedSessionIds.includes(user.sessionId)) {
+      console.log(`[Storage] Skipping user I blocked:`, user.sessionId);
+      continue;
+    }
+
+    // Also check if they blocked me (bidirectional blocking)
+    if (excludeSessionId) {
+      const theyBlockedMe = await isUserBlocked(user.sessionId, excludeSessionId);
+      if (theyBlockedMe) {
+        console.log(`[Storage] Skipping user who blocked me:`, user.sessionId);
+        continue;
+      }
+    }
+
     // Check for active WebSocket connection
     const connection = activeConnections.get(user.sessionId);
     console.log(`[Storage] Checking connection for ${user.sessionId}:`, connection ? `readyState=${connection.readyState}` : "NOT FOUND in activeConnections");
@@ -645,11 +667,11 @@ async function findAndLockWaitingUser(
       console.log(`[Storage] Skipping ${mood}er without active connection:`, user.sessionId, "- connection:", connection ? "exists but wrong state" : "missing (may be reconnecting)");
       continue;
     }
-    
+
     // Step 4: ATOMIC UPDATE - Try to claim this user
     // This will only succeed if status is still 'waiting' (prevents double-booking)
     const claimed = await markQueueEntryMatched(user.sessionId);
-    
+
     if (claimed) {
       console.log(`[Storage] Atomically claimed ${mood}er:`, user.sessionId);
       return { sessionId: user.sessionId, cardId: user.cardId };
@@ -667,18 +689,20 @@ async function findAndLockWaitingUser(
 // Uses atomic locking to prevent double-booking in concurrent scenarios
 export async function findWaitingVenter(
   activeConnections: Map<string, { readyState: number }>,
-  excludeSessionId?: string
+  excludeSessionId?: string,
+  blockedSessionIds?: string[]
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  return findAndLockWaitingUser("vent", activeConnections, excludeSessionId);
+  return findAndLockWaitingUser("vent", activeConnections, excludeSessionId, blockedSessionIds);
 }
 
-// Find any waiting Listener in the queue  
+// Find any waiting Listener in the queue
 // Uses atomic locking to prevent double-booking in concurrent scenarios
 export async function findWaitingListener(
   activeConnections: Map<string, { readyState: number }>,
-  excludeSessionId?: string
+  excludeSessionId?: string,
+  blockedSessionIds?: string[]
 ): Promise<{ sessionId: string; cardId: string | null } | null> {
-  return findAndLockWaitingUser("listen", activeConnections, excludeSessionId);
+  return findAndLockWaitingUser("listen", activeConnections, excludeSessionId, blockedSessionIds);
 }
 
 export async function getQueuePosition(sessionId: string): Promise<number> {
@@ -1144,4 +1168,117 @@ export async function addTimeBank(
   });
 
   return { success: true, newBalance };
+}
+
+// ==========================================
+// Blocked Users Functions (Block Last Match)
+// ==========================================
+
+// Update the last matched session ID for a user
+export async function updateLastMatchedSession(
+  sessionId: string,
+  lastMatchedSessionId: string
+): Promise<void> {
+  await db
+    .update(sessions)
+    .set({
+      lastMatchedSessionId,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+}
+
+// Block a user (typically the last match)
+export async function blockUser(
+  blockerSessionId: string,
+  blockedSessionId: string
+): Promise<{ success: boolean; message: string }> {
+  // Check if already blocked
+  const existing = await db.query.blockedUsers.findFirst({
+    where: and(
+      eq(blockedUsers.blockerSessionId, blockerSessionId),
+      eq(blockedUsers.blockedSessionId, blockedSessionId)
+    ),
+  });
+
+  if (existing) {
+    return { success: true, message: "User is already blocked" };
+  }
+
+  await db.insert(blockedUsers).values({
+    blockerSessionId,
+    blockedSessionId,
+  });
+
+  console.log(`[Block] User ${blockerSessionId} blocked user ${blockedSessionId}`);
+  return { success: true, message: "User blocked successfully" };
+}
+
+// Unblock a user
+export async function unblockUser(
+  blockerSessionId: string,
+  blockedSessionId: string
+): Promise<{ success: boolean; message: string }> {
+  const result = await db
+    .delete(blockedUsers)
+    .where(
+      and(
+        eq(blockedUsers.blockerSessionId, blockerSessionId),
+        eq(blockedUsers.blockedSessionId, blockedSessionId)
+      )
+    )
+    .returning();
+
+  if (result.length === 0) {
+    return { success: false, message: "User was not blocked" };
+  }
+
+  console.log(`[Block] User ${blockerSessionId} unblocked user ${blockedSessionId}`);
+  return { success: true, message: "User unblocked successfully" };
+}
+
+// Get all users blocked by a session
+export async function getBlockedUsers(sessionId: string): Promise<string[]> {
+  const blocked = await db.query.blockedUsers.findMany({
+    where: eq(blockedUsers.blockerSessionId, sessionId),
+  });
+
+  return blocked.map((b) => b.blockedSessionId);
+}
+
+// Check if a specific user is blocked by another
+export async function isUserBlocked(
+  blockerSessionId: string,
+  potentiallyBlockedSessionId: string
+): Promise<boolean> {
+  const existing = await db.query.blockedUsers.findFirst({
+    where: and(
+      eq(blockedUsers.blockerSessionId, blockerSessionId),
+      eq(blockedUsers.blockedSessionId, potentiallyBlockedSessionId)
+    ),
+  });
+
+  return !!existing;
+}
+
+// Check if there is any block relationship between two users (either direction)
+export async function hasBlockRelationship(
+  sessionId1: string,
+  sessionId2: string
+): Promise<boolean> {
+  const block = await db.query.blockedUsers.findFirst({
+    where: sql`
+      (${blockedUsers.blockerSessionId} = ${sessionId1} AND ${blockedUsers.blockedSessionId} = ${sessionId2})
+      OR
+      (${blockedUsers.blockerSessionId} = ${sessionId2} AND ${blockedUsers.blockedSessionId} = ${sessionId1})
+    `,
+  });
+
+  return !!block;
+}
+
+// Get the last matched session ID for a user
+export async function getLastMatchedSession(sessionId: string): Promise<string | null> {
+  const session = await getSession(sessionId);
+  return session?.lastMatchedSessionId || null;
 }

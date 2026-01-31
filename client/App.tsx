@@ -7,6 +7,12 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import * as Font from "expo-font";
+import {
+  Quicksand_400Regular,
+  Quicksand_500Medium,
+  Quicksand_600SemiBold,
+  Quicksand_700Bold,
+} from "@expo-google-fonts/quicksand";
 
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/query-client";
@@ -44,13 +50,17 @@ export default function App() {
   useEffect(() => {
     async function prepare() {
       try {
+        // Load Quicksand - soft, rounded, friendly font for emotional support
         const fontLoadPromise = Font.loadAsync({
-          "Nunito-Regular": require("./assets/fonts/Nunito-Regular.ttf"),
-          "Nunito-SemiBold": require("./assets/fonts/Nunito-SemiBold.ttf"),
-          "Nunito-Bold": require("./assets/fonts/Nunito-Bold.ttf"),
-          Nunito_400Regular: require("./assets/fonts/Nunito-Regular.ttf"),
-          Nunito_600SemiBold: require("./assets/fonts/Nunito-SemiBold.ttf"),
-          Nunito_700Bold: require("./assets/fonts/Nunito-Bold.ttf"),
+          Quicksand_400Regular,
+          Quicksand_500Medium,
+          Quicksand_600SemiBold,
+          Quicksand_700Bold,
+          // Legacy font names for compatibility
+          "Quicksand-Regular": Quicksand_400Regular,
+          "Quicksand-Medium": Quicksand_500Medium,
+          "Quicksand-SemiBold": Quicksand_600SemiBold,
+          "Quicksand-Bold": Quicksand_700Bold,
           Feather: require("@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Feather.ttf"),
         });
 

@@ -10,8 +10,8 @@ export const sessions = pgTable("sessions", {
     .default(sql`gen_random_uuid()`),
   deviceId: text("device_id").notNull().unique(),
   credits: integer("credits").notNull().default(0), // Legacy - keeping for backwards compatibility
-  auraPoints: integer("aura_points").notNull().default(0),
-  timeBankMinutes: real("time_bank_minutes").notNull().default(5), // Default 5 minutes for new users
+  auraPoints: integer("aura_points").notNull().default(1000), // Default 1000 aura for new users
+  timeBankMinutes: real("time_bank_minutes").notNull().default(30), // Default 30 minutes for new users
   dailyMatchesLeft: integer("daily_matches_left").notNull().default(10),
   dailyMatchesResetAt: timestamp("daily_matches_reset_at").notNull().default(sql`NOW()`),
   isPremium: boolean("is_premium").notNull().default(false),
@@ -36,6 +36,8 @@ export const sessions = pgTable("sessions", {
   // Ban system fields
   banCount: integer("ban_count").notNull().default(0), // Number of times user has been banned
   bannedUntil: timestamp("banned_until"), // When the current ban expires (null = not banned)
+  // Block Last Match feature
+  lastMatchedSessionId: varchar("last_matched_session_id"), // Session ID of last matched user
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`NOW()`),
 });
@@ -155,6 +157,20 @@ export const insertCountryRankingSchema = createInsertSchema(countryRankings);
 export type InsertCountryRanking = z.infer<typeof insertCountryRankingSchema>;
 export type CountryRanking = typeof countryRankings.$inferSelect;
 
+// Blocked users for "Block Last Match" feature
+export const blockedUsers = pgTable("blocked_users", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  blockerSessionId: varchar("blocker_session_id").notNull(), // User who blocked
+  blockedSessionId: varchar("blocked_session_id").notNull(), // User who was blocked
+  createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
+});
+
+export const insertBlockedUserSchema = createInsertSchema(blockedUsers);
+export type InsertBlockedUser = z.infer<typeof insertBlockedUserSchema>;
+export type BlockedUser = typeof blockedUsers.$inferSelect;
+
 // Bug reports from users
 export const bugReports = pgTable("bug_reports", {
   id: varchar("id")
@@ -210,13 +226,18 @@ export const EXTENSION_OPTIONS = [
 ] as const;
 
 // Aura levels configuration (renamed from Karma for 2026 Gen Z appeal)
+// New users start at 1000 aura, so levels begin there
 export const AURA_LEVELS = [
-  { name: "New Soul", minAura: 0 },
-  { name: "Kind Listener", minAura: 50 },
-  { name: "Empathetic Soul", minAura: 150 },
-  { name: "Trusted Companion", minAura: 300 },
-  { name: "Guardian Angel", minAura: 500 },
-  { name: "Heart of Gold", minAura: 1000 },
+  { level: 1, name: "New Soul", minAura: 1000 },           // Starting level
+  { level: 2, name: "Kind Listener", minAura: 2000 },     // +1000
+  { level: 3, name: "Empathetic Soul", minAura: 3500 },   // +1500
+  { level: 4, name: "Trusted Companion", minAura: 5500 }, // +2000
+  { level: 5, name: "Guardian Angel", minAura: 8000 },    // +2500
+  { level: 6, name: "Heart of Gold", minAura: 12000 },    // +4000
+  { level: 7, name: "Radiant Spirit", minAura: 18000 },   // +6000
+  { level: 8, name: "Celestial Guide", minAura: 26000 },  // +8000
+  { level: 9, name: "Eternal Light", minAura: 36000 },    // +10000
+  { level: 10, name: "Aura Legend", minAura: 50000 },     // +14000 (max level)
 ] as const;
 
 // Aura rewards/penalties

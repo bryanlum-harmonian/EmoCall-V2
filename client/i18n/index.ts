@@ -54,6 +54,7 @@ import gu from "./locales/gu";
 import pa from "./locales/pa";
 
 export const STORAGE_KEY = "@emocall_language";
+export const LANGUAGE_SELECTED_KEY = "@emocall_language_selected";
 
 export const i18n = new I18n({
   en,
@@ -207,4 +208,23 @@ export function getDeviceLanguage(): string {
 
 export function t(key: string, options?: object): string {
   return i18n.t(key, options);
+}
+
+// Check if user has completed first-time language selection
+export async function hasCompletedLanguageSelection(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(LANGUAGE_SELECTED_KEY);
+    return value === "true";
+  } catch {
+    return false;
+  }
+}
+
+// Mark language selection as complete
+export async function markLanguageSelectionComplete(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LANGUAGE_SELECTED_KEY, "true");
+  } catch {
+    console.error("Failed to mark language selection complete");
+  }
 }

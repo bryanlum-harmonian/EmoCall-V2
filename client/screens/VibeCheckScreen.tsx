@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, StyleSheet, ScrollView, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
@@ -33,11 +33,17 @@ export default function VibeCheckScreen() {
   const { t, currentLanguage } = useLanguage();
   void currentLanguage; // Trigger re-render on language change
   const { syncWithBackend } = useAura();
-  const { session } = useSession();
+  const { session, refreshSession } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "VibeCheck">>();
 
   const callId = (route.params as any)?.callId;
+
+  // Refresh session on mount to get updated time bank balance (including refunds)
+  useEffect(() => {
+    refreshSession();
+    syncWithBackend();
+  }, [refreshSession, syncWithBackend]);
 
   const [voiceQuality, setVoiceQuality] = useState(0);
   const [strangerQuality, setStrangerQuality] = useState(0);

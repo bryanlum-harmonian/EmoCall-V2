@@ -16,6 +16,31 @@ export default {
     no: "No",
     ok: "OK",
   },
+
+  onboarding: {
+    // Language selection screen
+    chooseLanguage: "Choose Your Language",
+    selectLanguage: "Select the language you prefer",
+    continue: "Continue",
+    // Splash screen 1
+    step1Title: "Skip the\nAwkwardness",
+    step1Description: "Walking up to strangers is weird. EmoCall is different: No faces, no names, just real talk.",
+    // Splash screen 2
+    step2Title: "Find Your\nMood Match",
+    step2Description: "Feeling down? Find a listener.\nFeeling kind? Be a listener.\nConnect based on vibes, not looks.",
+    // Splash screen 3
+    step3Title: "Minutes & Aura",
+    step3Description: "Spend Minutes when you need to vent.\nEarn Aura when you listen.\nBuild your reputation as a Top Listener.",
+    // Splash screen 4
+    step4Title: "Your Cozy\nSafe Space",
+    step4Description: "No judgment allowed in this fort. Just kindness, respect, and real conversations.",
+    // Terms screen
+    termsTitle: "One Last Thing...",
+    termsDescription: "By entering, you agree to our Terms of Service. Be kind, keep it anonymous, and stay safe.",
+    termsOfService: "Terms of Service",
+    privacyPolicy: "Privacy Policy",
+    letsGo: "Let's Talk!",
+  },
   
   terms: {
     headline: "Safe Space.\nZero Judgment.\nLet's Talk!",
@@ -74,6 +99,8 @@ export default {
     endCall: "End Call",
     extendCall: "Extend Call",
     callExtendedMessage: "Call Extended - Enjoy your conversation!",
+    youExtendedCall: "You extended the call!",
+    partnerExtendedCall: "Your partner extended the call!",
     credits: "credits",
     getCredits: "Get Credits",
     voiceError: "Voice Error: %{error}",
@@ -228,6 +255,8 @@ export default {
     lightModeActive: "Light theme is active",
     blockLastMatch: "Block Last Match",
     blockLastMatchSubtitle: "Prevent matching with your last conversation partner",
+    noLastMatch: "No previous match to block",
+    blockFailed: "Failed to update block setting. Please try again.",
     reportHistory: "Report History",
     reportHistorySubtitle: "View your submitted reports",
     reportHistoryEmpty: "No reports submitted yet.",

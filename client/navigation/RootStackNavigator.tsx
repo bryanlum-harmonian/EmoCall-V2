@@ -4,9 +4,11 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 import { useScreenOptions } from "@/hooks/useScreenOptions";
 import { useSession } from "@/contexts/SessionContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/hooks/useTheme";
 import { ThemedText } from "@/components/ThemedText";
 
+import OnboardingLanguageScreen from "@/screens/OnboardingLanguageScreen";
 import TermsGateScreen from "@/screens/TermsGateScreen";
 import MoodSelectionScreen from "@/screens/MoodSelectionScreen";
 import ActiveCallScreen from "@/screens/ActiveCallScreen";
@@ -42,13 +44,19 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootStackNavigator() {
   const screenOptions = useScreenOptions();
   const { session, isLoading, hasAcceptedTerms, acceptTerms, error, refreshSession } = useSession();
+  const { hasSelectedLanguage } = useLanguage();
   const { theme } = useTheme();
   const [isRetrying, setIsRetrying] = useState(false);
+  const [languageSelected, setLanguageSelected] = useState(false);
 
   const handleRetry = async () => {
     setIsRetrying(true);
     await refreshSession();
     setIsRetrying(false);
+  };
+
+  const handleLanguageComplete = () => {
+    setLanguageSelected(true);
   };
 
   if (isLoading || !session) {
@@ -81,6 +89,11 @@ export default function RootStackNavigator() {
         <ActivityIndicator size="large" color={theme.primary} />
       </View>
     );
+  }
+
+  // Show language selection on first app startup
+  if (!hasSelectedLanguage && !languageSelected) {
+    return <OnboardingLanguageScreen onComplete={handleLanguageComplete} />;
   }
 
   if (!hasAcceptedTerms) {
