@@ -747,6 +747,8 @@ export default function ActiveCallScreen() {
   const connectionPulse = useSharedValue(1);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const speakingRef = useRef<NodeJS.Timeout | null>(null);
+  const awardCallSecondRef = useRef(awardCallSecond);
+  awardCallSecondRef.current = awardCallSecond; // Keep ref updated
 
   const { endCall: endCallWs, callEndedByPartner, clearCallEnded, signalReady, callStartedAt, state: matchmakingState } = useMatchmaking({
     sessionId: session?.id || null,
@@ -901,10 +903,13 @@ export default function ActiveCallScreen() {
     if (isConnecting) return;
 
     timerRef.current = setInterval(() => {
+      // Award +1 aura every second (call this first, outside state callbacks)
+      awardCallSecondRef.current();
+
       // Track total elapsed time
       setTotalCallTime((prevTotal) => {
         const newTotal = prevTotal + 1;
-        
+
         // Check if we've reached max duration
         if (newTotal >= MAX_CALL_DURATION) {
           clearInterval(timerRef.current!);
@@ -912,28 +917,28 @@ export default function ActiveCallScreen() {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
           return MAX_CALL_DURATION;
         }
-        
+
         // Show warning 5 minutes before max
         if (newTotal === MAX_CALL_DURATION - MAX_DURATION_WARNING && !showMaxTimeWarning) {
           setShowMaxTimeWarning(true);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         }
-        
+
         return newTotal;
       });
-      
+
       setTimeRemaining((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
           navigation.replace("VibeCheck", {});
           return 0;
         }
-        
+
         if (prev === WARNING_TIME + 1 && !hasExtended) {
           setShowExtensionModal(true);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
-        
+
         // Only show topup reminders when 10 minutes or less remaining, then every minute
         if (!hasExtended && prev <= TOPUP_REMINDER_THRESHOLD && prev > WARNING_TIME && (lastReminderTime - prev) >= MINUTE_REMINDER_INTERVAL) {
           const randomMessage = FATE_MESSAGES[Math.floor(Math.random() * FATE_MESSAGES.length)];
@@ -942,7 +947,7 @@ export default function ActiveCallScreen() {
           setLastReminderTime(prev);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-        
+
         // Safety check every 2 minutes
         if ((lastSafetyCheckTime - prev) >= SAFETY_CHECK_INTERVAL && prev > WARNING_TIME) {
           setShowSafetyCheck(true);
@@ -950,10 +955,7 @@ export default function ActiveCallScreen() {
           setLastSafetyCheckTime(prev);
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
-        
-        // Award +1 aura every second (timer ticks every second)
-        awardCallSecond();
-        
+
         return prev - 1;
       });
     }, 1000);
@@ -963,7 +965,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, awardCallSecond, showMaxTimeWarning]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, showMaxTimeWarning]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {
