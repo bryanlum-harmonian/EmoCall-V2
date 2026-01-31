@@ -188,13 +188,13 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 20,
-    fontFamily: "Nunito_700Bold",
+    fontFamily: "Quicksand_700Bold",
     marginBottom: 8,
     textAlign: "center",
   },
   errorDetail: {
     fontSize: 14,
-    fontFamily: "Nunito_400Regular",
+    fontFamily: "Quicksand_400Regular",
     marginBottom: 24,
     textAlign: "center",
   },
@@ -208,6 +208,6 @@ const styles = StyleSheet.create({
   retryText: {
     color: "#FFF",
     fontSize: 16,
-    fontFamily: "Nunito_600SemiBold",
+    fontFamily: "Quicksand_600SemiBold",
   },
 });
