@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from "react";
 import { apiRequest } from "@/lib/query-client";
 import { useSession } from "./SessionContext";
 
@@ -66,11 +66,16 @@ function getProgressToNextLevel(aura: number, currentLevel: AuraLevel, nextLevel
 export function AuraProvider({ children }: { children: ReactNode }) {
   const { session, refreshSession } = useSession();
   const [aura, setAura] = useState(0);
+  const hasInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (session) {
-      // Use auraPoints (new) with fallback to karmaPoints (legacy) for compatibility
-      setAura((session as any).auraPoints ?? (session as any).karmaPoints ?? 0);
+    // Only sync from session on initial load, not on every session change
+    // This prevents overwriting locally incremented aura during calls
+    if (session && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      const sessionAura = (session as any).auraPoints ?? (session as any).karmaPoints ?? 0;
+      console.log("[Aura] Initial sync from session:", sessionAura);
+      setAura(sessionAura);
     }
   }, [session]);
 
@@ -79,7 +84,12 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   const progressToNextLevel = getProgressToNextLevel(aura, currentLevel, nextLevel);
 
   const syncWithBackend = useCallback(async () => {
-    await refreshSession();
+    const updatedSession = await refreshSession();
+    if (updatedSession) {
+      const serverAura = (updatedSession as any).auraPoints ?? (updatedSession as any).karmaPoints ?? 0;
+      console.log("[Aura] Synced with backend:", serverAura);
+      setAura(serverAura);
+    }
   }, [refreshSession]);
 
   const addAura = useCallback((amount: number) => {
@@ -127,7 +137,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
   // Per-second aura is handled by the server via WebSocket
   // This function just updates the local UI state without making API calls
   const awardCallSecond = useCallback(() => {
-    setAura((prev) => prev + AURA_REWARDS.CALL_SECOND);
+    setAura((prev) => {
+      const newAura = prev + AURA_REWARDS.CALL_SECOND;
+      console.log("[Aura] Incrementing aura:", prev, "->", newAura);
+      return newAura;
+    });
   }, []);
 
   const penalizeReport = useCallback(() => {
