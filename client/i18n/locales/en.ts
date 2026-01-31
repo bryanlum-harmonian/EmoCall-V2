@@ -306,9 +306,11 @@ export default {
     auraLevels: "Aura Levels",
     earnMethods: {
       callMinute: "Each minute during call",
-      completeCall: "Complete a call",
+      completeCall: "Complete a call (60 min)",
       extendCall: "Extend a call",
-      getReported: "Get reported",
+      extendCallLong: "Extend a call (30+ min)",
+      extendCallShort: "Extend a call (5-29 min)",
+      getReported: "Get reported / Unsafe conversation",
       dailyCheckin: "Daily check-in",
       rateCall: "Rate your experience",
       reportUser: "Report bad behavior",

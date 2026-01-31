@@ -10,7 +10,8 @@ export const sessions = pgTable("sessions", {
     .default(sql`gen_random_uuid()`),
   deviceId: text("device_id").notNull().unique(),
   credits: integer("credits").notNull().default(0), // Legacy - keeping for backwards compatibility
-  auraPoints: integer("aura_points").notNull().default(0),
+  auraPoints: integer("aura_points").notNull().default(1000),
+  isSoftBanned: boolean("is_soft_banned").notNull().default(false), // Auto-softban when aura reaches 0
   timeBankMinutes: real("time_bank_minutes").notNull().default(5), // Default 5 minutes for new users
   dailyMatchesLeft: integer("daily_matches_left").notNull().default(10),
   dailyMatchesResetAt: timestamp("daily_matches_reset_at").notNull().default(sql`NOW()`),
@@ -218,13 +219,18 @@ export const AURA_LEVELS = [
 
 // Aura rewards/penalties
 export const AURA_REWARDS = {
-  CALL_MINUTE: 10, // +10 per minute during call
-  CALL_COMPLETE: 10,
-  CALL_EXTEND: 50,
-  REPORTED: -25,
+  CALL_MINUTE: 1, // +1 per minute during call
+  CALL_COMPLETE: 100, // +100 for completing a full 60-minute call
+  CALL_EXTEND_LONG: 50, // +50 for extending 30+ minutes
+  CALL_EXTEND_SHORT: 20, // +20 for extending 5-29 minutes
+  CALL_EXTEND: 50, // Legacy - use CALL_EXTEND_LONG/SHORT instead
+  REPORTED: -500, // -500 for getting reported / unsafe conversation
   DAILY_CHECKIN: 5, // +5 for daily check-in
   FIRST_MISSION: 50, // +50 for completing first call ever
 } as const;
+
+// Default aura for new users
+export const DEFAULT_AURA = 1000;
 
 // Daily Vibe prompts for variable rewards (different prompt each day)
 export const DAILY_VIBE_PROMPTS = [

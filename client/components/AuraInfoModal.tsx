@@ -212,8 +212,15 @@ export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
               />
               <EarnItem
                 icon="plus-circle"
-                labelKey="aura.earnMethods.extendCall"
-                amount={AURA_REWARDS.EXTEND_CALL}
+                labelKey="aura.earnMethods.extendCallLong"
+                amount={AURA_REWARDS.EXTEND_CALL_LONG}
+                theme={theme}
+                t={t}
+              />
+              <EarnItem
+                icon="plus"
+                labelKey="aura.earnMethods.extendCallShort"
+                amount={AURA_REWARDS.EXTEND_CALL_SHORT}
                 theme={theme}
                 t={t}
               />
