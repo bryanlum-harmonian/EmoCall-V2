@@ -283,10 +283,36 @@ export default function MoodSelectionScreen() {
     });
   }, [navigation]);
 
-  const { state: matchState, matchResult, clearMatchResult, joinQueue, leaveQueue } = useMatchmaking({
+  const [showBannedModal, setShowBannedModal] = useState(false);
+  const [currentBanInfo, setCurrentBanInfo] = useState<{ bannedUntil: string; remainingMs: number; banCount: number } | null>(null);
+
+  const handleBanned = useCallback((banInfo: { bannedUntil: string; remainingMs: number; banCount: number }) => {
+    console.log("[MoodSelection] User is banned:", banInfo);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setIsSearching(false);
+    setSelectedMood(null);
+    setCurrentBanInfo(banInfo);
+    setShowBannedModal(true);
+  }, []);
+
+  const { state: matchState, matchResult, clearMatchResult, joinQueue, leaveQueue, banInfo, clearBanned } = useMatchmaking({
     sessionId: session?.id || null,
     onMatchFound: handleMatchFound,
+    onBanned: handleBanned,
   });
+
+  // Handle ban info from context (if state becomes banned)
+  useEffect(() => {
+    if (banInfo && !showBannedModal) {
+      handleBanned(banInfo);
+    }
+  }, [banInfo, showBannedModal, handleBanned]);
+
+  const handleCloseBannedModal = useCallback(() => {
+    setShowBannedModal(false);
+    setCurrentBanInfo(null);
+    clearBanned();
+  }, [clearBanned]);
 
   // Track isSearching in ref for cleanup
   const isSearchingRef = useRef(isSearching);
@@ -637,6 +663,71 @@ export default function MoodSelectionScreen() {
             >
               <ThemedText type="body" style={{ color: "#FFFFFF", fontWeight: "600" }}>
                 {t("common.cancel")}
+              </ThemedText>
+            </Pressable>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Banned Modal */}
+      <Modal visible={showBannedModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            entering={FadeInUp.duration(300)}
+            style={[styles.refillModalContent, { backgroundColor: theme.surface }]}
+          >
+            <View style={[styles.refillIcon, { backgroundColor: `${theme.error}15` }]}>
+              <Feather name="alert-triangle" size={32} color={theme.error} />
+            </View>
+
+            <ThemedText type="h3" style={styles.refillTitle}>
+              {t("banned.title")}
+            </ThemedText>
+
+            <ThemedText
+              type="body"
+              style={[styles.refillDescription, { color: theme.textSecondary }]}
+            >
+              {t("banned.message")}
+            </ThemedText>
+
+            {currentBanInfo && (
+              <>
+                <ThemedText
+                  type="small"
+                  style={{ color: theme.error, marginBottom: Spacing.sm, textAlign: "center" }}
+                >
+                  {t("banned.remaining", {
+                    hours: Math.floor(currentBanInfo.remainingMs / (1000 * 60 * 60)),
+                    minutes: Math.floor((currentBanInfo.remainingMs % (1000 * 60 * 60)) / (1000 * 60)),
+                  })}
+                </ThemedText>
+
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary, marginBottom: Spacing.md, textAlign: "center" }}
+                >
+                  {t("banned.banCount", { count: currentBanInfo.banCount })}
+                </ThemedText>
+
+                <ThemedText
+                  type="caption"
+                  style={{ color: theme.textSecondary, marginBottom: Spacing.lg, textAlign: "center" }}
+                >
+                  {t("banned.afterBan", { aura: 100 })}
+                </ThemedText>
+              </>
+            )}
+
+            <Pressable
+              onPress={handleCloseBannedModal}
+              style={({ pressed }) => [
+                styles.refillButton,
+                { backgroundColor: theme.error, opacity: pressed ? 0.9 : 1 },
+              ]}
+            >
+              <ThemedText style={styles.refillButtonText}>
+                {t("banned.understand")}
               </ThemedText>
             </Pressable>
           </Animated.View>

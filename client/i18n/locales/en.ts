@@ -48,7 +48,7 @@ export default {
   refillModal: {
     title: "Daily Matches Used Up",
     description: "You've used all your free matches for today. Refill now to keep connecting!",
-    refillButton: "Refill for %{cost} credits",
+    refillButton: "Refill for %{cost} minutes",
     waitButton: "Wait until tomorrow",
   },
   
@@ -352,5 +352,18 @@ export default {
     title: "Partner Left",
     message: "Your call partner has disconnected.",
     backButton: "Back to Home",
+  },
+
+  banned: {
+    title: "Account Suspended",
+    message: "Your account has been temporarily suspended due to community guideline violations.",
+    reason: "Your Aura points reached 0 after receiving reports from other users.",
+    duration: "Ban duration: %{hours} hours",
+    endsAt: "Access will be restored on %{date}",
+    remaining: "%{hours}h %{minutes}m remaining",
+    banCount: "This is suspension #%{count}",
+    warning: "Repeated violations may result in longer suspensions.",
+    understand: "I Understand",
+    afterBan: "After your suspension ends, you will start with %{aura} Aura points.",
   },
 };

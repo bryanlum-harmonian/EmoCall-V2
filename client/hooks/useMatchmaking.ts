@@ -1,25 +1,35 @@
 import { useEffect, useRef } from "react";
 import { useMatchmakingContext } from "@/contexts/MatchmakingContext";
 
+interface BanInfo {
+  bannedUntil: string;
+  remainingMs: number;
+  banCount: number;
+}
+
 interface UseMatchmakingOptions {
   sessionId: string | null;
   onMatchFound?: (match: { callId: string; partnerId: string; duration: number; startedAt?: string }) => void;
   onCallEnded?: (reason: string) => void;
   onCallStarted?: (startedAt: string, duration: number) => void;
+  onBanned?: (banInfo: BanInfo) => void;
 }
 
-export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallStarted }: UseMatchmakingOptions) {
+export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallStarted, onBanned }: UseMatchmakingOptions) {
   const context = useMatchmakingContext();
-  
+
   const onMatchFoundRef = useRef(onMatchFound);
   const onCallEndedRef = useRef(onCallEnded);
   const onCallStartedRef = useRef(onCallStarted);
+  const onBannedRef = useRef(onBanned);
   const hasCalledMatchFoundRef = useRef(false);
   const hasCalledCallStartedRef = useRef(false);
-  
+  const hasCalledBannedRef = useRef(false);
+
   onMatchFoundRef.current = onMatchFound;
   onCallEndedRef.current = onCallEnded;
   onCallStartedRef.current = onCallStarted;
+  onBannedRef.current = onBanned;
 
   // Connect when sessionId is available
   useEffect(() => {
@@ -57,6 +67,17 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     }
   }, [context.callStartedAt]);
 
+  // Call onBanned when user is banned
+  useEffect(() => {
+    if (context.banInfo && onBannedRef.current && !hasCalledBannedRef.current) {
+      hasCalledBannedRef.current = true;
+      onBannedRef.current(context.banInfo);
+    }
+    if (!context.banInfo) {
+      hasCalledBannedRef.current = false;
+    }
+  }, [context.banInfo]);
+
   return {
     state: context.state,
     queuePosition: context.queuePosition,
@@ -71,5 +92,7 @@ export function useMatchmaking({ sessionId, onMatchFound, onCallEnded, onCallSta
     endCall: context.endCall,
     signalReady: context.signalReady,
     callStartedAt: context.callStartedAt,
+    banInfo: context.banInfo,
+    clearBanned: context.clearBanned,
   };
 }

@@ -255,8 +255,8 @@ export const DAILY_VIBE_PROMPTS = [
 
 // Cost constants (minute-based)
 export const COSTS = {
-  SHUFFLE_DECK: 5, // 5 minutes to shuffle deck
-  DAILY_MATCHES_REFILL: 99, // $0.99 in cents (for IAP)
+  SHUFFLE_DECK: 10, // 10 minutes to refill daily matches
+  DAILY_MATCHES_REFILL: 99, // $0.99 in cents (for IAP) - legacy
   PREMIUM_MONTHLY: 1000, // $10.00 in cents
   PREMIUM_BONUS_MINUTES: 30, // 30 minutes bonus for premium
 } as const;

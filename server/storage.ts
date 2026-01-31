@@ -28,6 +28,7 @@ import {
   TIME_PACKAGES,
   AURA_REWARDS,
   BAN_DURATION_HOURS,
+  COSTS,
 } from "@shared/schema";
 
 // Generate a unique 6-character referral code
@@ -449,27 +450,35 @@ export async function useDailyMatch(sessionId: string): Promise<Session | undefi
   return updated;
 }
 
-const REFILL_MATCHES_COST = 100;
-
 export async function refillDailyMatches(sessionId: string): Promise<{ session?: Session; error?: string }> {
   const session = await getSession(sessionId);
   if (!session) {
     return { error: "Session not found" };
   }
-  
-  if (session.credits < REFILL_MATCHES_COST) {
-    return { error: "Not enough credits" };
+
+  // Use time bank minutes instead of legacy credits
+  const refillCost = COSTS.SHUFFLE_DECK; // 10 minutes for 10 matches
+  if ((session.timeBankMinutes || 0) < refillCost) {
+    return { error: "Not enough time in your Time Bank" };
   }
-  
+
   const [updated] = await db
     .update(sessions)
     .set({
       dailyMatchesLeft: MAX_DAILY_MATCHES,
-      credits: session.credits - REFILL_MATCHES_COST,
+      timeBankMinutes: (session.timeBankMinutes || 0) - refillCost,
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId))
     .returning();
+
+  // Log the transaction
+  await db.insert(creditTransactions).values({
+    sessionId,
+    amount: -refillCost,
+    type: "refill_matches",
+    description: `Refilled ${MAX_DAILY_MATCHES} daily matches`,
+  });
 
   return { session: updated };
 }

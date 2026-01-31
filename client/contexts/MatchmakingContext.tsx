@@ -1,13 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { getApiUrl } from "@/lib/query-client";
 
-type MatchmakingState = "idle" | "connecting" | "in_queue" | "matched" | "waiting_for_partner" | "call_started" | "error";
+type MatchmakingState = "idle" | "connecting" | "in_queue" | "matched" | "waiting_for_partner" | "call_started" | "error" | "banned";
 
 interface MatchResult {
   callId: string;
   partnerId: string;
   duration: number;
   startedAt?: string;
+}
+
+interface BanInfo {
+  bannedUntil: string;
+  remainingMs: number;
+  banCount: number;
 }
 
 interface MatchmakingContextType {
@@ -18,7 +24,8 @@ interface MatchmakingContextType {
   callEndedByPartner: string | null;
   callStartedAt: string | null;
   queuePosition: number | null;
-  
+  banInfo: BanInfo | null;
+
   connect: (sessionId: string) => void;
   joinQueue: (mood: string, cardId: string) => void;
   leaveQueue: () => void;
@@ -26,6 +33,7 @@ interface MatchmakingContextType {
   endCall: (reason?: string, remainingSeconds?: number) => void;
   clearMatchResult: () => void;
   clearCallEnded: () => void;
+  clearBanned: () => void;
 }
 
 const MatchmakingContext = createContext<MatchmakingContextType | null>(null);
@@ -50,6 +58,7 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
   const [callEndedByPartner, setCallEndedByPartner] = useState<string | null>(null);
   const [callStartedAt, setCallStartedAt] = useState<string | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [banInfo, setBanInfo] = useState<BanInfo | null>(null);
   
   const wsRef = useRef<WebSocket | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -214,6 +223,17 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
               
             case "heartbeat_ack":
               break;
+
+            case "banned":
+              console.log("[MatchmakingContext] User is banned:", message);
+              currentQueueRef.current = null;
+              setBanInfo({
+                bannedUntil: message.bannedUntil,
+                remainingMs: message.remainingMs,
+                banCount: message.banCount,
+              });
+              setState("banned");
+              break;
           }
         } catch (err) {
           console.error("[MatchmakingContext] Parse error:", err);
@@ -358,6 +378,11 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
     setCallEndedByPartner(null);
   }, []);
 
+  const clearBanned = useCallback(() => {
+    setBanInfo(null);
+    setState("idle");
+  }, []);
+
   // Heartbeat while in queue
   useEffect(() => {
     if (state !== "in_queue") {
@@ -438,6 +463,7 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
     callEndedByPartner,
     callStartedAt,
     queuePosition,
+    banInfo,
     connect,
     joinQueue,
     leaveQueue,
@@ -445,6 +471,7 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
     endCall,
     clearMatchResult,
     clearCallEnded,
+    clearBanned,
   };
 
   return (
