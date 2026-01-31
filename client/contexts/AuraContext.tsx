@@ -18,7 +18,7 @@ export const AURA_LEVELS: AuraLevel[] = [
 ];
 
 export const AURA_REWARDS = {
-  CALL_MINUTE: 1, // +1 per minute during call (real-time)
+  CALL_SECOND: 1, // +1 per second during call (real-time)
   COMPLETE_CALL_60MIN: 100, // +100 for completing a 60-minute call
   EXTEND_CALL_30MIN: 50, // +50 for 30-minute extension
   EXTEND_CALL_5_29MIN: 20, // +20 for 5-29 minute extension
@@ -34,7 +34,7 @@ interface AuraContextType {
   removeAura: (amount: number) => void;
   awardCallCompletion: () => Promise<void>;
   awardCallExtension: () => Promise<void>;
-  awardCallMinute: () => Promise<void>;
+  awardCallSecond: () => void;
   penalizeReport: () => void;
   syncWithBackend: () => Promise<void>;
 }
@@ -124,21 +124,11 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     }
   }, [session?.id]);
 
-  const awardCallMinute = useCallback(async () => {
-    if (!session?.id) return;
-
-    try {
-      const response = await apiRequest("POST", `/api/sessions/${session.id}/aura/award`, {
-        amount: AURA_REWARDS.CALL_MINUTE,
-        type: "call_minute"
-      });
-      const data = await response.json();
-      setAura(data.auraPoints ?? data.karmaPoints);
-    } catch (err) {
-      console.error("Failed to award aura:", err);
-      setAura((prev) => prev + AURA_REWARDS.CALL_MINUTE);
-    }
-  }, [session?.id]);
+  // Per-second aura is handled by the server via WebSocket
+  // This function just updates the local UI state without making API calls
+  const awardCallSecond = useCallback(() => {
+    setAura((prev) => prev + AURA_REWARDS.CALL_SECOND);
+  }, []);
 
   const penalizeReport = useCallback(() => {
     setAura((prev) => Math.max(0, prev + AURA_REWARDS.REPORTED));
@@ -155,7 +145,7 @@ export function AuraProvider({ children }: { children: ReactNode }) {
         removeAura,
         awardCallCompletion,
         awardCallExtension,
-        awardCallMinute,
+        awardCallSecond,
         penalizeReport,
         syncWithBackend,
       }}

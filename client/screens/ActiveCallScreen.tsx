@@ -43,7 +43,7 @@ const WARNING_TIME = 10;
 const MINUTE_REMINDER_INTERVAL = 60;
 const TOPUP_REMINDER_THRESHOLD = 600; // Start showing reminders when 10 minutes or less remaining
 const SAFETY_CHECK_INTERVAL = 120; // Show safety check every 2 minutes
-const AURA_AWARD_INTERVAL = 60; // Award aura every 1 minute
+const AURA_AWARD_INTERVAL = 1; // Award aura every 1 second
 const MAX_CALL_DURATION = 3600; // Maximum call duration: 60 minutes
 const MAX_DURATION_WARNING = 300; // Show warning 5 minutes before max
 
@@ -653,7 +653,7 @@ export default function ActiveCallScreen() {
   const { t, currentLanguage } = useLanguage();
   void currentLanguage; // Trigger re-render on language change
   const { timeBankMinutes, purchaseCallExtension } = useTimeBank();
-  const { awardCallCompletion, awardCallExtension, awardCallMinute, aura } = useAura();
+  const { awardCallCompletion, awardCallExtension, awardCallSecond, aura } = useAura();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, "ActiveCall">>();
@@ -954,9 +954,9 @@ export default function ActiveCallScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
         
-        // Award 10 aura every minute
+        // Award +1 aura every second
         if ((lastAuraAwardTime - prev) >= AURA_AWARD_INTERVAL) {
-          awardCallMinute();
+          awardCallSecond();
           setLastAuraAwardTime(prev);
         }
         
@@ -969,7 +969,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, lastAuraAwardTime, awardCallMinute, showMaxTimeWarning]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, lastAuraAwardTime, awardCallSecond, showMaxTimeWarning]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {

@@ -222,7 +222,7 @@ export const AURA_LEVELS = [
 // Aura rewards/penalties
 export const AURA_REWARDS = {
   STARTING_AURA: 1000, // Initial aura for new users
-  CALL_MINUTE: 1, // +1 per minute during call (real-time)
+  CALL_SECOND: 1, // +1 per second during call (real-time)
   CALL_COMPLETE_60MIN: 100, // +100 bonus for completing a 60-minute call
   CALL_EXTEND_30MIN: 50, // +50 for extending 30 minutes
   CALL_EXTEND_5_29MIN: 20, // +20 for extending 5-29 minutes

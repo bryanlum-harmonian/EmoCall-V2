@@ -305,7 +305,7 @@ export default {
     howToEarn: "How to Earn Aura",
     auraLevels: "Aura Levels",
     earnMethods: {
-      callMinute: "Each minute during call",
+      callSecond: "Each second during call",
       completeCall60: "Complete a call (60 minutes)",
       extendCall30: "Extend a call (30 minutes)",
       extendCall5_29: "Extend a call (5-29 minutes)",

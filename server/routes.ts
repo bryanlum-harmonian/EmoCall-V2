@@ -494,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     startedAt: new Date(startTime),
                   });
 
-                  // Start per-minute aura interval (+1 aura per minute for both users)
+                  // Start per-second aura interval (+1 aura per second for both users)
                   const venterSessionId = participants.venter;
                   const listenerSessionId = participants.listener;
                   const auraInterval = setInterval(async () => {
@@ -508,10 +508,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     }
 
                     // Award +1 aura to both participants
-                    await addAura(venterSessionId, AURA_REWARDS.CALL_MINUTE, "call_minute", callId);
-                    await addAura(listenerSessionId, AURA_REWARDS.CALL_MINUTE, "call_minute", callId);
-                    console.log(`[Aura] Awarded +${AURA_REWARDS.CALL_MINUTE} aura to both users for call ${callId}`);
-                  }, 60000); // Every 60 seconds
+                    await addAura(venterSessionId, AURA_REWARDS.CALL_SECOND, "call_second", callId);
+                    await addAura(listenerSessionId, AURA_REWARDS.CALL_SECOND, "call_second", callId);
+                  }, 1000); // Every 1 second
                   callAuraIntervals.set(callId, auraInterval);
 
                   // Send call_started to BOTH users with the synchronized startedAt

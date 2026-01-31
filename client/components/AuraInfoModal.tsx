@@ -198,8 +198,8 @@ export function AuraInfoModal({ visible, onClose }: AuraInfoModalProps) {
             <View style={styles.earnList}>
               <EarnItem
                 icon="clock"
-                labelKey="aura.earnMethods.callMinute"
-                amount={AURA_REWARDS.CALL_MINUTE}
+                labelKey="aura.earnMethods.callSecond"
+                amount={AURA_REWARDS.CALL_SECOND}
                 theme={theme}
                 t={t}
               />
