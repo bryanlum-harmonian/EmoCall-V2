@@ -43,7 +43,6 @@ const WARNING_TIME = 10;
 const MINUTE_REMINDER_INTERVAL = 60;
 const TOPUP_REMINDER_THRESHOLD = 600; // Start showing reminders when 10 minutes or less remaining
 const SAFETY_CHECK_INTERVAL = 120; // Show safety check every 2 minutes
-const AURA_AWARD_INTERVAL = 1; // Award aura every 1 second
 const MAX_CALL_DURATION = 3600; // Maximum call duration: 60 minutes
 const MAX_DURATION_WARNING = 300; // Show warning 5 minutes before max
 
@@ -739,7 +738,6 @@ export default function ActiveCallScreen() {
   const [showSafetyCheck, setShowSafetyCheck] = useState(false);
   const [showSafetyFollowUp, setShowSafetyFollowUp] = useState(false);
   const [lastSafetyCheckTime, setLastSafetyCheckTime] = useState(INITIAL_TIME);
-  const [lastAuraAwardTime, setLastAuraAwardTime] = useState(INITIAL_TIME);
   const [showEndCallConfirm, setShowEndCallConfirm] = useState(false);
   const [showAuraInfo, setShowAuraInfo] = useState(false);
   const [showMaxTimeWarning, setShowMaxTimeWarning] = useState(false);
@@ -840,7 +838,6 @@ export default function ActiveCallScreen() {
       setTotalCallTime(0);
       setLastReminderTime(INITIAL_TIME);
       setLastSafetyCheckTime(INITIAL_TIME);
-      setLastAuraAwardTime(INITIAL_TIME);
       
       // Now join Agora voice - both users are confirmed on the call screen
       console.log("[ActiveCall] Joining Agora voice channel now...");
@@ -954,11 +951,8 @@ export default function ActiveCallScreen() {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
         
-        // Award +1 aura every second
-        if ((lastAuraAwardTime - prev) >= AURA_AWARD_INTERVAL) {
-          awardCallSecond();
-          setLastAuraAwardTime(prev);
-        }
+        // Award +1 aura every second (timer ticks every second)
+        awardCallSecond();
         
         return prev - 1;
       });
@@ -969,7 +963,7 @@ export default function ActiveCallScreen() {
         clearInterval(timerRef.current);
       }
     };
-  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, lastAuraAwardTime, awardCallSecond, showMaxTimeWarning]);
+  }, [isConnecting, hasExtended, navigation, lastReminderTime, lastSafetyCheckTime, awardCallSecond, showMaxTimeWarning]);
 
   useEffect(() => {
     if (isUrgent && !hasExtended) {
