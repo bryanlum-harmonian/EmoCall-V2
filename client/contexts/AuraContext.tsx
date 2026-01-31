@@ -18,10 +18,12 @@ export const AURA_LEVELS: AuraLevel[] = [
 ];
 
 export const AURA_REWARDS = {
-  COMPLETE_CALL: 10,
-  EXTEND_CALL: 50,
-  REPORTED: -25,
-  CALL_MINUTE: 10,
+  CALL_MINUTE: 1, // +1 per minute during call
+  COMPLETE_CALL: 100, // +100 for completing a full 60-minute call
+  EXTEND_CALL_LONG: 50, // +50 for extending 30+ minutes
+  EXTEND_CALL_SHORT: 20, // +20 for extending 5-29 minutes
+  EXTEND_CALL: 50, // Legacy
+  REPORTED: -500, // -500 for getting reported / unsafe conversation
 };
 
 interface AuraContextType {

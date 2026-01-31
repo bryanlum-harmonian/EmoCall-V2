@@ -24,6 +24,7 @@ import {
   spendCredits,
   addToTimeBank,
   addAura,
+  isSessionSoftBanned,
   useDailyMatch,
   refillDailyMatches,
   performDailyCheckIn,
@@ -345,7 +346,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("[WS] join_queue received - sessionId:", sessionId, "mood:", message.mood, "cardId:", message.cardId);
             if (sessionId && message.mood && message.cardId) {
               console.log("[WS] join_queue processing from:", sessionId, "mood:", message.mood);
-              
+
+              // Check if user is soft banned (aura reached 0)
+              const isBanned = await isSessionSoftBanned(sessionId);
+              if (isBanned) {
+                console.log("[WS] Session is soft banned, rejecting queue join:", sessionId);
+                ws.send(JSON.stringify({
+                  type: "queue_rejected",
+                  reason: "soft_banned",
+                  message: "Your aura has reached 0. You have been temporarily restricted from making calls.",
+                }));
+                break;
+              }
+
               // Check if session is already in an active call (prevent re-join after match)
               const existingCall = activeCalls.get(sessionId);
               if (existingCall) {
@@ -549,9 +562,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   endedAt: new Date(),
                   endReason: message.reason || "normal",
                 });
-                
-                // Award aura for completing call
-                await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
+
+                // Award aura for completing a full 60-minute call
+                const callDurationMs = Date.now() - activeCall.startTime;
+                const callDurationMinutes = callDurationMs / (60 * 1000);
+                if (callDurationMinutes >= 60) {
+                  await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
+                }
                 
                 // Calculate unused time for time bank refund
                 if (message.remainingSeconds && message.remainingSeconds > 60) {
@@ -610,7 +627,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const session = await getSession(sessionId);
                   if (session && (session.timeBankMinutes || 0) >= extension.minutes) {
                     await deductTimeBank(sessionId, extension.minutes, `${extension.minutes} minute extension`);
-                    await addAura(sessionId, AURA_REWARDS.CALL_EXTEND, "call_extend", activeCall.callId);
+                    // Award aura based on extension duration: +50 for 30+ min, +20 for 5-29 min
+                    const extensionAura = extension.minutes >= 30 ? AURA_REWARDS.CALL_EXTEND_LONG : AURA_REWARDS.CALL_EXTEND_SHORT;
+                    await addAura(sessionId, extensionAura, "call_extend", activeCall.callId);
                     
                     // Update call end time
                     const newEndTime = activeCall.endTime + extension.minutes * 60 * 1000;

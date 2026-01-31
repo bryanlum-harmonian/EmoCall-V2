@@ -26,6 +26,7 @@ import {
   MAX_DAILY_MATCHES,
   REFERRAL_REWARD_MINUTES,
   TIME_PACKAGES,
+  DEFAULT_AURA,
 } from "@shared/schema";
 
 // Generate a unique 6-character referral code
@@ -80,10 +81,11 @@ export async function getOrCreateSession(deviceId: string): Promise<Session> {
 
   const [newSession] = await db
     .insert(sessions)
-    .values({ 
+    .values({
       deviceId,
       referralCode,
       timeBankMinutes: 5, // Default 5 minutes for new users
+      auraPoints: DEFAULT_AURA, // Default 1000 aura for new users
     })
     .returning();
   return newSession;
@@ -212,16 +214,27 @@ export async function addAura(
 
   // Update aura (don't go below 0)
   const newAura = Math.max(0, session.auraPoints + amount);
+
+  // Auto-softban when aura reaches 0
+  const shouldSoftBan = newAura === 0 && !session.isSoftBanned;
+
   const [updated] = await db
     .update(sessions)
     .set({
       auraPoints: newAura,
+      isSoftBanned: shouldSoftBan ? true : session.isSoftBanned,
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId))
     .returning();
 
   return updated;
+}
+
+// Check if session is soft banned
+export async function isSessionSoftBanned(sessionId: string): Promise<boolean> {
+  const session = await getSession(sessionId);
+  return session?.isSoftBanned ?? false;
 }
 
 // Daily Check-In for Habit Loop

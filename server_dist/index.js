@@ -5,6 +5,7 @@ var __export = (target, all) => {
 };
 
 // server/index.ts
+import "dotenv/config";
 import express from "express";
 
 // server/routes.ts
@@ -32,9 +33,12 @@ __export(schema_exports, {
   COSTS: () => COSTS,
   CREDIT_PACKAGES: () => CREDIT_PACKAGES,
   DAILY_VIBE_PROMPTS: () => DAILY_VIBE_PROMPTS,
+  DEFAULT_AURA: () => DEFAULT_AURA,
   DEFAULT_CALL_DURATION_SECONDS: () => DEFAULT_CALL_DURATION_SECONDS,
   EXTENSION_OPTIONS: () => EXTENSION_OPTIONS,
   MAX_DAILY_MATCHES: () => MAX_DAILY_MATCHES,
+  REFERRAL_REWARD_MINUTES: () => REFERRAL_REWARD_MINUTES,
+  TIME_PACKAGES: () => TIME_PACKAGES,
   auraTransactions: () => auraTransactions,
   bugReports: () => bugReports,
   callRatings: () => callRatings,
@@ -63,8 +67,12 @@ var sessions = pgTable("sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   deviceId: text("device_id").notNull().unique(),
   credits: integer("credits").notNull().default(0),
-  auraPoints: integer("aura_points").notNull().default(0),
-  timeBankMinutes: real("time_bank_minutes").notNull().default(0),
+  // Legacy - keeping for backwards compatibility
+  auraPoints: integer("aura_points").notNull().default(1e3),
+  isSoftBanned: boolean("is_soft_banned").notNull().default(false),
+  // Auto-softban when aura reaches 0
+  timeBankMinutes: real("time_bank_minutes").notNull().default(5),
+  // Default 5 minutes for new users
   dailyMatchesLeft: integer("daily_matches_left").notNull().default(10),
   dailyMatchesResetAt: timestamp("daily_matches_reset_at").notNull().default(sql`NOW()`),
   isPremium: boolean("is_premium").notNull().default(false),
@@ -87,6 +95,13 @@ var sessions = pgTable("sessions", {
   // Country tracking for global rankings
   countryCode: text("country_code"),
   // ISO 3166-1 alpha-2 country code (e.g., "MY", "US")
+  // Referral Program fields
+  referralCode: text("referral_code").unique(),
+  // Unique 6-char code for sharing
+  referredByCode: text("referred_by_code"),
+  // The code this user used to sign up
+  referralCount: integer("referral_count").notNull().default(0),
+  // Number of successful referrals
   createdAt: timestamp("created_at").notNull().default(sql`NOW()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`NOW()`)
 });
@@ -206,16 +221,18 @@ var matchmakingQueue = pgTable("matchmaking_queue", {
   joinedAt: timestamp("joined_at").notNull().default(sql`NOW()`)
 });
 var insertMatchmakingQueueSchema = createInsertSchema(matchmakingQueue);
-var CREDIT_PACKAGES = [
-  { id: "starter", name: "Starter Pack", credits: 250, priceUsd: 0.99 },
-  { id: "weekender", name: "Weekender Pack", credits: 1500, priceUsd: 4.99 },
-  { id: "power_user", name: "Power User Pack", credits: 3500, priceUsd: 9.99 }
+var TIME_PACKAGES = [
+  { id: "emocall_starter_25", name: "Starter Pack", minutes: 25, priceUsd: 0.99 },
+  { id: "emocall_weekender_150", name: "Weekender Pack", minutes: 150, priceUsd: 4.99 },
+  { id: "emocall_power_350", name: "Power User Pack", minutes: 350, priceUsd: 9.99 }
 ];
+var CREDIT_PACKAGES = TIME_PACKAGES;
 var EXTENSION_OPTIONS = [
-  { minutes: 10, credits: 100 },
-  { minutes: 20, credits: 180 },
-  { minutes: 30, credits: 250 },
-  { minutes: 60, credits: 450 }
+  { minutes: 10, cost: 10 },
+  // 10 minutes costs 10 minutes from time bank
+  { minutes: 20, cost: 20 },
+  { minutes: 30, cost: 30 },
+  { minutes: 60, cost: 60 }
 ];
 var AURA_LEVELS = [
   { name: "New Soul", minAura: 0 },
@@ -226,16 +243,24 @@ var AURA_LEVELS = [
   { name: "Heart of Gold", minAura: 1e3 }
 ];
 var AURA_REWARDS = {
-  CALL_MINUTE: 10,
-  // +10 per minute during call
-  CALL_COMPLETE: 10,
+  CALL_MINUTE: 1,
+  // +1 per minute during call
+  CALL_COMPLETE: 100,
+  // +100 for completing a full 60-minute call
+  CALL_EXTEND_LONG: 50,
+  // +50 for extending 30+ minutes
+  CALL_EXTEND_SHORT: 20,
+  // +20 for extending 5-29 minutes
   CALL_EXTEND: 50,
-  REPORTED: -25,
+  // Legacy - use CALL_EXTEND_LONG/SHORT instead
+  REPORTED: -500,
+  // -500 for getting reported / unsafe conversation
   DAILY_CHECKIN: 5,
   // +5 for daily check-in
   FIRST_MISSION: 50
   // +50 for completing first call ever
 };
+var DEFAULT_AURA = 1e3;
 var DAILY_VIBE_PROMPTS = [
   "What's your secret win this week?",
   "What made you smile today?",
@@ -253,13 +278,16 @@ var DAILY_VIBE_PROMPTS = [
   "What's something you wish people understood about you?"
 ];
 var COSTS = {
-  SHUFFLE_DECK: 100,
+  SHUFFLE_DECK: 5,
+  // 5 minutes to shuffle deck
   DAILY_MATCHES_REFILL: 99,
-  // $0.99 in cents
+  // $0.99 in cents (for IAP)
   PREMIUM_MONTHLY: 1e3,
   // $10.00 in cents
-  PREMIUM_BONUS_CREDITS: 200
+  PREMIUM_BONUS_MINUTES: 30
+  // 30 minutes bonus for premium
 };
+var REFERRAL_REWARD_MINUTES = 60;
 var MAX_DAILY_MATCHES = 10;
 var DEFAULT_CALL_DURATION_SECONDS = 300;
 
@@ -269,11 +297,22 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required");
 }
 var pool = new Pool({
-  connectionString: process.env.DATABASE_URL
+  connectionString: process.env.DATABASE_URL,
+  // Cloud SQL requires SSL in production
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false
 });
 var db = drizzle(pool, { schema: schema_exports });
 
 // server/storage.ts
+function generateReferralCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "";
+  const bytes = randomBytes(6);
+  for (let i = 0; i < 6; i++) {
+    code += chars[bytes[i] % chars.length];
+  }
+  return code;
+}
 async function getOrCreateSession(deviceId) {
   const existing = await db.query.sessions.findFirst({
     where: eq(sessions.deviceId, deviceId)
@@ -292,7 +331,24 @@ async function getOrCreateSession(deviceId) {
     }
     return existing;
   }
-  const [newSession] = await db.insert(sessions).values({ deviceId }).returning();
+  let referralCode = generateReferralCode();
+  let attempts = 0;
+  while (attempts < 5) {
+    const existing2 = await db.query.sessions.findFirst({
+      where: eq(sessions.referralCode, referralCode)
+    });
+    if (!existing2) break;
+    referralCode = generateReferralCode();
+    attempts++;
+  }
+  const [newSession] = await db.insert(sessions).values({
+    deviceId,
+    referralCode,
+    timeBankMinutes: 5,
+    // Default 5 minutes for new users
+    auraPoints: DEFAULT_AURA
+    // Default 1000 aura for new users
+  }).returning();
   return newSession;
 }
 async function getSession(sessionId) {
@@ -355,11 +411,17 @@ async function addAura(sessionId, amount, type, callId) {
     callId
   });
   const newAura = Math.max(0, session.auraPoints + amount);
+  const shouldSoftBan = newAura === 0 && !session.isSoftBanned;
   const [updated] = await db.update(sessions).set({
     auraPoints: newAura,
+    isSoftBanned: shouldSoftBan ? true : session.isSoftBanned,
     updatedAt: /* @__PURE__ */ new Date()
   }).where(eq(sessions.id, sessionId)).returning();
   return updated;
+}
+async function isSessionSoftBanned(sessionId) {
+  const session = await getSession(sessionId);
+  return session?.isSoftBanned ?? false;
 }
 async function performDailyCheckIn(sessionId, auraReward) {
   const session = await getSession(sessionId);
@@ -488,7 +550,6 @@ async function leaveQueue(sessionId) {
   await db.delete(matchmakingQueue).where(eq(matchmakingQueue.sessionId, sessionId));
 }
 async function findAndLockWaitingUser(mood, activeConnections2, excludeSessionId) {
-  await cleanupStaleQueueEntries();
   const users = await db.query.matchmakingQueue.findMany({
     where: and(
       eq(matchmakingQueue.mood, mood),
@@ -792,6 +853,90 @@ async function refreshCountryRankings() {
   }
   return rankings;
 }
+async function getSessionByReferralCode(code) {
+  return db.query.sessions.findFirst({
+    where: eq(sessions.referralCode, code.toUpperCase())
+  });
+}
+async function redeemReferralCode(sessionId, referralCode) {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, message: "Session not found" };
+  }
+  if (session.referredByCode) {
+    return { success: false, message: "You have already used a referral code" };
+  }
+  const code = referralCode.toUpperCase().trim();
+  if (session.referralCode === code) {
+    return { success: false, message: "You cannot use your own referral code" };
+  }
+  const referrer = await getSessionByReferralCode(code);
+  if (!referrer) {
+    return { success: false, message: "Invalid referral code" };
+  }
+  await db.update(sessions).set({
+    referredByCode: code,
+    timeBankMinutes: (session.timeBankMinutes || 0) + REFERRAL_REWARD_MINUTES,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(sessions.id, sessionId));
+  await db.update(sessions).set({
+    referralCount: (referrer.referralCount || 0) + 1,
+    timeBankMinutes: (referrer.timeBankMinutes || 0) + REFERRAL_REWARD_MINUTES,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(sessions.id, referrer.id));
+  return {
+    success: true,
+    message: `Success! You and your friend both received ${REFERRAL_REWARD_MINUTES} minutes!`
+  };
+}
+async function purchaseTimePackage(sessionId, packageId) {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, message: "Session not found" };
+  }
+  const pkg = TIME_PACKAGES.find((p) => p.id === packageId);
+  if (!pkg) {
+    return { success: false, message: "Invalid package" };
+  }
+  const newBalance = (session.timeBankMinutes || 0) + pkg.minutes;
+  await db.update(sessions).set({
+    timeBankMinutes: newBalance,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(sessions.id, sessionId));
+  await db.insert(creditTransactions).values({
+    sessionId,
+    amount: pkg.minutes,
+    type: "purchase",
+    description: `Purchased ${pkg.name} (${pkg.minutes} minutes)`
+  });
+  return {
+    success: true,
+    message: `Added ${pkg.minutes} minutes to your Time Bank!`,
+    minutesAdded: pkg.minutes
+  };
+}
+async function deductTimeBank(sessionId, minutes, reason) {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { success: false, newBalance: 0 };
+  }
+  const currentBalance = session.timeBankMinutes || 0;
+  if (currentBalance < minutes) {
+    return { success: false, newBalance: currentBalance };
+  }
+  const newBalance = currentBalance - minutes;
+  await db.update(sessions).set({
+    timeBankMinutes: newBalance,
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(sessions.id, sessionId));
+  await db.insert(creditTransactions).values({
+    sessionId,
+    amount: -minutes,
+    type: "extension",
+    description: reason
+  });
+  return { success: true, newBalance };
+}
 
 // server/routes.ts
 var { RtcTokenBuilder, RtcRole } = agoraToken;
@@ -1004,6 +1149,16 @@ async function registerRoutes(app2) {
             console.log("[WS] join_queue received - sessionId:", sessionId, "mood:", message.mood, "cardId:", message.cardId);
             if (sessionId && message.mood && message.cardId) {
               console.log("[WS] join_queue processing from:", sessionId, "mood:", message.mood);
+              const isBanned = await isSessionSoftBanned(sessionId);
+              if (isBanned) {
+                console.log("[WS] Session is soft banned, rejecting queue join:", sessionId);
+                ws.send(JSON.stringify({
+                  type: "queue_rejected",
+                  reason: "soft_banned",
+                  message: "Your aura has reached 0. You have been temporarily restricted from making calls."
+                }));
+                break;
+              }
               const existingCall = activeCalls.get(sessionId);
               if (existingCall) {
                 console.log("[WS] Session already in call, sending match info instead of joining queue");
@@ -1060,8 +1215,10 @@ async function registerRoutes(app2) {
             }
             break;
           case "heartbeat":
+            console.log(`[WS] heartbeat received from: ${sessionId}`);
             if (sessionId) {
               const updated = await updateQueueHeartbeat(sessionId);
+              console.log(`[WS] heartbeat update result for ${sessionId}:`, updated);
               if (updated) {
                 ws.send(JSON.stringify({ type: "heartbeat_ack" }));
               }
@@ -1155,7 +1312,11 @@ async function registerRoutes(app2) {
                   endedAt: /* @__PURE__ */ new Date(),
                   endReason: message.reason || "normal"
                 });
-                await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
+                const callDurationMs = Date.now() - activeCall.startTime;
+                const callDurationMinutes = callDurationMs / (60 * 1e3);
+                if (callDurationMinutes >= 60) {
+                  await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
+                }
                 if (message.remainingSeconds && message.remainingSeconds > 60) {
                   const refundMinutes = Math.floor(message.remainingSeconds / 60);
                   await addToTimeBank(sessionId, refundMinutes);
@@ -1200,9 +1361,10 @@ async function registerRoutes(app2) {
                     break;
                   }
                   const session = await getSession(sessionId);
-                  if (session && session.credits >= extension.credits) {
-                    await spendCredits(sessionId, extension.credits, "extension", `${extension.minutes} minute extension`, activeCall.callId);
-                    await addAura(sessionId, AURA_REWARDS.CALL_EXTEND, "call_extend", activeCall.callId);
+                  if (session && (session.timeBankMinutes || 0) >= extension.minutes) {
+                    await deductTimeBank(sessionId, extension.minutes, `${extension.minutes} minute extension`);
+                    const extensionAura = extension.minutes >= 30 ? AURA_REWARDS.CALL_EXTEND_LONG : AURA_REWARDS.CALL_EXTEND_SHORT;
+                    await addAura(sessionId, extensionAura, "call_extend", activeCall.callId);
                     const newEndTime = activeCall.endTime + extension.minutes * 60 * 1e3;
                     activeCall.endTime = newEndTime;
                     const partnerCall = activeCalls.get(activeCall.partnerId);
@@ -1358,28 +1520,44 @@ async function registerRoutes(app2) {
       res.status(500).json({ error: "Failed to accept terms" });
     }
   });
-  app2.get("/api/credits/packages", async (_req, res) => {
-    res.json(CREDIT_PACKAGES);
+  app2.get("/api/time/packages", async (_req, res) => {
+    res.json(TIME_PACKAGES);
+  });
+  app2.post("/api/sessions/:id/referral/redeem", async (req, res) => {
+    try {
+      const { code } = req.body;
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ error: "Referral code is required" });
+      }
+      const result = await redeemReferralCode(req.params.id, code);
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+      const session = await getSession(req.params.id);
+      res.json({ message: result.message, session });
+    } catch (error) {
+      console.error("Error redeeming referral code:", error);
+      res.status(500).json({ error: "Failed to redeem referral code" });
+    }
   });
   app2.post("/api/sessions/:id/credits/purchase", async (req, res) => {
     try {
       const { packageId } = req.body;
-      const pkg = CREDIT_PACKAGES.find((p) => p.id === packageId);
+      const pkg = TIME_PACKAGES.find((p) => p.id === packageId);
       if (!pkg) {
         return res.status(400).json({ error: "Invalid package" });
       }
-      const session = await addCredits(
-        req.params.id,
-        pkg.credits,
-        "purchase",
-        `${pkg.name} purchase`
-      );
+      const result = await purchaseTimePackage(req.params.id, packageId);
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+      const session = await getSession(req.params.id);
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
       }
       res.json(session);
     } catch (error) {
-      console.error("Error purchasing credits:", error);
+      console.error("Error purchasing time:", error);
       res.status(500).json({ error: "Failed to purchase credits" });
     }
   });
@@ -1619,7 +1797,7 @@ async function registerRoutes(app2) {
         req.params.id,
         30,
         // 30 days
-        COSTS.PREMIUM_BONUS_CREDITS
+        COSTS.PREMIUM_BONUS_MINUTES
       );
       if (!session) {
         return res.status(404).json({ error: "Session not found" });
@@ -1995,6 +2173,11 @@ var log = console.log;
 function setupCors(app2) {
   app2.use((req, res, next) => {
     const origins = /* @__PURE__ */ new Set();
+    if (process.env.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS.split(",").forEach((d) => {
+        origins.add(d.trim());
+      });
+    }
     if (process.env.REPLIT_DEV_DOMAIN) {
       origins.add(`https://${process.env.REPLIT_DEV_DOMAIN}`);
     }
@@ -2174,6 +2357,8 @@ function configureExpoAndLanding(app2) {
     }
     return res.status(404).send("Not found");
   });
+  app2.use("/assets", express.static(path2.resolve(webDir, "assets")));
+  app2.use("/app/assets", express.static(path2.resolve(webDir, "assets")));
   app2.use("/app", (req, res, next) => {
     const webIndexPath = path2.resolve(webDir, "index.html");
     if (fs2.existsSync(webIndexPath)) {
@@ -2181,7 +2366,6 @@ function configureExpoAndLanding(app2) {
     }
     return next();
   });
-  app2.use("/assets", express.static(path2.resolve(webDir, "assets")));
   app2.use(express.static(path2.resolve(process.cwd(), "static-build")));
   log("Expo routing: Checking expo-platform header on / and /manifest");
 }
@@ -2198,6 +2382,24 @@ function setupErrorHandler(app2) {
   });
 }
 (async () => {
+  log("=== Environment Check ===");
+  log(`NODE_ENV: ${process.env.NODE_ENV}`);
+  log(`DATABASE_URL exists: ${!!process.env.DATABASE_URL}`);
+  log(`DATABASE_URL length: ${process.env.DATABASE_URL?.length || 0}`);
+  log(`AGORA_APP_ID exists: ${!!process.env.AGORA_APP_ID}`);
+  log(`AGORA_APP_CERTIFICATE exists: ${!!process.env.AGORA_APP_CERTIFICATE}`);
+  log("========================");
+  if (process.env.NODE_ENV === "production") {
+    try {
+      log("Running database migrations...");
+      const { execSync } = await import("child_process");
+      execSync("npx drizzle-kit push", { stdio: "inherit" });
+      log("Database migrations completed successfully");
+    } catch (error) {
+      log("Warning: Database migration failed:", error);
+      log("Continuing with server startup...");
+    }
+  }
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
