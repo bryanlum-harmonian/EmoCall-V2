@@ -58,6 +58,8 @@ import {
   purchaseTimePackage,
   deductTimeBank,
   addTimeBank,
+  checkBanStatus,
+  liftBan,
 } from "./storage";
 import {
   TIME_PACKAGES,
@@ -82,6 +84,9 @@ const pendingMatches = new Map<string, { callId: string; partnerId: string; dura
 const callReadyUsers = new Map<string, Set<string>>();
 // Track call participants for ready signaling
 const callParticipants = new Map<string, { venter: string; listener: string }>();
+// Track per-minute aura intervals for active calls
+// Key: callId, Value: NodeJS.Timeout interval
+const callAuraIntervals = new Map<string, NodeJS.Timeout>();
 // Grace period before ending call on disconnect (in milliseconds) - allows time for reconnect
 const CALL_DISCONNECT_GRACE_PERIOD = 15000; // 15 seconds
 
@@ -345,7 +350,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("[WS] join_queue received - sessionId:", sessionId, "mood:", message.mood, "cardId:", message.cardId);
             if (sessionId && message.mood && message.cardId) {
               console.log("[WS] join_queue processing from:", sessionId, "mood:", message.mood);
-              
+
+              // Check if user is banned
+              const banStatus = await checkBanStatus(sessionId);
+              if (banStatus.isBanned) {
+                console.log(`[WS] User ${sessionId} is banned until ${banStatus.bannedUntil}`);
+                ws.send(JSON.stringify({
+                  type: "banned",
+                  bannedUntil: banStatus.bannedUntil?.toISOString(),
+                  remainingMs: banStatus.remainingMs,
+                  banCount: banStatus.banCount,
+                }));
+                break;
+              }
+
+              // If ban expired, lift it and reset aura
+              if (banStatus.banCount > 0 && !banStatus.isBanned) {
+                await liftBan(sessionId);
+                console.log(`[WS] Lifted expired ban for user ${sessionId}`);
+              }
+
               // Check if session is already in an active call (prevent re-join after match)
               const existingCall = activeCalls.get(sessionId);
               if (existingCall) {
@@ -454,22 +478,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 if (bothReady) {
                   console.log(`[WS] Both users ready for call ${callId} - starting timer NOW`);
-                  
+
                   // NOW set the actual start time
                   const startTime = Date.now();
                   const startedAtISO = new Date(startTime).toISOString();
                   const endTime = startTime + DEFAULT_CALL_DURATION_SECONDS * 1000;
-                  
+
                   // Set active calls for both users
                   activeCalls.set(participants.venter, { callId, partnerId: participants.listener, endTime, startTime });
                   activeCalls.set(participants.listener, { callId, partnerId: participants.venter, endTime, startTime });
-                  
+
                   // Update the call status in database
                   await updateCall(callId, {
                     status: "connected",
                     startedAt: new Date(startTime),
                   });
-                  
+
+                  // Start per-minute aura interval (+1 aura per minute for both users)
+                  const venterSessionId = participants.venter;
+                  const listenerSessionId = participants.listener;
+                  const auraInterval = setInterval(async () => {
+                    // Check if call is still active
+                    const venterCall = activeCalls.get(venterSessionId);
+                    if (!venterCall || venterCall.callId !== callId) {
+                      // Call ended, clear interval
+                      clearInterval(auraInterval);
+                      callAuraIntervals.delete(callId);
+                      return;
+                    }
+
+                    // Award +1 aura to both participants
+                    await addAura(venterSessionId, AURA_REWARDS.CALL_MINUTE, "call_minute", callId);
+                    await addAura(listenerSessionId, AURA_REWARDS.CALL_MINUTE, "call_minute", callId);
+                    console.log(`[Aura] Awarded +${AURA_REWARDS.CALL_MINUTE} aura to both users for call ${callId}`);
+                  }, 60000); // Every 60 seconds
+                  callAuraIntervals.set(callId, auraInterval);
+
                   // Send call_started to BOTH users with the synchronized startedAt
                   const callStartedMessage = JSON.stringify({
                     type: "call_started",
@@ -477,10 +521,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     startedAt: startedAtISO,
                     duration: DEFAULT_CALL_DURATION_SECONDS,
                   });
-                  
+
                   const venterWs = activeConnections.get(participants.venter);
                   const listenerWs = activeConnections.get(participants.listener);
-                  
+
                   if (venterWs && venterWs.readyState === WebSocket.OPEN) {
                     venterWs.send(callStartedMessage);
                     console.log(`[WS] Sent call_started to venter ${participants.venter}`);
@@ -489,7 +533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     listenerWs.send(callStartedMessage);
                     console.log(`[WS] Sent call_started to listener ${participants.listener}`);
                   }
-                  
+
                   // Clean up tracking maps
                   callReadyUsers.delete(callId);
                   callParticipants.delete(callId);
@@ -543,22 +587,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
               console.log("[WS] Active call found:", !!activeCall, activeCall ? `partnerId: ${activeCall.partnerId}` : "no active call");
               if (activeCall) {
                 const partnerId = activeCall.partnerId;
-                
-                await updateCall(activeCall.callId, {
+                const callId = activeCall.callId;
+
+                // Clear per-minute aura interval
+                const auraInterval = callAuraIntervals.get(callId);
+                if (auraInterval) {
+                  clearInterval(auraInterval);
+                  callAuraIntervals.delete(callId);
+                  console.log(`[Aura] Cleared aura interval for call ${callId}`);
+                }
+
+                // Calculate call duration
+                const callDurationMs = Date.now() - activeCall.startTime;
+                const callDurationMinutes = callDurationMs / (60 * 1000);
+
+                await updateCall(callId, {
                   status: "ended",
                   endedAt: new Date(),
                   endReason: message.reason || "normal",
+                  durationSeconds: Math.floor(callDurationMs / 1000),
                 });
-                
-                // Award aura for completing call
-                await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE, "call_complete", activeCall.callId);
-                
+
+                // Award 60-minute completion bonus if call lasted 60+ minutes
+                if (callDurationMinutes >= 60) {
+                  await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE_60MIN, "call_complete_60min", callId);
+                  await addAura(partnerId, AURA_REWARDS.CALL_COMPLETE_60MIN, "call_complete_60min", callId);
+                  console.log(`[Aura] Awarded +${AURA_REWARDS.CALL_COMPLETE_60MIN} 60-min bonus to both users for call ${callId}`);
+                }
+
                 // Calculate unused time for time bank refund
                 if (message.remainingSeconds && message.remainingSeconds > 60) {
                   const refundMinutes = Math.floor(message.remainingSeconds / 60);
                   await addToTimeBank(sessionId, refundMinutes);
                 }
-                
+
                 // Notify partner
                 const partnerWs = activeConnections.get(partnerId);
                 console.log("[WS] Partner WebSocket found:", !!partnerWs, "state:", partnerWs?.readyState, "OPEN =", WebSocket.OPEN);
@@ -568,7 +630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 } else {
                   console.log("[WS] WARNING: Partner WebSocket not available");
                 }
-                
+
                 // Clean up ALL state for BOTH users to ensure fresh start for next match
                 activeCalls.delete(sessionId);
                 activeCalls.delete(partnerId);
@@ -576,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 pendingMatches.delete(partnerId);
                 await leaveQueue(sessionId);
                 await leaveQueue(partnerId);
-                
+
                 console.log("[WS] Cleaned up all state for both sessions after call end");
               } else {
                 console.log("[WS] WARNING: No active call found for session:", sessionId);
@@ -595,23 +657,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const MAX_CALL_DURATION_MS = 60 * 60 * 1000; // 60 minutes in milliseconds
                   const currentTotalDuration = activeCall.endTime - activeCall.startTime;
                   const newTotalDuration = currentTotalDuration + extension.minutes * 60 * 1000;
-                  
+
                   // Reject extension if it would exceed 60-minute maximum
                   if (newTotalDuration > MAX_CALL_DURATION_MS) {
                     console.log("[WS] Extension rejected: would exceed 60-minute maximum");
-                    ws.send(JSON.stringify({ 
-                      type: "extension_rejected", 
+                    ws.send(JSON.stringify({
+                      type: "extension_rejected",
                       reason: "max_duration",
                       message: "Beautiful moments don't need to last forever. This call has reached the 60-minute maximum."
                     }));
                     break;
                   }
-                  
+
                   const session = await getSession(sessionId);
                   if (session && (session.timeBankMinutes || 0) >= extension.minutes) {
                     await deductTimeBank(sessionId, extension.minutes, `${extension.minutes} minute extension`);
-                    await addAura(sessionId, AURA_REWARDS.CALL_EXTEND, "call_extend", activeCall.callId);
-                    
+
+                    // Award aura based on extension duration
+                    // 30+ minutes: +50 aura, 5-29 minutes: +20 aura
+                    const extensionAura = extension.minutes >= 30
+                      ? AURA_REWARDS.CALL_EXTEND_30MIN
+                      : AURA_REWARDS.CALL_EXTEND_5_29MIN;
+                    await addAura(sessionId, extensionAura, "call_extend", activeCall.callId);
+                    console.log(`[Aura] Awarded +${extensionAura} for ${extension.minutes} minute extension`);
+
                     // Update call end time
                     const newEndTime = activeCall.endTime + extension.minutes * 60 * 1000;
                     activeCall.endTime = newEndTime;
@@ -619,7 +688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     if (partnerCall) {
                       partnerCall.endTime = newEndTime;
                     }
-                    
+
                     // Notify both users
                     ws.send(JSON.stringify({ type: "call_extended", minutes: extension.minutes }));
                     const partnerWs = activeConnections.get(activeCall.partnerId);
@@ -672,18 +741,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const stillActiveCall = activeCalls.get(disconnectedSessionId);
                   if (stillActiveCall) {
                     const partnerId = stillActiveCall.partnerId;
-                    
-                    await updateCall(stillActiveCall.callId, {
+                    const callId = stillActiveCall.callId;
+
+                    // Clear per-minute aura interval
+                    const auraInterval = callAuraIntervals.get(callId);
+                    if (auraInterval) {
+                      clearInterval(auraInterval);
+                      callAuraIntervals.delete(callId);
+                      console.log(`[Aura] Cleared aura interval for disconnected call ${callId}`);
+                    }
+
+                    await updateCall(callId, {
                       status: "ended",
                       endedAt: new Date(),
                       endReason: "disconnected",
                     });
-                    
+
                     const partnerWs = activeConnections.get(partnerId);
                     if (partnerWs && partnerWs.readyState === WebSocket.OPEN) {
                       partnerWs.send(JSON.stringify({ type: "call_ended", reason: "partner_disconnected" }));
                     }
-                    
+
                     // Clean up ALL state for BOTH users
                     activeCalls.delete(disconnectedSessionId);
                     activeCalls.delete(partnerId);

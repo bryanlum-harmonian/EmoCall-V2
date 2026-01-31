@@ -18,10 +18,11 @@ export const AURA_LEVELS: AuraLevel[] = [
 ];
 
 export const AURA_REWARDS = {
-  COMPLETE_CALL: 10,
-  EXTEND_CALL: 50,
-  REPORTED: -25,
-  CALL_MINUTE: 10,
+  CALL_MINUTE: 1, // +1 per minute during call (real-time)
+  COMPLETE_CALL_60MIN: 100, // +100 for completing a 60-minute call
+  EXTEND_CALL_30MIN: 50, // +50 for 30-minute extension
+  EXTEND_CALL_5_29MIN: 20, // +20 for 5-29 minute extension
+  REPORTED: -500, // -500 for being reported
 };
 
 interface AuraContextType {
@@ -89,19 +90,21 @@ export function AuraProvider({ children }: { children: ReactNode }) {
     setAura((prev) => Math.max(0, prev - amount));
   }, []);
 
+  // Note: Server now handles aura awards automatically during call events
+  // These functions are kept for backwards compatibility but may not be needed
   const awardCallCompletion = useCallback(async () => {
     if (!session?.id) return;
 
     try {
       const response = await apiRequest("POST", `/api/sessions/${session.id}/aura/award`, {
-        amount: AURA_REWARDS.COMPLETE_CALL,
-        type: "call_complete"
+        amount: AURA_REWARDS.COMPLETE_CALL_60MIN,
+        type: "call_complete_60min"
       });
       const data = await response.json();
       setAura(data.auraPoints ?? data.karmaPoints);
     } catch (err) {
       console.error("Failed to award aura:", err);
-      setAura((prev) => prev + AURA_REWARDS.COMPLETE_CALL);
+      setAura((prev) => prev + AURA_REWARDS.COMPLETE_CALL_60MIN);
     }
   }, [session?.id]);
 
@@ -110,14 +113,14 @@ export function AuraProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await apiRequest("POST", `/api/sessions/${session.id}/aura/award`, {
-        amount: AURA_REWARDS.EXTEND_CALL,
+        amount: AURA_REWARDS.EXTEND_CALL_30MIN,
         type: "call_extension"
       });
       const data = await response.json();
       setAura(data.auraPoints ?? data.karmaPoints);
     } catch (err) {
       console.error("Failed to award aura:", err);
-      setAura((prev) => prev + AURA_REWARDS.EXTEND_CALL);
+      setAura((prev) => prev + AURA_REWARDS.EXTEND_CALL_30MIN);
     }
   }, [session?.id]);
 

@@ -26,6 +26,8 @@ import {
   MAX_DAILY_MATCHES,
   REFERRAL_REWARD_MINUTES,
   TIME_PACKAGES,
+  AURA_REWARDS,
+  BAN_DURATION_HOURS,
 } from "@shared/schema";
 
 // Generate a unique 6-character referral code
@@ -80,10 +82,11 @@ export async function getOrCreateSession(deviceId: string): Promise<Session> {
 
   const [newSession] = await db
     .insert(sessions)
-    .values({ 
+    .values({
       deviceId,
       referralCode,
       timeBankMinutes: 5, // Default 5 minutes for new users
+      auraPoints: AURA_REWARDS.STARTING_AURA, // 1000 aura for new users
     })
     .returning();
   return newSession;
@@ -220,6 +223,118 @@ export async function addAura(
     })
     .where(eq(sessions.id, sessionId))
     .returning();
+
+  // Check if aura hit 0 and apply ban if needed
+  if (newAura === 0 && amount < 0) {
+    await checkAndApplyBan(sessionId);
+  }
+
+  return updated;
+}
+
+// ==========================================
+// Ban System Functions
+// ==========================================
+
+// Check if aura is 0 and apply ban
+export async function checkAndApplyBan(sessionId: string): Promise<Session | undefined> {
+  const session = await getSession(sessionId);
+  if (!session) return undefined;
+
+  // Only ban if aura is 0 and not already banned
+  if (session.auraPoints > 0) return session;
+  if (session.bannedUntil && new Date(session.bannedUntil) > new Date()) {
+    return session; // Already banned
+  }
+
+  // Increment ban count and calculate ban duration
+  const newBanCount = (session.banCount || 0) + 1;
+  const banDurationMs = newBanCount * BAN_DURATION_HOURS * 60 * 60 * 1000;
+  const bannedUntil = new Date(Date.now() + banDurationMs);
+
+  console.log(`[Ban] User ${sessionId} banned for ${newBanCount * BAN_DURATION_HOURS} hours (ban #${newBanCount})`);
+
+  const [updated] = await db
+    .update(sessions)
+    .set({
+      banCount: newBanCount,
+      bannedUntil,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId))
+    .returning();
+
+  return updated;
+}
+
+// Check if user is currently banned
+export interface BanStatus {
+  isBanned: boolean;
+  bannedUntil: Date | null;
+  remainingMs: number;
+  banCount: number;
+}
+
+export async function checkBanStatus(sessionId: string): Promise<BanStatus> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { isBanned: false, bannedUntil: null, remainingMs: 0, banCount: 0 };
+  }
+
+  const now = new Date();
+  const bannedUntil = session.bannedUntil ? new Date(session.bannedUntil) : null;
+
+  if (!bannedUntil || bannedUntil <= now) {
+    // Not banned or ban expired
+    return {
+      isBanned: false,
+      bannedUntil: null,
+      remainingMs: 0,
+      banCount: session.banCount || 0,
+    };
+  }
+
+  // Currently banned
+  return {
+    isBanned: true,
+    bannedUntil,
+    remainingMs: bannedUntil.getTime() - now.getTime(),
+    banCount: session.banCount || 0,
+  };
+}
+
+// Lift ban and reset aura to AURA_AFTER_BAN (100)
+export async function liftBan(sessionId: string): Promise<Session | undefined> {
+  const session = await getSession(sessionId);
+  if (!session) return undefined;
+
+  const now = new Date();
+  const bannedUntil = session.bannedUntil ? new Date(session.bannedUntil) : null;
+
+  // Only lift if ban has expired
+  if (bannedUntil && bannedUntil > now) {
+    return session; // Ban not expired yet
+  }
+
+  // Clear ban and reset aura
+  console.log(`[Ban] Lifting ban for user ${sessionId}, resetting aura to ${AURA_REWARDS.AURA_AFTER_BAN}`);
+
+  const [updated] = await db
+    .update(sessions)
+    .set({
+      bannedUntil: null,
+      auraPoints: AURA_REWARDS.AURA_AFTER_BAN,
+      updatedAt: now,
+    })
+    .where(eq(sessions.id, sessionId))
+    .returning();
+
+  // Record the aura reset transaction
+  await db.insert(auraTransactions).values({
+    sessionId,
+    amount: AURA_REWARDS.AURA_AFTER_BAN,
+    type: "ban_lifted",
+  });
 
   return updated;
 }
