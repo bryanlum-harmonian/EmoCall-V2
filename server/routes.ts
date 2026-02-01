@@ -782,7 +782,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log("[WS] Cleaned up all state for both sessions after call end");
               } else {
                 console.log("[WS] WARNING: No active call found for session:", sessionId);
-                // Still clean up any stale state
+                // Still clean up any stale state including activeCalls
+                // This handles edge cases where activeCall wasn't found but entry still exists
+                activeCalls.delete(sessionId);
                 await cleanupSessionState(sessionId, "end_call_no_active_call");
               }
             }

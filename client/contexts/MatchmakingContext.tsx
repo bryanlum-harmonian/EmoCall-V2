@@ -400,7 +400,7 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
 
   const endCall = useCallback((reason?: string, remainingSeconds?: number) => {
     console.log("[MatchmakingContext] Ending call:", { reason, remainingSeconds });
-    
+
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: "end_call",
@@ -408,11 +408,12 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
         remainingSeconds,
       }));
     }
-    
+
     currentCallIdRef.current = null;
     pendingCallReadyRef.current = null;
     setState("idle");
     setCallStartedAt(null);
+    setMatchResult(null); // Clear old match to ensure fresh state for next match
   }, []);
 
   const clearMatchResult = useCallback(() => {
