@@ -1002,7 +1002,7 @@ export async function getSessionByReferralCode(code: string): Promise<Session | 
   });
 }
 
-// Redeem a referral code - returns success status and message
+// Redeem a referral code - saves the code but rewards are given after first 3+ min call
 export async function redeemReferralCode(
   sessionId: string,
   referralCode: string
@@ -1031,17 +1031,61 @@ export async function redeemReferralCode(
     return { success: false, message: "Invalid referral code" };
   }
 
-  // Update current user: set referredByCode and add minutes
+  // Update current user: save referredByCode but don't give rewards yet
+  // Rewards are claimed after completing first call of 3+ minutes
   await db
     .update(sessions)
     .set({
       referredByCode: code,
+      referralRewardClaimed: false,
+      updatedAt: new Date(),
+    })
+    .where(eq(sessions.id, sessionId));
+
+  return {
+    success: true,
+    message: `Code applied! You and your friend will both receive ${REFERRAL_REWARD_MINUTES} minutes after you complete your first call of 3+ minutes.`
+  };
+}
+
+// Claim referral reward after completing a call of 3+ minutes
+// Called for both participants after call ends
+export async function claimReferralRewardIfEligible(
+  sessionId: string,
+  callDurationSeconds: number
+): Promise<{ claimed: boolean; minutesAwarded?: number }> {
+  const session = await getSession(sessionId);
+  if (!session) {
+    return { claimed: false };
+  }
+
+  // Check if user has a referral code but hasn't claimed the reward yet
+  if (!session.referredByCode || session.referralRewardClaimed) {
+    return { claimed: false };
+  }
+
+  // Check if call duration is at least 3 minutes (180 seconds)
+  if (callDurationSeconds < 180) {
+    return { claimed: false };
+  }
+
+  // Find the referrer
+  const referrer = await getSessionByReferralCode(session.referredByCode);
+  if (!referrer) {
+    return { claimed: false };
+  }
+
+  // Award minutes to the referee (current user)
+  await db
+    .update(sessions)
+    .set({
+      referralRewardClaimed: true,
       timeBankMinutes: (session.timeBankMinutes || 0) + REFERRAL_REWARD_MINUTES,
       updatedAt: new Date(),
     })
     .where(eq(sessions.id, sessionId));
 
-  // Update referrer: increment referralCount and add minutes
+  // Award minutes to the referrer and increment their referral count
   await db
     .update(sessions)
     .set({
@@ -1051,10 +1095,9 @@ export async function redeemReferralCode(
     })
     .where(eq(sessions.id, referrer.id));
 
-  return { 
-    success: true, 
-    message: `Success! You and your friend both received ${REFERRAL_REWARD_MINUTES} minutes!` 
-  };
+  console.log(`[Referral] Claimed reward for ${sessionId} and referrer ${referrer.id}: +${REFERRAL_REWARD_MINUTES} minutes each`);
+
+  return { claimed: true, minutesAwarded: REFERRAL_REWARD_MINUTES };
 }
 
 // ==========================================

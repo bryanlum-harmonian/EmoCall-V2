@@ -36,7 +36,7 @@ import { getApiUrl, apiRequest } from "@/lib/query-client";
 
 type MoodType = "vent" | "listen";
 
-const MAX_DAILY_MATCHES = 10;
+const MAX_DAILY_MATCHES = 3;
 
 const springConfig: WithSpringConfig = {
   damping: 15,

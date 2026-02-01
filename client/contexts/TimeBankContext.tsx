@@ -55,7 +55,7 @@ interface TimeBankContextType {
 
 const TimeBankContext = createContext<TimeBankContextType | undefined>(undefined);
 
-const MAX_DAILY_MATCHES = 10;
+const MAX_DAILY_MATCHES = 3;
 
 export function TimeBankProvider({ children }: { children: ReactNode }) {
   const { session, refreshSession } = useSession();

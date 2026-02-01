@@ -218,7 +218,7 @@ export function TimeBankStoreModal({ visible, onClose }: TimeBankStoreModalProps
                     Give {REFERRAL_REWARD_MINUTES}, Get {REFERRAL_REWARD_MINUTES}
                   </ThemedText>
                   <ThemedText type="small" style={{ color: theme.textSecondary }}>
-                    Both you and your friend earn {REFERRAL_REWARD_MINUTES} minutes!
+                    You both earn {REFERRAL_REWARD_MINUTES} min after their first 3+ min call!
                   </ThemedText>
                 </View>
               </View>

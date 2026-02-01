@@ -55,6 +55,7 @@ import {
   cleanupStaleQueueEntries,
   markQueueEntryMatched,
   redeemReferralCode,
+  claimReferralRewardIfEligible,
   purchaseTimePackage,
   deductTimeBank,
   addTimeBank,
@@ -710,6 +711,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   await addAura(sessionId, AURA_REWARDS.CALL_COMPLETE_60MIN, "call_complete_60min", callId);
                   await addAura(partnerId, AURA_REWARDS.CALL_COMPLETE_60MIN, "call_complete_60min", callId);
                   console.log(`[Aura] Awarded +${AURA_REWARDS.CALL_COMPLETE_60MIN} 60-min bonus to both users for call ${callId}`);
+                }
+
+                // Check referral rewards for both participants (requires 3+ min call)
+                const callDurationSeconds = Math.floor(callDurationMs / 1000);
+                const referralResult1 = await claimReferralRewardIfEligible(sessionId, callDurationSeconds);
+                const referralResult2 = await claimReferralRewardIfEligible(partnerId, callDurationSeconds);
+                if (referralResult1.claimed) {
+                  console.log(`[Referral] ${sessionId} claimed referral reward after ${callDurationSeconds}s call`);
+                }
+                if (referralResult2.claimed) {
+                  console.log(`[Referral] ${partnerId} claimed referral reward after ${callDurationSeconds}s call`);
                 }
 
                 // Calculate unused extension time and refund to the users who extended

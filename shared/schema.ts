@@ -12,7 +12,7 @@ export const sessions = pgTable("sessions", {
   credits: integer("credits").notNull().default(0), // Legacy - keeping for backwards compatibility
   auraPoints: integer("aura_points").notNull().default(1000), // Default 1000 aura for new users
   timeBankMinutes: real("time_bank_minutes").notNull().default(30), // Default 30 minutes for new users
-  dailyMatchesLeft: integer("daily_matches_left").notNull().default(10),
+  dailyMatchesLeft: integer("daily_matches_left").notNull().default(3),
   dailyMatchesResetAt: timestamp("daily_matches_reset_at").notNull().default(sql`NOW()`),
   isPremium: boolean("is_premium").notNull().default(false),
   premiumExpiresAt: timestamp("premium_expires_at"),
@@ -33,6 +33,7 @@ export const sessions = pgTable("sessions", {
   referralCode: text("referral_code").unique(), // Unique 6-char code for sharing
   referredByCode: text("referred_by_code"), // The code this user used to sign up
   referralCount: integer("referral_count").notNull().default(0), // Number of successful referrals
+  referralRewardClaimed: boolean("referral_reward_claimed").notNull().default(false), // True after referee completes first 3+ min call
   // Ban system fields
   banCount: integer("ban_count").notNull().default(0), // Number of times user has been banned
   bannedUntil: timestamp("banned_until"), // When the current ban expires (null = not banned)
@@ -285,5 +286,8 @@ export const COSTS = {
 // Referral program constants
 export const REFERRAL_REWARD_MINUTES = 60; // "Give 60, Get 60" campaign
 
-export const MAX_DAILY_MATCHES = 10;
-export const DEFAULT_CALL_DURATION_SECONDS = 300; // 5 minutes
+export const MAX_DAILY_MATCHES = 3;
+export const DEFAULT_CALL_DURATION_SECONDS = 60; // 1 minute
+
+// Referral program constants
+export const REFERRAL_MIN_CALL_DURATION_SECONDS = 180; // 3 minutes - referee must complete this duration to trigger reward
