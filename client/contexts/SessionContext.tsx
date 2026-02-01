@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiRequest } from "@/lib/query-client";
 
@@ -77,7 +77,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
     if (!session?.id) {
       await initializeSession();
       return;
@@ -90,7 +90,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Failed to refresh session:", err);
     }
-  };
+  }, [session?.id]);
 
   const acceptTerms = async () => {
     if (!session?.id) return;
