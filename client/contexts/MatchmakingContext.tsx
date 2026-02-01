@@ -219,6 +219,7 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
               currentCallIdRef.current = null;
               pendingCallReadyRef.current = null;
               setState("idle");
+              setMatchResult(null); // Clear old match to ensure fresh state for next match
               setCallEndedByPartner(message.reason || "partner_ended");
               break;
 
