@@ -436,18 +436,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (existingCall) {
                 const remainingMs = existingCall.endTime - Date.now();
 
-                // Check if this call is ACTUALLY still active in the system
-                // A call is orphaned/stale if it's not in callParticipants or callReadyUsers
-                const isCallStillActive = callParticipants.has(existingCall.callId) ||
-                                          callReadyUsers.has(existingCall.callId);
+                // Check if this call is ACTUALLY still active by verifying BOTH sides exist
+                // A call is orphaned/stale if:
+                // - Time has expired (remainingMs <= 0)
+                // - Partner's entry doesn't exist
+                // - Partner's entry doesn't point back to us (different callId or partnerId)
+                const partnerCall = activeCalls.get(existingCall.partnerId);
+                const isCallStillActive = partnerCall &&
+                                          partnerCall.partnerId === sessionId &&
+                                          partnerCall.callId === existingCall.callId;
 
-                // If call has expired OR is orphaned (not in active tracking maps), clean up
+                // If call has expired OR partner's side is missing/mismatched, clean up
                 if (remainingMs <= 0 || !isCallStillActive) {
                   console.log("[WS] Found stale/orphaned activeCalls entry for session:", sessionId,
-                    "- remainingMs:", remainingMs, "isCallStillActive:", isCallStillActive, "- cleaning up");
+                    "- remainingMs:", remainingMs, "partnerCallExists:", !!partnerCall,
+                    "isCallStillActive:", isCallStillActive, "- cleaning up");
                   activeCalls.delete(sessionId);
                   // Also clean up partner's entry if it exists and points to this call
-                  const partnerCall = activeCalls.get(existingCall.partnerId);
                   if (partnerCall && partnerCall.callId === existingCall.callId) {
                     activeCalls.delete(existingCall.partnerId);
                   }
@@ -459,7 +464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }
                   // Continue with normal matchmaking flow (don't break)
                 } else {
-                  // Call is genuinely still active - send the current match info
+                  // Call is genuinely still active (both sides exist and match) - send current match info
                   console.log("[WS] Session already in active call, sending match info instead of joining queue");
                   ws.send(JSON.stringify({
                     type: "match_found",
