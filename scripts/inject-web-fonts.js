@@ -2,35 +2,32 @@ const fs = require('fs');
 const path = require('path');
 
 const CUSTOM_CSS = `
-    <!-- Google Fonts for Quicksand -->
+    <!-- Google Fonts preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Material Icons from Google -->
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style id="custom-fonts">
-      /* Map Quicksand font names used by the app */
+      /* Quicksand fonts from Google Fonts CDN */
       @font-face {
         font-family: 'Quicksand_400Regular';
-        src: local('Quicksand'), local('Quicksand-Regular');
+        src: url('https://fonts.gstatic.com/s/quicksand/v31/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkP8o58a-xDwxUD2GFw.woff') format('woff');
         font-weight: 400;
         font-style: normal;
       }
       @font-face {
         font-family: 'Quicksand_500Medium';
-        src: local('Quicksand'), local('Quicksand-Medium');
+        src: url('https://fonts.gstatic.com/s/quicksand/v31/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkM0o58a-xDwxUD2GFw.woff') format('woff');
         font-weight: 500;
         font-style: normal;
       }
       @font-face {
         font-family: 'Quicksand_600SemiBold';
-        src: local('Quicksand'), local('Quicksand-SemiBold');
+        src: url('https://fonts.gstatic.com/s/quicksand/v31/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkCEv58a-xDwxUD2GFw.woff') format('woff');
         font-weight: 600;
         font-style: normal;
       }
       @font-face {
         font-family: 'Quicksand_700Bold';
-        src: local('Quicksand'), local('Quicksand-Bold');
+        src: url('https://fonts.gstatic.com/s/quicksand/v31/6xK-dSZaM9iE8KbpRA_LJ3z8mH9BOJvgkBgv58a-xDwxUD2GFw.woff') format('woff');
         font-weight: 700;
         font-style: normal;
       }
