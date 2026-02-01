@@ -62,6 +62,8 @@ interface MatchmakingProviderProps {
 
 export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
   const { useMatch } = useTimeBank();
+  const useMatchRef = useRef(useMatch);
+  useMatchRef.current = useMatch; // Always keep ref updated with latest function
 
   const [state, setState] = useState<MatchmakingState>("idle");
   const [isConnected, setIsConnected] = useState(false);
@@ -190,7 +192,8 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
             case "match_found":
               console.log("[MatchmakingContext] Match found! callId:", message.callId);
               // Deduct daily match only on successful match (not on queue join)
-              useMatch().then(success => {
+              // Use ref to get latest function reference (avoids stale closure)
+              useMatchRef.current().then(success => {
                 console.log("[MatchmakingContext] Match deduction result:", success);
               }).catch(err => {
                 console.error("[MatchmakingContext] Match deduction error:", err);
