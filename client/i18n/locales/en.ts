@@ -90,7 +90,7 @@ export default {
     timeAlmostUp: "Time Almost Up!",
     connected: "Connected",
     you: "You",
-    them: "Them",
+    them: "Stranger",
     mute: "Mute",
     unmute: "Unmute",
     speaker: "Speaker",
