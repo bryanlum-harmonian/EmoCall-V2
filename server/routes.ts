@@ -436,18 +436,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (existingCall) {
                 const remainingMs = existingCall.endTime - Date.now();
 
-                // If call has expired (endTime in the past), clean up the stale entry
-                if (remainingMs <= 0) {
-                  console.log("[WS] Found stale activeCalls entry for session:", sessionId, "- cleaning up");
+                // Check if this call is ACTUALLY still active in the system
+                // A call is orphaned/stale if it's not in callParticipants or callReadyUsers
+                const isCallStillActive = callParticipants.has(existingCall.callId) ||
+                                          callReadyUsers.has(existingCall.callId);
+
+                // If call has expired OR is orphaned (not in active tracking maps), clean up
+                if (remainingMs <= 0 || !isCallStillActive) {
+                  console.log("[WS] Found stale/orphaned activeCalls entry for session:", sessionId,
+                    "- remainingMs:", remainingMs, "isCallStillActive:", isCallStillActive, "- cleaning up");
                   activeCalls.delete(sessionId);
                   // Also clean up partner's entry if it exists and points to this call
                   const partnerCall = activeCalls.get(existingCall.partnerId);
                   if (partnerCall && partnerCall.callId === existingCall.callId) {
                     activeCalls.delete(existingCall.partnerId);
                   }
+                  // Clear any stale aura interval for this call
+                  const staleAuraInterval = callAuraIntervals.get(existingCall.callId);
+                  if (staleAuraInterval) {
+                    clearInterval(staleAuraInterval);
+                    callAuraIntervals.delete(existingCall.callId);
+                  }
                   // Continue with normal matchmaking flow (don't break)
                 } else {
-                  // Call is still active - send the current match info
+                  // Call is genuinely still active - send the current match info
                   console.log("[WS] Session already in active call, sending match info instead of joining queue");
                   ws.send(JSON.stringify({
                     type: "match_found",
