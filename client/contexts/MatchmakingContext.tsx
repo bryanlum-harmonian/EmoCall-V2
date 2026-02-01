@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, ReactNode } from "react";
 import { getApiUrl } from "@/lib/query-client";
+import { useTimeBank } from "./TimeBankContext";
 
 type MatchmakingState = "idle" | "connecting" | "in_queue" | "matched" | "waiting_for_partner" | "call_started" | "error" | "banned";
 
@@ -60,6 +61,8 @@ interface MatchmakingProviderProps {
 }
 
 export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
+  const { useMatch } = useTimeBank();
+
   const [state, setState] = useState<MatchmakingState>("idle");
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,6 +189,12 @@ export function MatchmakingProvider({ children }: MatchmakingProviderProps) {
 
             case "match_found":
               console.log("[MatchmakingContext] Match found! callId:", message.callId);
+              // Deduct daily match only on successful match (not on queue join)
+              useMatch().then(success => {
+                console.log("[MatchmakingContext] Match deduction result:", success);
+              }).catch(err => {
+                console.error("[MatchmakingContext] Match deduction error:", err);
+              });
               currentQueueRef.current = null;
               currentCallIdRef.current = message.callId;
               if (pendingCallReadyRef.current && pendingCallReadyRef.current !== message.callId) {

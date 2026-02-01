@@ -370,25 +370,12 @@ export default function MoodSelectionScreen() {
       setShowRefillModal(true);
       return;
     }
-    
-    // Use a daily match
-    console.log("[MoodSelection] Calling useMatch()...");
-    try {
-      const matchUsed = await useMatch();
-      console.log("[MoodSelection] useMatch result:", matchUsed);
-      if (!matchUsed) {
-        console.log("[MoodSelection] useMatch returned false, exiting");
-        return;
-      }
-    } catch (err) {
-      console.error("[MoodSelection] useMatch threw error:", err);
-      return;
-    }
-    
+
+    // Note: Match deduction moved to MatchmakingContext - only deducts on successful match
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedMood(mood);
     setIsSearching(true);
-    
+
     // Join matchmaking queue
     console.log("[MoodSelection] About to call joinQueue with:", mood);
     joinQueue(mood, "direct");
